@@ -6,13 +6,6 @@ os:
 julia:
   - release
   - nightly
-addons:
-  apt:
-    packages:
-      - gcc
-      - make
-before_script:
-  - cd test/libtest; make
 notifications:
   email: false
 # uncomment the following lines to override the default test script
