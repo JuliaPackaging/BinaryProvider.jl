@@ -6,7 +6,6 @@ export Prefix, activate, install, remove, download, unpack,
 include("Prefix.jl")
 # Utilities for downloading and unpacking remote resources
 include("download.jl")
-#include("linking.jl")
 include("API.jl")
 
 function __init__()
