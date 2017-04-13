@@ -17,6 +17,14 @@ function install(pkg::AbstractString, url::AbstractString, hash::AbstractString;
     archive_path = joinpath(prefix, "archives", "$pkg.$tar_ext")
     receipt_path = joinpath(prefix, "receipts", "$pkg.receipt")
 
+    # Whoops, it's already installed.  Quit out immediately
+    if isfile(receipt_path)
+        if verbose
+            info("Receipt found for $pkg; refusing to install")
+        end
+        return
+    end
+
     # If `url` is actually a file, just copy it into `archives`
     if isfile(url)
         if verbose
@@ -67,7 +75,10 @@ function remove(pkg::AbstractString;
                 verbose::Bool = false)
     receipt_path = joinpath(prefix, "receipts", "$pkg.receipt")
     if !isfile(receipt_path)
-        error("Package $pkg not installed (no receipt found)")
+        if verbose
+            info("No receipt found for $pkg; cannot remove")
+        end
+        return
     end
 
     if verbose
