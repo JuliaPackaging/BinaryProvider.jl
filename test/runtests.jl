@@ -144,11 +144,11 @@ end
         wisdom = readchomp(`bash socrates`)
         @test bytes2hex(sha256(wisdom)) == socrates_output_sha
 
-        # Test that removing a package we don't have the receipt for fails
-        @test_throws ErrorException remove("not_installed"; prefix=prefix)
+        # Test that removing a package we don't have a receipt for fails quietly
+        @test remove("not_installed"; prefix=prefix) == nothing
 
         # Remove libtest, make sure it's gone, but socrates is still there
-        remove("libtest"; prefix=prefix)
+        @test remove("libtest"; prefix=prefix) == nothing
         @test !isfile(joinpath(prefix_path, "usr", "bin", fooifier))
         @test !isfile(joinpath(prefix_path, "usr", libdir, libtest))
         @test  isfile(joinpath(prefix_path, "usr", "bin", "socrates"))
@@ -169,13 +169,13 @@ using BinaryProvider
 @BinDeps.setup
 
 libtest = library_dependency("libtest")
-@BP_provides("libtest", "$libtest_archive", "$libtest_sha256", libtest)
+@BP_provides("libtest", "$(escape_string(libtest_archive))", "$libtest_sha256", libtest)
 
 @BinDeps.install Dict(:libtest => :bindeps_libtest)
 """)
         end
 
-        run(`$(escape_string(Base.julia_cmd())) $(escape_string(joinpath(tmpdir, "build.jl")))`)
+        run(`$(Base.julia_cmd()) $(joinpath(tmpdir, "build.jl"))`)
 
         # Ensure that deps.jl was built
         @test isfile(joinpath(tmpdir, "deps.jl"))
