@@ -1,12 +1,17 @@
 __precompile__()
 module BinaryProvider
 export Prefix, activate, install, remove, download, unpack,
-       probe_download_engine, prune, verify, list_archive_files
+       probe_download_engine, prune, verify, list_archive_files,
+       @BP_provides
 
 include("Prefix.jl")
 # Utilities for downloading and unpacking remote resources
 include("download.jl")
+# The definition of our `install()` and `remove()` functions.
 include("API.jl")
+
+# Include BinDeps support
+include("bindeps_integration.jl")
 
 function __init__()
     # Find the right download engine for this platform

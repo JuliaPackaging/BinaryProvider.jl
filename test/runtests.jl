@@ -154,3 +154,37 @@ end
         @test  isfile(joinpath(prefix_path, "usr", "bin", "socrates"))
     end
 end
+
+using BinDeps
+
+@testset "bindeps" begin
+    mktempdir() do tmpdir
+        # Write out a fake build.jl that just tells BinDeps to use the
+        # BinaryProvider machinery to install libtest
+        open(joinpath(tmpdir, "build.jl"), "w") do file
+            write(file, """
+using BinDeps
+using BinaryProvider
+
+@BinDeps.setup
+
+libtest = library_dependency("libtest")
+@BP_provides("libtest", "$libtest_archive", "$libtest_sha256", libtest)
+
+@BinDeps.install Dict(:libtest => :bindeps_libtest)
+""")
+        end
+
+        run(`$(Base.julia_cmd()) $(joinpath(tmpdir, "build.jl"))`)
+
+        # Ensure that deps.jl was built
+        @test isfile(joinpath(tmpdir, "deps.jl"))
+
+        # Ensure that deps.jl contains the path to an installed libtest
+        include(joinpath(tmpdir, "deps.jl"))
+        @test isfile(bindeps_libtest)
+
+        # Ensure that libtest is installed within this tmpdir
+        @test startswith(bindeps_libtest, tmpdir)
+    end
+end
