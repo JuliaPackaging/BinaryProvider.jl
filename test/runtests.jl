@@ -175,7 +175,7 @@ libtest = library_dependency("libtest")
 """)
         end
 
-        run(`$(Base.julia_cmd()) $(joinpath(tmpdir, "build.jl"))`)
+        run(`$(escape_string(Base.julia_cmd())) $(escape_string(joinpath(tmpdir, "build.jl")))`)
 
         # Ensure that deps.jl was built
         @test isfile(joinpath(tmpdir, "deps.jl"))
