@@ -185,6 +185,8 @@ libtest = library_dependency("libtest")
         @test isfile(bindeps_libtest)
 
         # Ensure that libtest is installed within this tmpdir
+        println("bindeps_libtest: $(bindeps_libtest)")
+        println("tmpdir: $(tmpdir)")
         @test startswith(bindeps_libtest, tmpdir)
     end
 end
