@@ -68,7 +68,7 @@ function run_libtest(fooifier_path, libtest_path)
     # Test that we can invoke fooifier
     @test !success(`$fooifier_path`)
     @test success(`$fooifier_path 1.5 2.0`)
-    @test_approx_eq parse(Float64,readchomp(`$fooifier_path 2.2 1.1`)) result
+    @test parse(Float64,readchomp(`$fooifier_path 2.2 1.1`)) ≈ result
 
     # Test that we can dlopen() libtest and invoke it directly
     libtest = C_NULL
@@ -188,3 +188,6 @@ libtest = library_dependency("libtest")
         @test startswith(bindeps_libtest, tmpdir)
     end
 end
+
+
+@testset "without bindeps" begin

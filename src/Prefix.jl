@@ -6,7 +6,7 @@ import Base: convert, joinpath, show
 # This is the default prefix that things get saved to, it is initialized within
 # __init__() on first module load.
 global_prefix = nothing
-type Prefix
+immutable Prefix
     path::String
 
     function Prefix(path::AbstractString)
