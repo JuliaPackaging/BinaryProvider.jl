@@ -40,6 +40,9 @@ function platform_key(machine = Sys.MACHINE)
     if startswith(machine, "x86_64-apple-darwin")
         return :mac64
     end
+    if ismatch(r"x86_64-(pc-)?(unknown-)?linux-gnu", machine)
+        return :linux64
+    end
 
     error("Platform `$(machine)` is not an officially supported platform")
 end
