@@ -2,194 +2,322 @@ using BinaryProvider
 using Base.Test
 using SHA
 
-# A single file we know the contents of
-const caeser_url = "https://gist.githubusercontent.com/staticfloat/f587161d8f16295718ee24987d6cf3ed/raw/e819ce4ad053849ed8826c0040f8368ec2eb7fed/known_file"
-const caeser_sha256 = "9f80985ded860600dabb3ccd057513f33fef1e7ce85725e5c640b5d5550b8509"
+# The platform we're running on
+const platform = platform_key()
 
-# A .tar.gz that we know the contents of
-const socrates_url = "https://github.com/staticfloat/small_bin/raw/master/socrates.tar.gz"
-const socrates_sha256 = "e65d2f13f2085f2c279830e863292312a72930fee5ba3c792b14c33ce5c5cc58"
-const socrates_output_sha = "d7bd7543123b88d29a34bbcf980514b2562d5daf3c46219668d460d2b2b6bb75"
+# On windows, the `.exe` extension is very important
+const exe_ext = is_windows() ? ".exe" : ""
 
+# Useful command to launch `bash` on any given platform
+const bash = gen_bash_cmd
 
-# Dirty appveyor hacks to get mingw64 toolchains in our path
-@static if is_windows()
-    const mingw_path = @static if Sys.WORD_SIZE == 64
-        "C:\\mingw-w64\\x86_64-6.3.0-posix-seh-rt_v5-rev1\\mingw64\\bin"
-    else
-        "C:\\mingw-w64\\i686-6.3.0-posix-dwarf-rt_v5-rev1\\mingw32\\bin"
-    end
+# Output of a few scripts we are going to run
+const simple_out = "1\n2\n3\n4\n"
+const long_out = join(["$(idx)\n" for idx in 1:100], "")
 
-    if isdir(mingw_path)
-        ENV["PATH"] = "$(ENV["PATH"]);$mingw_path"
-    end
-end
+@testset "OutputCollector" begin
+    cd("output_tests") do
+        # Collect the output of `simple.sh``
+        oc = OutputCollector(bash(`./simple.sh`))
 
-@testset "parsing" begin
-    @test BinaryProvider.get_tar_ext("") == ""
-    @test BinaryProvider.get_tar_ext("foo") == ""
-    @test BinaryProvider.get_tar_ext("foo.Z") == ".Z"
-    @test BinaryProvider.get_tar_ext("foo.tgz") == ".tgz"
-    @test BinaryProvider.get_tar_ext("foo.gz") == ".gz"
-    @test BinaryProvider.get_tar_ext("foo.tar.gz") == ".tar.gz"
-    @test BinaryProvider.get_tar_ext("foo.tar.xz") == ".tar.xz"
-    @test BinaryProvider.get_tar_ext("foo.7z.exe") == ".7z.exe"
-    @test BinaryProvider.get_tar_ext("foo.7z.exe") == ".7z.exe"
+        # Ensure we can wait on it and it exited properly
+        @test wait(oc)
 
-    @test BinaryProvider.get_tar_ext("foo.exe.7z") == ".7z"
-    @test BinaryProvider.get_tar_ext("foo.t4r.xz") == ".xz"
-end
-
-
-@testset "downloading" begin
-    engine = probe_download_engine()
-    @test typeof(engine) <: Function
-
-    mktempdir() do tempdir
-        # Download a known file
-        filename = joinpath(tempdir, "caeser")
-        engine(caeser_url, filename)
-
-        # Ensure its SHA256 is what we expect
-        open(filename) do file
-            @test bytes2hex(sha256(file)) == caeser_sha256
+        # Ensure further waits are fast and still return 0
+        let
+            tstart = time()
+            @test wait(oc)
+            @test time() - tstart < 0.1
         end
 
-        @test verify(filename, caeser_sha256)
-        @test !verify(filename, caeser_sha256[1:end-1] * "8")
-        @test_throws ErrorException verify(filename, "not a hash")
+        # Test that we can merge properly
+        @test merge(oc) == simple_out
+
+        # Test that merging twice works
+        @test merge(oc) == simple_out
+
+        # Test that `tail()` gives the same output as well
+        @test tail(oc) == simple_out
+
+        # Test that colorization works
+        let
+            red = Base.text_colors[:red]
+            def = Base.text_colors[:default]
+            gt = "1\n$(red)2\n$(def)3\n4\n"
+            @test merge(oc; colored=true) == gt
+            @test tail(oc; colored=true) == gt
+        end
+
+        # Test that we can grab stdout and stderr separately
+        @test stdout(oc) == "1\n3\n4\n"
+        @test stderr(oc) == "2\n"
     end
-end
 
-function run_libtest(fooifier_path, libtest_path)
-    # We know that foo(a, b) returns 2*a^2 - b
-    result = 2*2.2^2 - 1.1
+    # Next test a much longer output program
+    cd("output_tests") do
+        oc = OutputCollector(bash(`./long.sh`))
 
-    # Test that we can invoke fooifier
-    @test !success(`$fooifier_path`)
-    @test success(`$fooifier_path 1.5 2.0`)
-    @test parse(Float64,readchomp(`$fooifier_path 2.2 1.1`)) ≈ result
+        # Test that it worked, we can read it, and tail() works
+        @test wait(oc)
+        @test merge(oc) == long_out
+        @test tail(oc; len=10) == join(["$(idx)\n" for idx in 91:100], "")
+    end
 
-    # Test that we can dlopen() libtest and invoke it directly
-    libtest = C_NULL
-    try libtest = Libdl.dlopen(libtest_path) end
-    @test libtest != C_NULL
-    foo = Libdl.dlsym_e(libtest, :foo)
-    @test foo != C_NULL
-    @test_approx_eq ccall(foo, Cdouble, (Cdouble, Cdouble), 2.2, 1.1) result
-    Libdl.dlclose(libtest)
-end
+    # Next, test a command that fails
+    cd("output_tests") do
+        oc = OutputCollector(bash(`./fail.sh`))
 
-const libtest_dir = joinpath(dirname(@__FILE__), "libtest")
-const libtest = "libtest.$(Libdl.dlext)"
-const fooifier = @static if is_windows() "fooifier.exe" else "fooifier" end
+        @test !wait(oc)
+        @test merge(oc) == "1\n2\n"
+    end
 
-@testset "libtest build" begin
-    # Begin by building our libtest archive
-    cd(libtest_dir) do
-        @static if is_windows()
-            @test run(`mingw32-make libtest.tar.gz`) == nothing
-        else
-            @test run(`make libtest.tar.gz`) == nothing
+    # Next, test a command that kills itself (NOTE: This doesn't work on windows.  sigh.)
+    @static if !is_windows()
+        cd("output_tests") do
+            oc = OutputCollector(bash(`./kill.sh`))
+
+            @test !wait(oc)
+            @test merge(oc) == "1\n2\n"
         end
     end
 
-    # Ensure that important files are created
-    fooifier_path = joinpath(libtest_dir, fooifier)
-    libtest_path = joinpath(libtest_dir, libtest)
-    @test isfile(joinpath(libtest_dir, "libtest.tar.gz"))
+    # Next, test reading the output of a pipeline()
+    grepline = pipeline(bash(`-c 'printf "Hello\nWorld\nJulia"'`), `grep ul`)
+    oc = OutputCollector(grepline)
 
-    # Ensure that we can invoke the libtest stuff from this directory
-    run_libtest(fooifier_path, libtest_path)
+    @test wait(oc)
+    @test merge(oc) == "Julia\n"
 end
 
-const libtest_archive = joinpath(libtest_dir, "libtest.tar.gz")
-const libtest_sha256 = bytes2hex(sha256(open(libtest_archive)))
-# Set libdir on windows to point to `bin`
-const libdir = @static if is_windows() "bin" else "lib" end
+@testset "Prefix" begin
+    mktempdir() do temp_dir
+        prefix = Prefix(temp_dir)
 
+        # Test that it's taking the absolute path
+        @test prefix.path == abspath(temp_dir)
 
-@testset "receipts" begin
-    mktempdir() do tempdir
-        receipt_files = list_archive_files(libtest_archive)
-        @test joinpath("bin", fooifier) in receipt_files
-        @test joinpath(libdir, libtest) in receipt_files
-    end
-end
+        # Test that `bindir()` works
+        mkpath(joinpath(bindir(prefix)))
+        @test isdir(joinpath(bindir(prefix)))
 
-@testset "unpacking" begin
-    # Now, test unpacking this file into a directory
-    mktempdir() do tempdir
-        unpack(libtest_archive, tempdir)
+        # Create a little script within the bindir to ensure we can run it
+        ppt_path = joinpath(bindir(prefix), "prefix_path_test.sh")
+        open(ppt_path, "w") do f
+            write(f, "#!/bin/bash\n")
+            write(f, "echo yolo\n")
+        end
+        chmod(ppt_path, 0o775)
 
-        fooifier_path = joinpath(tempdir, "bin", fooifier)
-        libtest_path = joinpath(tempdir, libdir, libtest)
-
-        # Ensure that we can invoke the libtest stuff from this directory
-        run_libtest(fooifier_path, libtest_path)
-    end
-end
-
-
-@testset "installing" begin
-    # Test installing the archive from file into a prefix of our choosing
-    mktempdir() do prefix_path
-        prefix = Prefix(prefix_path)
+        # Test that activation adds certain paths to our environment variables
         activate(prefix)
-        install("libtest", libtest_archive, libtest_sha256; prefix=prefix)
-        run_libtest(fooifier, libtest)
 
-        # Test installing an archive from the web
-        install("socrates", socrates_url, socrates_sha256; prefix=prefix)
-        wisdom = readchomp(`bash socrates`)
-        @test bytes2hex(sha256(wisdom)) == socrates_output_sha
+        # PATH[1] should be "<prefix>/bin" now
+        @test BinaryProvider.split_PATH()[1] == bindir(prefix)
+        @test Libdl.DL_LOAD_PATH[1] == libdir(prefix)
 
-        # Test that removing a package we don't have a receipt for fails quietly
-        @test remove("not_installed"; prefix=prefix) == nothing
-
-        # Remove libtest, make sure it's gone, but socrates is still there
-        @test remove("libtest"; prefix=prefix) == nothing
-        @test !isfile(joinpath(prefix_path, "usr", "bin", fooifier))
-        @test !isfile(joinpath(prefix_path, "usr", libdir, libtest))
-        @test  isfile(joinpath(prefix_path, "usr", "bin", "socrates"))
+        # Test we can run the script we dropped within this prefix.  Once again,
+        # something about Windows | busybox | Julia won't pick this up even though
+        # the path clearly points to the file.  :(
+        @static if !is_windows()
+            @test success(bash(`prefix_path_test.sh`))
+        end
+        
+        # Now deactivate and make sure that all traces are gone
+        deactivate(prefix)
+        @test BinaryProvider.split_PATH()[1] != bindir(prefix)
+        @test Libdl.DL_LOAD_PATH[1] != libdir(prefix)
     end
 end
 
-using BinDeps
+@testset "Dependency Results" begin
+    temp_prefix() do prefix
+        f = FileResult(joinpath(bindir(prefix), "fooifier"))
+        @test !satisfied(f; verbose=true)
+        l = LibraryResult(joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)"))
+        @test !satisfied(l, verbose=true)
+        mkpath(dirname(l.path))
+        touch(l.path)
+        @test !satisfied(l, verbose=true)
+    end
+end
 
-@testset "bindeps" begin
-    mktempdir() do tmpdir
-        # Write out a fake build.jl that just tells BinDeps to use the
-        # BinaryProvider machinery to install libtest
-        open(joinpath(tmpdir, "build.jl"), "w") do file
-            write(file, """
-using BinDeps
-using BinaryProvider
+@testset "Packaging" begin
+    # Clear out previous build products
+    for f in readdir(".")
+        if !endswith(f, ".tar.gz")
+            continue
+        end
+        rm(f; force=true)
+    end
+    
+    # Gotta set this guy up beforehand
+    tarball_path = nothing
 
-@BinDeps.setup
+    temp_prefix() do prefix
+        # Create random files
+        mkpath(bindir(prefix))
+        mkpath(libdir(prefix))
+        bar_path = joinpath(bindir(prefix), "bar.sh")
+        open(bar_path, "w") do f
+            write(f, "#!/bin/bash\n")
+            write(f, "echo yolo\n")
+        end
+        baz_path = joinpath(libdir(prefix), "baz.so")
+        open(baz_path, "w") do f
+            write(f, "this is not an actual .so\n")
+        end
+        
+        # Next, package it up as a .tar.gz file
+        tarball_path = package(prefix, "./libfoo"; verbose=true)
+        @test isfile(tarball_path)
 
-libtest = library_dependency("libtest")
-@BP_provides("libtest", "$(escape_string(libtest_archive))", "$libtest_sha256", libtest)
+        # Test that packaging into a file that already exists fails
+        @test_throws ErrorException package(prefix, "./libfoo")
+    end
 
-@BinDeps.install Dict(:libtest => :bindeps_libtest)
-""")
+    tarball_hash = open(tarball_path, "r") do f
+        bytes2hex(sha256(f))
+    end
+
+    # Test that we can inspect the contents of the tarball
+    contents = list_tarball_files(tarball_path)
+    const libdir_name = is_windows() ? "bin" : "lib"
+    @test joinpath("bin", "bar.sh") in contents
+    @test joinpath(libdir_name, "baz.so") in contents
+
+    # Install it within a new Prefix
+    temp_prefix() do prefix
+        # Install the thing
+        @test install(tarball_path, tarball_hash; prefix=prefix, verbose=true)
+
+        # Ensure we can use it
+        bar_path = joinpath(bindir(prefix), "bar.sh")
+        baz_path = joinpath(libdir(prefix), "baz.so")
+
+        # Ask for the manifest that contains these files to ensure it works
+        manifest_path = manifest_for_file(bar_path; prefix=prefix)
+        @test isfile(manifest_path)
+        manifest_path = manifest_for_file(baz_path; prefix=prefix)
+        @test isfile(manifest_path)
+
+        # Ensure that manifest_for_file doesn't work on nonexistant files
+        @test_throws ErrorException manifest_for_file("nonexistant"; prefix=prefix)
+
+        # Ensure that manifest_for_file doesn't work on orphan files
+        orphan_path = joinpath(bindir(prefix), "orphan_file")
+        touch(orphan_path)
+        @test isfile(orphan_path)
+        @test_throws ErrorException manifest_for_file(orphan_path; prefix=prefix)
+
+        # Ensure that trying to install again over our existing files is an error
+        @test_throws ErrorException install(tarball_path, tarball_path; prefix=prefix)
+
+        # Ensure we can uninstall this tarball
+        @test uninstall(manifest_path; verbose=true)
+        @test !isfile(bar_path)
+        @test !isfile(baz_path)
+        @test !isfile(manifest_path)
+
+        # Ensure that we don't want to install tarballs from other platforms
+        cp(tarball_path, "./libfoo_juliaos64.tar.gz")
+        @test_throws ErrorException install("./libfoo_juliaos64.tar.gz", tarball_hash; prefix=prefix)
+        rm("./libfoo_juliaos64.tar.gz"; force=true)
+
+        # Ensure that hash mismatches throw errors
+        fake_hash = reverse(tarball_hash)
+        @test_throws ErrorException install(tarball_path, fake_hash; prefix=prefix)
+    end
+
+    rm(tarball_path; force=true)
+end
+
+
+# Use `build_libfoo_tarball.jl` in the BinDeps2.jl repository to generate more of these
+small_bin_prefix = "https://github.com/staticfloat/small_bin/raw/82feaba4c15e9d089f4ba673e3be4cbb3c854e6c/"
+libfoo_downloads = Dict(
+    :linuxaarch64 => ("$small_bin_prefix/libfoo.aarch64-linux-gnu.tar.gz",
+                     "1a3655ba5fae00cf33843bc10282b72390d307e11248fe6fb62c7a06a51a09f0"),
+    :linuxarmv7l =>  ("$small_bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz",
+                     "2178fb0d424f1607a82dd5f7a9c153ea27b1f93bff29a02b367b9cc32f25cbf9"),
+    :linuxppc64le => ("$small_bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz",
+                     "f5fae4185aa47b0cc8ca200d3fa2f10dbf6a41b221ba560b46b635c780d6bb23"),
+    :mac64 =>        ("$small_bin_prefix/libfoo.x86_64-apple-darwin14.tar.gz",
+                     "1a104d70dbe12355fe6c431926c21c798b8baf6989bf85223ff12b4d03fec4ce"),
+    :linux64 =>      ("$small_bin_prefix/libfoo.x86_64-linux-gnu.tar.gz",
+                     "074b9d83d53f9b592ab94254770fdb936f27549789a3333281c7877b47ee10eb"),
+    :win64 =>        ("$small_bin_prefix/libfoo.x86_64-w64-mingw32.tar.gz",
+                     "4b257043a705546a4ea30624a96459b155804f7ea82a5cce0983d984ae00f83c"),
+)
+
+
+@testset "Downloading" begin
+    temp_prefix() do prefix
+        if !haskey(libfoo_downloads, platform)
+            warn("Platform $platform does not have a libfoo download, skipping download tests")
+        else
+            # Test a good download works
+            url, hash = libfoo_downloads[platform]
+            @test install(url, hash; prefix=prefix, verbose=true)
+
+            activate(prefix) do
+                fooifier_path = "fooifier$(exe_ext)"
+                libfoo_path = "libfoo.$(Libdl.dlext)"
+
+                # We know that foo(a, b) returns 2*a^2 - b
+                result = 2*2.2^2 - 1.1
+            
+                # Test that we can invoke fooifier
+                @test !success(`$fooifier_path`)
+                @test success(`$fooifier_path 1.5 2.0`)
+                @test parse(Float64,readchomp(`$fooifier_path 2.2 1.1`)) ≈ result
+            
+                # Test that we can dlopen() libfoo and invoke it directly
+                libfoo = Libdl.dlopen_e(libfoo_path)
+                @test libfoo != C_NULL
+                foo = Libdl.dlsym_e(libfoo, :foo)
+                @test foo != C_NULL
+                @test ccall(foo, Cdouble, (Cdouble, Cdouble), 2.2, 1.1) ≈ result
+                Libdl.dlclose(libfoo)
+            end
         end
 
-        run(`$(Base.julia_cmd()) $(joinpath(tmpdir, "build.jl"))`)
-
-        # Ensure that deps.jl was built
-        @test isfile(joinpath(tmpdir, "deps.jl"))
-
-        # Ensure that deps.jl contains the path to an installed libtest
-        include(joinpath(tmpdir, "deps.jl"))
-        @test isfile(bindeps_libtest)
-
-        # Ensure that libtest is installed within this tmpdir
-        println("bindeps_libtest: $(bindeps_libtest)")
-        println("tmpdir: $(tmpdir)")
-        @test startswith(bindeps_libtest, tmpdir)
+        # Test a bad download fails properly
+        bad_url = "http://localhost:1/this_is_not_a_file_linux64.tar.gz"
+        bad_hash = "0"^64
+        @test_throws ErrorException install(bad_url, bad_hash; prefix=prefix, verbose=true)
     end
 end
 
+# @testset "BinDeps integration" begin
+#     mktempdir() do tmpdir
+#         # Write out a fake build.jl that just tells BinDeps to use the
+#         # BinaryProvider machinery to install libtest
+#         open(joinpath(tmpdir, "build.jl"), "w") do file
+#             write(file, """
+# using BinDeps
+# using BinaryProvider
 
-@testset "without bindeps" begin
+# @BinDeps.setup
+
+# libtest = library_dependency("libtest")
+# @BP_provides("libtest", "$(escape_string(libtest_archive))", "$libtest_sha256", libtest)
+
+# @BinDeps.install Dict(:libtest => :bindeps_libtest)
+# """)
+#         end
+
+#         run(`$(Base.julia_cmd()) $(joinpath(tmpdir, "build.jl"))`)
+
+#         # Ensure that deps.jl was built
+#         @test isfile(joinpath(tmpdir, "deps.jl"))
+
+#         # Ensure that deps.jl contains the path to an installed libtest
+#         include(joinpath(tmpdir, "deps.jl"))
+#         @test isfile(bindeps_libtest)
+
+#         # Ensure that libtest is installed within this tmpdir
+#         info("bindeps_libtest: $(bindeps_libtest)")
+#         info("tmpdir: $(tmpdir)")
+#         @test startswith(bindeps_libtest, tmpdir)
+#     end
+# end
