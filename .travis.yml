@@ -10,10 +10,12 @@ julia:
 notifications:
   email: false
 
-env:
-  matrix:
-    - BINDEPS2_DOWNLOAD_ENGINE="curl"
-    - BINDEPS2_DOWNLOAD_ENGINE="wget"
+matrix:
+  include:
+    # Make sure to override to "wget" at least once
+    - julia: 0.5
+      os: linux
+      env: BINDEPS2_DOWNLOAD_ENGINE="wget"
 
 # Ironic.  He could provide binaries for others but not himself...
 addons:
