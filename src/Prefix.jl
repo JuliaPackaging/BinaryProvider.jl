@@ -234,35 +234,23 @@ function install(tarball_url::AbstractString,
         error(msg)
     end
     
+    # Create the downloads directory if it does not already exist
     tarball_path = joinpath(prefix, "downloads", basename(tarball_url))
-    if !isfile(tarball_path)
-        if isfile(tarball_url)
-            tarball_path = tarball_url
-        else
-            if verbose
-                info("Downloading $(tarball_url) to $(tarball_path)")
-            end
-            
-            # Create the downloads directory if it does not already exist
-            mkpath(dirname(tarball_path))
+    try mkpath(dirname(tarball_path)) end
 
-            # Then download the tarball
-            download_cmd = gen_download_cmd(tarball_url, tarball_path)
-            oc = OutputCollector(download_cmd; verbose=verbose)
-            try
-                if !wait(oc)
-                    error()
-                end
-            catch
-                error("Could not download $(tarball_url) to $(tarball_path)")
-            end
+    # Check to see if we're "installing" from a file
+    if isfile(tarball_url)
+        # If we are, just verify it's already downloaded properly
+        tarball_path = tarball_url
+
+        verify(tarball_path, hash; verbose=verbose)
+    else
+        # If not, actually download it
+        if verbose
+            info("Downloading $(tarball_url) to $(tarball_path)")
         end
-    elseif verbose
-        info("Not downloading $(tarball_url) as it is already downloaded")
+        download_verify(tarball_url, hash, tarball_path; verbose=verbose)
     end
-
-    # If `verify()` finds a problem, it's gonna error()
-    verify(tarball_path, hash; verbose=verbose)
 
     if verbose
         info("Installing $(tarball_path) into $(prefix.path)")
@@ -288,17 +276,8 @@ function install(tarball_url::AbstractString,
         end
     end
 
-    # Get our unpacking command
-    unpack_cmd = gen_unpack_cmd(tarball_path, prefix.path)
-    # Run the unpacking
-    oc = OutputCollector(unpack_cmd; verbose=verbose)
-    try 
-        if !wait(oc)
-            error()
-        end
-    catch
-        error("Could not unpack $(tarball_path) into $(prefix.path)")
-    end
+    # Unpack the tarball into prefix
+    unpack(tarball_path, prefix.path; verbose=verbose)
 
     # Save installation manifest
     manifest_path = joinpath(prefix, "manifests", basename(tarball_path)[1:end-7] * ".list")
