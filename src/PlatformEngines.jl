@@ -4,7 +4,7 @@
 
 export gen_download_cmd, gen_unpack_cmd, gen_package_cmd, gen_list_tarball_cmd,
        parse_tarball_listing, gen_bash_cmd, parse_7z_list, parse_tar_list,
-       download_verify_unpack
+       download_verify_unpack, download_verify, unpack
 
 """
 `gen_download_cmd(url::AbstractString, out_path::AbstractString)`
@@ -392,6 +392,57 @@ function parse_tar_list(output::AbstractString)
 end
 
 """
+`download_verify(url::AbstractString, hash::AbstractString;
+                 verbose::Bool = false)`
+
+Download file located at `url`, verify it matches the given `hash`, and throw
+an error if anything goes wrong.  If `dest` already exists, just verify it.
+"""
+function download_verify(url::AbstractString, hash::AbstractString,
+                         dest::AbstractString; verbose::Bool = false)
+    # download to given path
+    if !isfile(dest)
+        download_cmd = gen_download_cmd(url, dest)
+        oc = OutputCollector(download_cmd; verbose=verbose)
+        try
+            if !wait(oc)
+                error()
+            end
+        catch
+            error("Could not download $(url) to $(dest)")
+        end
+    else
+        if verbose
+            info("Destination file $(dest) already exists, verifying...")
+        end
+    end
+
+    # verify download
+    verify(dest, hash; verbose=verbose)
+end
+
+"""
+`unpack(tarball_path::AbstractString, dest::AbstractString;
+        verbose::Bool = false)`
+
+Unpack tarball located at file `tarball_path` into directory `dest`.
+"""
+function unpack(tarball_path::AbstractString, dest::AbstractString;
+                verbose::Bool = false)
+    # unpack into dest
+    try mkpath(dest) end
+    oc = OutputCollector(gen_unpack_cmd(tarball_path, dest); verbose=verbose)
+    try 
+        if !wait(oc)
+            error()
+        end
+    catch
+        error("Could not unpack $(tarball_path) into $(dest)")
+    end
+end
+
+
+"""
 `download_verify_unpack(url::AbstractString, hash::AbstractString,
                         dest::AbstractString; verbose::Bool = false)`
 
@@ -405,32 +456,12 @@ function download_verify_unpack(url::AbstractString,
                                 hash::AbstractString,
                                 dest::AbstractString;
                                 verbose::Bool = false)
-    # First, download tarball to temporary path
+    # First, download tarball to temporary path and verify it
     tarball_path = "$(tempname())-download.tar.gz"
-    
-    # download to temporary path
-    download_cmd = gen_download_cmd(url, tarball_path)
-    oc = OutputCollector(download_cmd; verbose=verbose)
+    download_verify(url, hash, tarball_path)
+
     try
-        if !wait(oc)
-            error()
-        end
-    catch
-        error("Could not download $(tarball_url) to $(tarball_path)")
-    end
-
-    # verify download
-    verify(tarball_path, hash; verbose=verbose)
-
-    # unpack into dest
-    try mkpath(dest) end
-    oc = OutputCollector(gen_unpack_cmd(tarball_path, dest); verbose=verbose)
-    try 
-        if !wait(oc)
-            error()
-        end
-    catch
-        error("Could not unpack $(tarball_path) into $(dest)")
+        unpack(tarball_path, dest; verbose=verbose)
     finally
         # Clear out the tarball path no matter what
         rm(tarball_path)
