@@ -4,13 +4,12 @@ import BinDeps: Binaries, can_use, package_available, bindir, libdir,
 import Base: show
 
 type BP <: Binaries
-    pkg::String
     url::String
     hash::String
     prefix::Prefix
 end
 
-show(io::IO, p::BP) = write(io, "BinaryProvider for $(p.pkg)")
+show(io::IO, p::BP) = write(io, "BinaryProvider for $(p.url)")
 
 # We are cross-platform baby, and we never say no to a party
 can_use(::Type{BP}) = true
@@ -22,17 +21,17 @@ else
 end
 
 # We provide our own overload of provides() for BP
-macro BP_provides(pkg, url, hash, dep, opts...)
+macro BP_provides(url, hash, dep, opts...)
     return quote
-        prefix = Prefix(joinpath(dirname(@__FILE__)))
+        prefix = Prefix(joinpath(dirname(@__FILE__), "usr"))
         activate(prefix)
-        return provides(BP, ($pkg, $url, $hash, prefix), $(esc(dep)), $(opts...))
+        return provides(BP, ($url, $hash, prefix), $(esc(dep)), $(opts...))
     end
 end
 provider(::Type{BP}, data; opts...) = BP(data...)
 
 function generate_steps(dep::LibraryDependency, p::BP, opts)
     () -> begin
-        install(p.prefix, p.pkg, p.url, p.hash; prefix=p.prefix)
+        install(p.url, p.hash; prefix=p.prefix, verbose=true)
     end
 end
