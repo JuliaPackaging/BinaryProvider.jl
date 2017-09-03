@@ -2,11 +2,13 @@ export supported_platforms, platform_triplet, platform_key
 
 const platform_to_triplet_mapping = Dict(
     :linux64 => "x86_64-linux-gnu",
+    :linux32 => "i686-linux-gnu",
     :linuxaarch64 => "aarch64-linux-gnu",
     :linuxarmv7l => "arm-linux-gnueabihf",
     :linuxppc64le => "powerpc64le-linux-gnu",
     :mac64 => "x86_64-apple-darwin14",
     :win64 => "x86_64-w64-mingw32",
+    :win32 => "i686-w64-mingw32"
 )
 
 function supported_platforms()
