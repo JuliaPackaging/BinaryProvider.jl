@@ -233,20 +233,24 @@ end
 
 
 # Use `build_libfoo_tarball.jl` in the BinDeps2.jl repository to generate more of these
-small_bin_prefix = "https://github.com/staticfloat/small_bin/raw/82feaba4c15e9d089f4ba673e3be4cbb3c854e6c/"
+small_bin_prefix = "https://github.com/staticfloat/small_bin/raw/74b7fd81e3fbc8963b14b0ebbe5421e270d8bdcf"
 libfoo_downloads = Dict(
-    :linuxaarch64 => ("$small_bin_prefix/libfoo.aarch64-linux-gnu.tar.gz",
-                     "1a3655ba5fae00cf33843bc10282b72390d307e11248fe6fb62c7a06a51a09f0"),
-    :linuxarmv7l =>  ("$small_bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz",
-                     "2178fb0d424f1607a82dd5f7a9c153ea27b1f93bff29a02b367b9cc32f25cbf9"),
-    :linuxppc64le => ("$small_bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz",
-                     "f5fae4185aa47b0cc8ca200d3fa2f10dbf6a41b221ba560b46b635c780d6bb23"),
     :mac64 =>        ("$small_bin_prefix/libfoo.x86_64-apple-darwin14.tar.gz",
-                     "1a104d70dbe12355fe6c431926c21c798b8baf6989bf85223ff12b4d03fec4ce"),
-    :linux64 =>      ("$small_bin_prefix/libfoo.x86_64-linux-gnu.tar.gz",
-                     "074b9d83d53f9b592ab94254770fdb936f27549789a3333281c7877b47ee10eb"),
+                      "661b71edb433ab334b0fef70db3b5c45d35f2b3bee0d244f54875f1ec899c10f"),
     :win64 =>        ("$small_bin_prefix/libfoo.x86_64-w64-mingw32.tar.gz",
-                     "4b257043a705546a4ea30624a96459b155804f7ea82a5cce0983d984ae00f83c"),
+                      "2d08fbc9a534cd021f36b6bbe86ddabb2dafbedeb589581240aa4a8c5b896055"),
+    :win32 =>        ("$small_bin_prefix/libfoo.i686-w64-mingw32.tar.gz",
+                      "3d4a8d4bf0169007a42d809a1d560083635b1540a1bc4a42108841dcb6d2aaea")
+    :linux32 =>      ("$small_bin_prefix/libfoo.i686-linux-gnu.tar.gz",
+                      "1398353bcbbd88338189ece9c1d6e7c508df120bc4f93afbaed362a9f91358ff"),
+    :linux64 =>      ("$small_bin_prefix/libfoo.x86_64-linux-gnu.tar.gz",
+                      "b9d57a6e032a56b1f8641771fa707523caa72f1a2e322ab99eeeb011f13ad9f3"),
+    :linuxarmv7l =>  ("$small_bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz",
+                      "8e33c1a0e091e6e5b8fcb902e5d45329791bb57763ee9cbcde49c1ec9bd8532a"),
+    :linuxppc64le => ("$small_bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz",
+                      "b48a64d48be994ec99b1a9fb60e0af7f4415a57596518cb90a340987b79fad81"),
+    :linuxaarch64 => ("$small_bin_prefix/libfoo.aarch64-linux-gnu.tar.gz",
+                      "19d9da0e6e7fb506bf4889eb91e936fda43493a39cd4fd7bd5d65506cede6f95"),
 )
 
 
