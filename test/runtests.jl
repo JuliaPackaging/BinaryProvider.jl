@@ -129,15 +129,31 @@ end
     end
 end
 
-@testset "Dependency Results" begin
+@testset "Products" begin
     temp_prefix() do prefix
+        # Test that basic satisfication is guaranteed
         f = FileResult(joinpath(bindir(prefix), "fooifier"))
         @test !satisfied(f; verbose=true)
         l = LibraryResult(joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)"))
         @test !satisfied(l, verbose=true)
+
+        # Test that simply creating a library file doesn't satisfy it (because
+        # it must still be `dlopen()`-able)
         mkpath(dirname(l.path))
         touch(l.path)
         @test !satisfied(l, verbose=true)
+
+        # Check that no matter what platform we're on, if we manually specify
+        # a valid name, it doesn't get clobbered
+        @test endswith(LibraryResult("libfoo.so").path, ".so")
+        @test endswith(LibraryResult("libfoo.so.0.6.0").path, ".so.0.6.0")
+        @test endswith(LibraryResult("libfoo.0.6.dylib").path, ".dylib")
+        @test endswith(LibraryResult("libfoo-0.dll").path, ".dll")
+
+        # Check that if we pass in an invalid name, it gets transformed
+        @test endswith(LibraryResult("libfoo.so.0.6a.0").path, "$(Libdl.dlext)")
+        @test endswith(LibraryResult("libfoo.dylib.0.6").path, ".$(Libdl.dlext)")
+        @test endswith(LibraryResult("libfoo.dll.0").path, ".$(Libdl.dlext)")
     end
 end
 
@@ -290,37 +306,3 @@ libfoo_downloads = Dict(
         @test_throws ErrorException install(bad_url, bad_hash; prefix=prefix, verbose=true)
     end
 end
-
-# @testset "BinDeps integration" begin
-#     mktempdir() do tmpdir
-#         # Write out a fake build.jl that just tells BinDeps to use the
-#         # BinaryProvider machinery to install libtest
-#         open(joinpath(tmpdir, "build.jl"), "w") do file
-#             write(file, """
-# using BinDeps
-# using BinaryProvider
-
-# @BinDeps.setup
-
-# libtest = library_dependency("libtest")
-# @BP_provides("libtest", "$(escape_string(libtest_archive))", "$libtest_sha256", libtest)
-
-# @BinDeps.install Dict(:libtest => :bindeps_libtest)
-# """)
-#         end
-
-#         run(`$(Base.julia_cmd()) $(joinpath(tmpdir, "build.jl"))`)
-
-#         # Ensure that deps.jl was built
-#         @test isfile(joinpath(tmpdir, "deps.jl"))
-
-#         # Ensure that deps.jl contains the path to an installed libtest
-#         include(joinpath(tmpdir, "deps.jl"))
-#         @test isfile(bindeps_libtest)
-
-#         # Ensure that libtest is installed within this tmpdir
-#         info("bindeps_libtest: $(bindeps_libtest)")
-#         info("tmpdir: $(tmpdir)")
-#         @test startswith(bindeps_libtest, tmpdir)
-#     end
-# end

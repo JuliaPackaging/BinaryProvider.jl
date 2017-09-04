@@ -207,14 +207,14 @@ function extract_platform_key(path::AbstractString)
 end
 
 """
-`install(tarball_url::AbstractString,
-         hash::AbstractString;
-         prefix::Prefix = global_prefix,
-         force::Bool = false,
-         ignore_platform::Bool = false,
-         verbose::Bool = false)`
+install(tarball_url::AbstractString,
+        hash::AbstractString;
+        prefix::Prefix = global_prefix,
+        force::Bool = false,
+        ignore_platform::Bool = false,
+        verbose::Bool = false)
 
-Given a `prefix`, a `tarball_url` and a `hash, download that tarball into the
+Given a `prefix`, a `tarball_url` and a `hash`, download that tarball into the
 prefix, verify its integrity with the `hash`, and install it into the `prefix`.
 Also save a manifest of the files into the prefix for uninstallation later.
 """
@@ -263,7 +263,7 @@ function install(tarball_url::AbstractString,
     for file in file_list
         if isfile(joinpath(prefix, file))
             if !force
-                msg  = "$(file) already exists and would be overwritten while"
+                msg  = "$(file) already exists and would be overwritten while "
                 msg *= "installing $(basename(tarball_path))\n"
                 msg *= "Will not overwrite unless `force = true` is set."
                 error(msg)
