@@ -1,7 +1,0 @@
-*.dSYM
-libtest.dylib
-libtest.so
-libtest.dll
-fooifier
-fooifier.exe
-libtest.tar.gz
