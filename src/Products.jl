@@ -236,7 +236,7 @@ macro write_deps_file(capture...)
 
     return quote
         # First pick up important pieces of information from the call-site
-        const source = VERSION >= v"0.7.0-" ? $(dummy_source) : @__FILE__
+        const source = VERSION >= v"0.7.0-" ? $("$(dummy_source)") : @__FILE__
         const depsjl_path = joinpath(dirname(source), "deps.jl")
         const package_name = basename(dirname(dirname(source)))
 
