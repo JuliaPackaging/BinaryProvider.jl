@@ -230,10 +230,15 @@ macro write_deps_file(capture...)
     const names = :($(capture))
     const products = esc(Expr(:tuple, capture...))
 
+    # We have to create this dummy_source, because we cannot, in a single line,
+    # have both `@__FILE__` and `__source__` interpreted by the same julia.
+    const dummy_source = VERSION >= v"0.7.0-" ? __source__.file : ""
+
     return quote
         # First pick up important pieces of information from the call-site
-        const depsjl_path = joinpath(dirname(@__FILE__), "deps.jl")
-        const package_name = basename(dirname(dirname(@__FILE__)))
+        const source = VERSION >= v"0.7.0-" ? $(dummy_source) : @__FILE__
+        const depsjl_path = joinpath(dirname(source), "deps.jl")
+        const package_name = basename(dirname(dirname(source)))
 
         const rebuild = strip("""
         Please re-run Pkg.build(\\\"$(package_name)\\\"), and restart Julia.
