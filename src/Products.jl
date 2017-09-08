@@ -1,98 +1,200 @@
-export Product, LibraryResult, FileResult, ExecutableResult, satisfied, @write_deps_file
+export Product, LibraryProduct, FileProduct, ExecutableProduct, satisfied, locate, @write_deps_file
 
-# Products are things that should exist after we install something
+"""
+A `Product` is an expected result after building or installation of a package.
+"""
 abstract Product
 
-# A Library Result is a special kind of Result that not only needs to exist,
-# but needs to have a special set of audit rules applied to it to show
-# that the library can be loaded, that it does not have dependencies that live
-# outside of its prefix/the base Julia distribution, etc...
-immutable LibraryResult <: Product
-    path::String
+"""
+A `LibraryProduct` is a special kind of `Product` that not only needs to exist,
+but needs to be `dlopen()`'able.  You must know which directory the library
+will be installed to, and its name, e.g. to build a `LibraryProduct` that
+refers to `"/lib/libnettle.so"`, the "directory" would be "/lib", and the
+"libname" would be "libnettle".
+"""
+immutable LibraryProduct <: Product
+    dir_path::String
+    libname::String
 
-    function LibraryResult(path::AbstractString)
-        # For LibraryResults, abstract away adding a dlext by manually slapping
-        # it on, but only do this if one doesn't already exist.  Because we
-        # cross-compile quite a bit, we must check ALL dlexts.  This is simple
-        # for OSX and Windows (just check if it ends with `.dylib` and `.dll`)
-        # but on Linux, we have to allow for versioned shared object names:
-        const dlext_regexes = [
-            # On Linux, libraries look like `libnettle.so.6.3.0`
-            r"^(.*).so(\.[\d]+){0,3}$",
-            # On OSX, libraries look like `libnettle.6.3.dylib`
-            r"^(.*).dylib$",
-            # On Windows, libraries look like `libnettle-6.dylib`
-            r"^(.*).dll$"
-        ]
+    """
+    `LibraryProduct(prefix::Prefix, libname::AbstractString)`
 
-        # If none of these match, then slap our native dlext on the end
-        if !any(ismatch(dlregex, path) for dlregex in dlext_regexes)
-            path = "$(path).$(Libdl.dlext)"
-        end
-        return new(path)
+    Declares a `LibraryProduct` that points to a library located within the
+    `libdir` of the given `Prefix`, with a name containing `libname`.  As an
+    example, given that `libdir(prefix)` is equal to `usr/lib`, and `libname`
+    is equal to `libnettle`, this would be satisfied by the following paths:
+
+        usr/lib/libnettle.so
+        usr/lib/libnettle.so.6
+        usr/lib/libnettle.6.dylib
+        usr/lib/libnettle-6.dll
+
+    Libraries matching the search pattern are rejected if they are not
+    `dlopen()`'able.
+    """
+    function LibraryProduct(prefix::Prefix, libname::AbstractString)
+        return LibraryProduct(libdir(prefix), libname)
+    end
+
+    """
+    `LibraryProduct(dir_path::AbstractString, libname::AbstractString)`
+
+    For finer-grained control over `LibraryProduct` locations, you may directly
+    pass in the `dir_path` instead of auto-inferring it from `libdir(prefix)`.
+    """
+    function LibraryProduct(dir_path::AbstractString, libname::AbstractString)
+        return new(dir_path, libname)
     end
 end
 
-function satisfied(lr::LibraryResult; verbose::Bool = false)
-    if !isfile(lr.path)
+"""
+`locate(fp::FileProduct; verbose::Bool = false)`
+
+If the given library exists (under any reasonable name) and is `dlopen()`'able,
+return its path.
+"""
+function locate(lp::LibraryProduct; verbose::Bool = false)
+    if !isdir(lp.dir_path)
         if verbose
-            info("$(lr.path) does not exist, reporting unsatisfied")
+            info("Director $(lp.dir_path) does not exist!")
         end
-        return false
+        return nothing
+    end
+    for f in readdir(lp.dir_path)
+        # Skip any names that aren't a valid dynamic library
+        if !valid_dl_path(f)
+            continue
+        end
+
+        if verbose
+            info("Found a valid dl path $(f) while looking for $(lp.libname)")
+        end
+
+        # If we found something that is a dynamic library, let's check to see
+        # if it matches our libname:
+        if startswith(basename(f), lp.libname)
+            dl_path = abspath(joinpath(lp.dir_path), f)
+            if verbose
+                info("$(dl_path) matches our search criteria of $(lp.libname)")
+            end
+            
+            # If it does, try to `dlopen()` it:
+            hdl = Libdl.dlopen_e(dl_path)
+            if hdl == C_NULL
+                if verbose
+                    info("$(dl_path) cannot be dlopen'ed")
+                end
+            else
+                # Hey!  It worked!  Yay!
+                Libdl.dlclose(hdl)
+                return dl_path
+            end
+        end
     end
 
-    lr_handle = Libdl.dlopen_e(lr.path)
-    if lr_handle == C_NULL
-        if verbose
-            info("$(lr.path) cannot be dlopen'ed, reporting unsatisfied")
-        end
-        
-        # Eventually, I would like to add better debugging here to inspect the
-        # library to determine _why_ it cannot be dlopen()'ed.
-        return false
+    if verbose
+        info("Could not locate $(lp.libname) inside $(lp.dir_path)")
     end
-    Libdl.dlclose(lr_handle)
-
-    return true
+    return nothing
 end
 
+"""
+An `ExecutableProduct` is a `Product` that represents an executable file, e.g.
+one that that exists and has the executable bit set.  Note that when searching
+for an executable file, if the given path does not exist, but `"path.exe"`
+does exist, that file will be considered to satisfy the `ExecutableProduct`,
+unless `path` ends with `.exe`, of course.
+"""
+immutable ExecutableProduct <: Product
+    path::AbstractString
 
-immutable ExecutableResult <: Product
+    """
+    `ExecutableProduct(prefix::Prefix, binname::AbstractString)`
+
+    Declares an `ExecutableProduct` that points to an executable located within
+    the `bindir` of the given `Prefix`, named `binname`.
+    """
+    function ExecutableProduct(prefix::Prefix, binname::AbstractString)
+        return ExecutableProduct(joinpath(bindir(prefix), binname))
+    end
+
+    """
+    `ExecutableProduct(binpath::AbstractString)`
+
+    For finer-grained control over `ExecutableProduct` locations, you may directly
+    pass in the full `binpath` instead of auto-inferring it from `bindir(prefix)`.
+    """
+    function ExecutableProduct(binpath::AbstractString)
+        return new(binpath)
+    end
+end
+
+"""
+`locate(fp::FileProduct; verbose::Bool = false)`
+
+If the given executable file exists and is executable, return its path.
+"""
+function locate(ep::ExecutableProduct; verbose::Bool = false)
+    # We need to determine whether we need to slap a .exe onto the end of our
+    # path, so we just try the plain path, and if it doesn't exist, and the
+    # current path doesn't already contain a `.exe` on the end, we try slapping
+    # an `.exe` on the end.
+    path = ep.path
+    if !isfile(path)
+        if !endswith(path, ".exe") && isfile("$(path).exe")
+            path = "$(path).exe"
+        else
+            if verbose
+                info("$(ep.path) does not exist, reporting unsatisfied")
+            end
+            return nothing
+        end
+    end
+
+    # If the file is not executable, fail out
+    if uperm(path) & 0x1 == 0
+        if verbose
+            info("$(path) is not executable, reporting unsatisfied")
+        end
+        return nothing
+    end
+
+    return path
+end
+
+"""
+A `FileProduct` represents a file that simply must exist to be satisfied.
+"""
+immutable FileProduct <: Product
     path::AbstractString
 end
 
-function satisfied(er::ExecutableResult; verbose::Bool = false)
-    if !isfile(er.path)
-        if verbose
-            info("$(er.path) does not exist, reporting unsatisfied")
-        end
-        return false
-    end
+"""
+`locate(fp::FileProduct; verbose::Bool = false)`
 
-    if uperm(er.path) & 0x1 == 0
+If the given file exists, return its path.
+"""
+function locate(fp::FileProduct; verbose::Bool = false)
+    if isfile(fp.path)
         if verbose
-            info("$(er.path) is not executable, reporting unsatisfied")
+            info("FileProduct $(fp.path) does not exist")
         end
-        return false
+        return fp.path
     end
-
-    return true
+    return nothing
 end
 
 
-immutable FileResult <: Product
-    path::AbstractString
+"""
+`satisfied(p::Product; verbose::Bool = false)`
+
+Given a `Product`, return `true` if that `Product` is satisfied, e.g. whether
+a file exists that matches all criteria setup for that `Product`.
+"""
+function satisfied(p::Product; verbose::Bool = false)
+    return locate(p; verbose=verbose) != nothing
 end
 
-function satisfied(fr::FileResult; verbose::Bool = false)
-    if !isfile(fr.path)
-        if verbose
-            info("FileResult $(fr.path) does not exist, reporting unsatisfied")
-        end
-        return false
-    end
-    return true
-end
 
 """
 `@write_deps_file(products...)`
@@ -100,12 +202,12 @@ end
 Helper macro to generate a `deps.jl` file out of a mapping of variable name
 to  `Product` objects. Call using something like:
 
-    fooifier = ExecutableResult(...)
-    libbar = LibraryResult(...)
+    fooifier = ExecutableProduct(...)
+    libbar = LibraryProduct(...)
     @write_deps_file fooifier libbar
 
-If any `Product` object cannot be satisfied (e.g. `LibraryResult` objects must
-be `dlopen()`-able, `FileResult` objects must exist on the filesystem, etc...)
+If any `Product` object cannot be satisfied (e.g. `LibraryProduct` objects must
+be `dlopen()`-able, `FileProduct` objects must exist on the filesystem, etc...)
 this macro will error out.  Ensure that you have used `install()` to install
 the binaries you wish to write a `deps.jl` file for, and, optionally that you
 have used `activate()` on the `Prefix` in which the binaries were installed so
@@ -130,8 +232,8 @@ macro write_deps_file(capture...)
 
     return quote
         # First pick up important pieces of information from the call-site
-        const depsjl_path = joinpath(@__DIR__, "deps.jl")
-        const package_name = basename(dirname(@__DIR__))
+        const depsjl_path = joinpath(dirname(@__FILE__), "deps.jl")
+        const package_name = basename(dirname(dirname(@__FILE__)))
 
         const rebuild = strip("""
         Please re-run Pkg.build(\\\"$(package_name)\\\"), and restart Julia.
@@ -167,27 +269,33 @@ macro write_deps_file(capture...)
                 name = $(names)[idx]
 
                 println(depsjl_file, strip("""
-                const $(name) = \"$(product.path)\"
+                const $(name) = \"$(locate(product))\"
                 """))
             end
 
             # Next, generate a function to check they're all on the up-and-up
             println(depsjl_file, "function check_deps()")
 
-            for product in $(products)
+            for idx in 1:$(length(capture))
+                product = $(products)[idx]
+                name = $(names)[idx]
+
+                # Add a `global $(name)`
+                println(depsjl_file, "    global $(name)");
+
                 # Check that any file exists
                 println(depsjl_file, """
-                if !isfile(\"$(product.path)\")
-                    error("$(product.path) does not exist, $(rebuild)")
-                end
+                    if !isfile($(name))
+                        error("\$($(name)) does not exist, $(rebuild)")
+                    end
                 """)
 
                 # For Library products, check that we can dlopen it:
-                if typeof(product) <: LibraryResult
+                if typeof(product) <: LibraryProduct
                     println(depsjl_file, """
-                    if Libdl.dlopen_e(\"$(product.path)\") == C_NULL
-                        error("$(product.path) cannot be opened, $(rebuild)")
-                    end
+                        if Libdl.dlopen_e($(name)) == C_NULL
+                            error("\$($(name)) cannot be opened, $(rebuild)")
+                        end
                     """)
                 end
             end

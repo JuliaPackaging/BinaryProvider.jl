@@ -5,9 +5,6 @@ using SHA
 # The platform we're running on
 const platform = platform_key()
 
-# On windows, the `.exe` extension is very important
-const exe_ext = is_windows() ? ".exe" : ""
-
 # Useful command to launch `bash` on any given platform
 const bash = gen_bash_cmd
 
@@ -131,29 +128,42 @@ end
 
 @testset "Products" begin
     temp_prefix() do prefix
-        # Test that basic satisfication is guaranteed
-        f = FileResult(joinpath(bindir(prefix), "fooifier"))
-        @test !satisfied(f; verbose=true)
-        l = LibraryResult(joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)"))
+        # Test that basic satisfication is not guaranteed
+        e_path = joinpath(bindir(prefix), "fooifier")
+        l_path = joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)")
+        e = ExecutableProduct(prefix, "fooifier")
+        ef = FileProduct(e_path)
+        l = LibraryProduct(prefix, "libfoo")
+        lf = FileProduct(l_path)
+
+        @test !satisfied(e; verbose=true)
+        @test !satisfied(ef; verbose=true)
         @test !satisfied(l, verbose=true)
+        @test !satisfied(lf, verbose=true)
+
+        # Test that simply creating a file that is not executable doesn't
+        # satisfy an Executable Product
+        mkpath(bindir(prefix))
+        touch(e_path)
+        @test satisfied(ef, verbose=true)
+        @test !satisfied(e, verbose=true)
+
+        # Make it executable and ensure this does satisfy the Executable
+        chmod(e_path, 0o777)
+        @test satisfied(e, verbose=true)
+
+        # Remove it and add a `$(path).exe` version to check again
+        rm(e_path; force=true)
+        touch("$(e_path).exe")
+        chmod("$(e_path).exe", 0o777)
+        @test locate(e) == "$(e_path).exe"
 
         # Test that simply creating a library file doesn't satisfy it (because
         # it must still be `dlopen()`-able)
-        mkpath(dirname(l.path))
-        touch(l.path)
+        mkpath(libdir(prefix))
+        touch(joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)"))
+        @test satisfied(lf, verbose=true)
         @test !satisfied(l, verbose=true)
-
-        # Check that no matter what platform we're on, if we manually specify
-        # a valid name, it doesn't get clobbered
-        @test endswith(LibraryResult("libfoo.so").path, ".so")
-        @test endswith(LibraryResult("libfoo.so.0.6.0").path, ".so.0.6.0")
-        @test endswith(LibraryResult("libfoo.0.6.dylib").path, ".dylib")
-        @test endswith(LibraryResult("libfoo-0.dll").path, ".dll")
-
-        # Check that if we pass in an invalid name, it gets transformed
-        @test endswith(LibraryResult("libfoo.so.0.6a.0").path, "$(Libdl.dlext)")
-        @test endswith(LibraryResult("libfoo.dylib.0.6").path, ".$(Libdl.dlext)")
-        @test endswith(LibraryResult("libfoo.dll.0").path, ".$(Libdl.dlext)")
     end
 end
 
@@ -249,26 +259,19 @@ end
 
 
 # Use `build_libfoo_tarball.jl` in the BinDeps2.jl repository to generate more of these
-bin_prefix = "https://github.com/staticfloat/small_bin/raw/74b7fd81e3fbc8963b14b0ebbe5421e270d8bdcf"
-libfoo_downloads = Dict(
-    :linux32 =>      ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz",
-                      "1398353bcbbd88338189ece9c1d6e7c508df120bc4f93afbaed362a9f91358ff"),
-    :linux64 =>      ("$bin_prefix/libfoo.x86_64-linux-gnu.tar.gz",
-                      "b9d57a6e032a56b1f8641771fa707523caa72f1a2e322ab99eeeb011f13ad9f3"),
-    :linuxaarch64 => ("$bin_prefix/libfoo.aarch64-linux-gnu.tar.gz",
-                      "19d9da0e6e7fb506bf4889eb91e936fda43493a39cd4fd7bd5d65506cede6f95"),
-    :linuxarmv7l =>  ("$bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz",
-                      "8e33c1a0e091e6e5b8fcb902e5d45329791bb57763ee9cbcde49c1ec9bd8532a"),
-    :linuxppc64le => ("$bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz",
-                      "b48a64d48be994ec99b1a9fb60e0af7f4415a57596518cb90a340987b79fad81"),
-    :mac64 =>        ("$bin_prefix/libfoo.x86_64-apple-darwin14.tar.gz",
-                      "661b71edb433ab334b0fef70db3b5c45d35f2b3bee0d244f54875f1ec899c10f"),
-    :win32 =>        ("$bin_prefix/libfoo.i686-w64-mingw32.tar.gz",
-                      "3d4a8d4bf0169007a42d809a1d560083635b1540a1bc4a42108841dcb6d2aaea"),
-    :win64 =>        ("$bin_prefix/libfoo.x86_64-w64-mingw32.tar.gz",
-                      "2d08fbc9a534cd021f36b6bbe86ddabb2dafbedeb589581240aa4a8c5b896055"),
+const bin_prefix = "https://github.com/staticfloat/small_bin/raw/74b7fd81e3fbc8963b14b0ebbe5421e270d8bdcf"
+const libfoo_downloads = Dict(
+    :linux32 =>      ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz", "1398353bcbbd88338189ece9c1d6e7c508df120bc4f93afbaed362a9f91358ff"),
+    :linux64 =>      ("$bin_prefix/libfoo.x86_64-linux-gnu.tar.gz", "b9d57a6e032a56b1f8641771fa707523caa72f1a2e322ab99eeeb011f13ad9f3"),
+    :linuxaarch64 => ("$bin_prefix/libfoo.aarch64-linux-gnu.tar.gz", "19d9da0e6e7fb506bf4889eb91e936fda43493a39cd4fd7bd5d65506cede6f95"),
+    :linuxarmv7l =>  ("$bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz", "8e33c1a0e091e6e5b8fcb902e5d45329791bb57763ee9cbcde49c1ec9bd8532a"),
+    :linuxppc64le => ("$bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz", "b48a64d48be994ec99b1a9fb60e0af7f4415a57596518cb90a340987b79fad81"),
+    :mac64 =>        ("$bin_prefix/libfoo.x86_64-apple-darwin14.tar.gz", "661b71edb433ab334b0fef70db3b5c45d35f2b3bee0d244f54875f1ec899c10f"),
+    :win32 =>        ("$bin_prefix/libfoo.i686-w64-mingw32.tar.gz", "3d4a8d4bf0169007a42d809a1d560083635b1540a1bc4a42108841dcb6d2aaea"),
+    :win64 =>        ("$bin_prefix/libfoo.x86_64-w64-mingw32.tar.gz", "2d08fbc9a534cd021f36b6bbe86ddabb2dafbedeb589581240aa4a8c5b896055"),
 )
 
+# Test manually downloading and using libfoo
 @testset "Downloading" begin
     temp_prefix() do prefix
         if !haskey(libfoo_downloads, platform)
@@ -278,31 +281,59 @@ libfoo_downloads = Dict(
             url, hash = libfoo_downloads[platform]
             @test install(url, hash; prefix=prefix, verbose=true)
 
-            activate(prefix) do
-                fooifier_path = "fooifier$(exe_ext)"
-                libfoo_path = "libfoo.$(Libdl.dlext)"
+            fooifier = ExecutableProduct(prefix, "fooifier")
+            libfoo = LibraryProduct(prefix, "libfoo")
 
-                # We know that foo(a, b) returns 2*a^2 - b
-                result = 2*2.2^2 - 1.1
+            @test satisfied(fooifier; verbose=true)
+            @test satisfied(libfoo; verbose=true)
+
+            fooifier_path = locate(fooifier)
+            libfoo_path = locate(libfoo)
+
             
-                # Test that we can invoke fooifier
-                @test !success(`$fooifier_path`)
-                @test success(`$fooifier_path 1.5 2.0`)
-                @test parse(Float64,readchomp(`$fooifier_path 2.2 1.1`)) ≈ result
-            
-                # Test that we can dlopen() libfoo and invoke it directly
-                libfoo = Libdl.dlopen_e(libfoo_path)
-                @test libfoo != C_NULL
-                foo = Libdl.dlsym_e(libfoo, :foo)
-                @test foo != C_NULL
-                @test ccall(foo, Cdouble, (Cdouble, Cdouble), 2.2, 1.1) ≈ result
-                Libdl.dlclose(libfoo)
-            end
+            # We know that foo(a, b) returns 2*a^2 - b
+            result = 2*2.2^2 - 1.1
+        
+            # Test that we can invoke fooifier
+            @test !success(`$fooifier_path`)
+            @test success(`$fooifier_path 1.5 2.0`)
+            @test parse(Float64,readchomp(`$fooifier_path 2.2 1.1`)) ≈ result
+        
+            # Test that we can dlopen() libfoo and invoke it directly
+            hdl = Libdl.dlopen_e(libfoo_path)
+            @test hdl != C_NULL
+            foo = Libdl.dlsym_e(hdl, :foo)
+            @test foo != C_NULL
+            @test ccall(foo, Cdouble, (Cdouble, Cdouble), 2.2, 1.1) ≈ result
+            Libdl.dlclose(hdl)
         end
 
         # Test a bad download fails properly
         bad_url = "http://localhost:1/this_is_not_a_file.x86_64-linux-gnu.tar.gz"
         bad_hash = "0"^64
         @test_throws ErrorException install(bad_url, bad_hash; prefix=prefix, verbose=true)
+    end
+end
+
+# Test installation and failure modes of the bundled LibFoo.jl
+@testset "LibFoo.jl" begin
+    const color="--color=$(Base.have_color ? "yes" : "no")"
+    cd("LibFoo.jl") do
+        rm("./deps/deps.jl"; force=true)
+        rm("./deps/usr"; force=true, recursive=true)
+
+        # Install `libfoo` and build the `deps.jl` file for `LibFoo.jl`
+        run(`$(Base.julia_cmd()) $(color) deps/build.jl`)
+
+        # Ensure `deps.jl` was actually created
+        @test isfile("deps/deps.jl")
+    end
+
+    cd("LibFoo.jl/test") do
+        # Now, run `LibFoo.jl`'s tests, adding `LibFoo.jl` to the LOAD_PATH
+        # so that the tests can pick up the `LibFoo` module
+        withenv("JULIA_LOAD_PATH"=>joinpath(pwd(),"..","src")) do
+            run(`$(Base.julia_cmd()) $(color) runtests.jl`)
+        end
     end
 end
