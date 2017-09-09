@@ -146,7 +146,10 @@ end
         mkpath(bindir(prefix))
         touch(e_path)
         @test satisfied(ef, verbose=true)
-        @test !satisfied(e, verbose=true)
+        @static if !is_windows()
+            # Windows doesn't care about executable bit, grumble grumble
+            @test !satisfied(e, verbose=true)
+        end
 
         # Make it executable and ensure this does satisfy the Executable
         chmod(e_path, 0o777)
