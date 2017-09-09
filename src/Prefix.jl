@@ -298,20 +298,19 @@ installed file, use `manifest_for_file(file_path; prefix=prefix)`.
 """
 function uninstall(manifest::AbstractString;
                    verbose::Bool = false)
-    # Load in the manifest path
+    # Complain if this manifest file doesn't exist
     if !isfile(manifest)
         error("Manifest path $(manifest) does not exist")
     end
 
     prefix_path = dirname(dirname(manifest))
-    relmanipath = relpath(manifest, prefix_path)
-
     if verbose
+        relmanipath = relpath(manifest, prefix_path)
         info("Removing files installed by $(relmanipath)")
     end
 
-    files_to_remove = [chomp(l) for l in readlines(manifest)]
-    for path in files_to_remove
+    # Remove every file listed within the manifest file
+    for path in [chomp(l) for l in readlines(manifest)]
         delpath = joinpath(prefix_path, path)
         if !isfile(delpath)
             if verbose
