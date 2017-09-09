@@ -151,12 +151,14 @@ function locate(ep::ExecutableProduct; verbose::Bool = false)
         end
     end
 
-    # If the file is not executable, fail out
-    if uperm(path) & 0x1 == 0
-        if verbose
-            info("$(path) is not executable, reporting unsatisfied")
+    # If the file is not executable, fail out (unless we're on windows)
+    @static if !is_windows()
+        if uperm(path) & 0x1 == 0
+            if verbose
+                info("$(path) is not executable, reporting unsatisfied")
+            end
+            return nothing
         end
-        return nothing
     end
 
     return path
