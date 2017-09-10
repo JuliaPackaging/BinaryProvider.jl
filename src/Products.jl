@@ -275,8 +275,12 @@ macro write_deps_file(capture...)
                 product = $(products)[idx]
                 name = $(names)[idx]
 
+                # Escape the location so that e.g. Windows platforms are happy
+                # with the backslashes in a string literal
+                escaped_location = replace(locate(product),"\\", "\\\\")
+
                 println(depsjl_file, strip("""
-                const $(name) = \"$(locate(product))\"
+                const $(name) = \"$(escaped_location)\"
                 """))
             end
 
