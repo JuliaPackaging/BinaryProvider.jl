@@ -4,7 +4,7 @@
 import Base: convert, joinpath, show
 using SHA
 
-export Prefix, bindir, libdir, logdir, activate, deactivate,
+export Prefix, bindir, libdir, includedir, logdir, activate, deactivate,
        extract_platform_key, install, uninstall, manifest_for_file,
        list_tarball_files, verify, temp_prefix, package
 
@@ -127,6 +127,15 @@ function libdir(prefix::Prefix)
     else
         return joinpath(prefix, "lib")
     end
+end
+
+"""
+`includedir(prefix::Prefix)`
+
+Returns the include directory for the given `prefix`
+"""
+function includedir(prefix::Prefix)
+    return joinpath(prefix, "include")
 end
 
 """

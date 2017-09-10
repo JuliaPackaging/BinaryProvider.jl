@@ -93,9 +93,12 @@ end
         # Test that it's taking the absolute path
         @test prefix.path == abspath(temp_dir)
 
-        # Test that `bindir()` works
-        mkpath(joinpath(bindir(prefix)))
-        @test isdir(joinpath(bindir(prefix)))
+        # Test that `bindir()`, `libdir()` and `includedir()` all work
+        for f_dir in [bindir, libdir, includedir]
+            @test !isdir(joinpath(f_dir(prefix)))
+            mkpath(joinpath(f_dir(prefix)))
+            @test isdir(joinpath(f_dir(prefix)))
+        end
 
         # Create a little script within the bindir to ensure we can run it
         ppt_path = joinpath(bindir(prefix), "prefix_path_test.sh")
