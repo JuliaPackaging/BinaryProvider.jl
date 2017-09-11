@@ -12,6 +12,10 @@ const sh = gen_sh_cmd
 const simple_out = "1\n2\n3\n4\n"
 const long_out = join(["$(idx)\n" for idx in 1:100], "")
 
+# Explicitly probe platform engines in verbose mode to get coverage and make
+# CI debugging easier
+probe_platform_engines(verbose=true)
+
 @testset "OutputCollector" begin
     cd("output_tests") do
         # Collect the output of `simple.sh``
