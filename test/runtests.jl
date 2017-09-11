@@ -14,7 +14,7 @@ const long_out = join(["$(idx)\n" for idx in 1:100], "")
 
 # Explicitly probe platform engines in verbose mode to get coverage and make
 # CI debugging easier
-BinaryProvider.probe_platform_engines(verbose=true)
+BinaryProvider.probe_platform_engines!(;verbose=true)
 
 @testset "OutputCollector" begin
     cd("output_tests") do
