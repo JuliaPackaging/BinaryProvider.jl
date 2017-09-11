@@ -61,7 +61,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                 platform::Symbol = platform_key())
     if !isdir(lp.dir_path)
         if verbose
-            info("Director $(lp.dir_path) does not exist!")
+            info("Directory $(lp.dir_path) does not exist!")
         end
         return nothing
     end

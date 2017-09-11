@@ -11,6 +11,9 @@ include("PlatformNames.jl")
 include("Prefix.jl")
 # Abstraction of "needing" a file, that would trigger an install
 include("Products.jl")
+# Abstraction of bundled binary package
+include("BinaryPackage.jl")
+
 # BinDeps support, disabled for now because I don't particularly want to force
 # users to install BinDeps to install this package.  That seems counter-productive
 #include("BinDepsIntegration.jl")

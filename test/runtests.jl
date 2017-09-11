@@ -236,6 +236,7 @@ end
     
     # Gotta set this guy up beforehand
     tarball_path = nothing
+    tarball_hash = nothing
 
     temp_prefix() do prefix
         # Create random files
@@ -252,15 +253,17 @@ end
         end
         
         # Next, package it up as a .tar.gz file
-        tarball_path = package(prefix, "./libfoo"; verbose=true)
+        tarball_path, tarball_hash = package(prefix, "./libfoo"; verbose=true)
         @test isfile(tarball_path)
+
+        # Check that we are calculating the hash properly
+        tarball_hash_check = open(tarball_path, "r") do f
+            bytes2hex(sha256(f))
+        end
+        @test tarball_hash_check == tarball_hash
 
         # Test that packaging into a file that already exists fails
         @test_throws ErrorException package(prefix, "./libfoo")
-    end
-
-    tarball_hash = open(tarball_path, "r") do f
-        bytes2hex(sha256(f))
     end
 
     # Test that we can inspect the contents of the tarball
@@ -314,7 +317,6 @@ end
 
     rm(tarball_path; force=true)
 end
-
 
 # Use `build_libfoo_tarball.jl` in the BinDeps2.jl repository to generate more of these
 const bin_prefix = "https://github.com/staticfloat/small_bin/raw/74b7fd81e3fbc8963b14b0ebbe5421e270d8bdcf"
@@ -370,6 +372,22 @@ const libfoo_downloads = Dict(
         bad_url = "http://localhost:1/this_is_not_a_file.x86_64-linux-gnu.tar.gz"
         bad_hash = "0"^64
         @test_throws ErrorException install(bad_url, bad_hash; prefix=prefix, verbose=true)
+    end
+end
+
+# Test the same as the above, but using BinaryPackage abstraction
+@testset "BinaryPackage" begin
+    temp_prefix() do prefix
+        if !haskey(libfoo_downloads, platform)
+            warn("Platform $platform does not have a libfoo download, skipping download tests")
+        else
+            url, hash = libfoo_downloads[platform]
+            fooifier = ExecutableProduct(prefix, "fooifier")
+            libfoo = LibraryProduct(prefix, "libfoo")
+            binpkg = BinaryPackage(url, hash, platform, [fooifier, libfoo])
+
+            @test install(binpkg; prefix=prefix, verbose=true)
+        end
     end
 end
 
