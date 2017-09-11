@@ -123,6 +123,7 @@ end
         # something about Windows | busybox | Julia won't pick this up even though
         # the path clearly points to the file.  :(
         @static if !is_windows()
+            @test success(sh(`$(ppt_path)`))
             @test success(sh(`prefix_path_test.sh`))
         end
         
