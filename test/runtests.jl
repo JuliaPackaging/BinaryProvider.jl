@@ -99,9 +99,9 @@ end
 
         # Test that `bindir()`, `libdir()` and `includedir()` all work
         for f_dir in [bindir, libdir, includedir]
-            @test !isdir(joinpath(f_dir(prefix)))
-            mkpath(joinpath(f_dir(prefix)))
-            @test isdir(joinpath(f_dir(prefix)))
+            @test !isdir(f_dir(prefix))
+            mkpath(f_dir(prefix))
+            @test isdir(f_dir(prefix))
         end
 
         # Create a little script within the bindir to ensure we can run it
