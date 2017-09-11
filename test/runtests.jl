@@ -164,12 +164,57 @@ end
         chmod("$(e_path).exe", 0o777)
         @test locate(e) == "$(e_path).exe"
 
-        # Test that simply creating a library file doesn't satisfy it (because
-        # it must still be `dlopen()`-able)
+        # Test that simply creating a library file doesn't satisfy it if we are
+        # testing something that matches the current platform's dynamic library
+        # naming scheme, because it must be `dlopen()`able.
         mkpath(libdir(prefix))
-        touch(joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)"))
+        touch(l_path)
         @test satisfied(lf, verbose=true)
         @test !satisfied(l, verbose=true)
+
+        # But if it is from a different platform, simple existence will be
+        # enough to satisfy a LibraryProduct
+        @static if is_windows()
+            l_path = joinpath(libdir(prefix), "libfoo.so")
+            touch(l_path)
+            @test satisfied(l, verbose=true, platform=:linux64)
+        else
+            l_path = joinpath(libdir(prefix), "libfoo.dll")
+            touch(l_path)
+            @test satisfied(l, verbose=true, platform=:win64)
+        end
+    end
+
+    # Ensure that the test suite thinks that these libraries are foreign
+    # so that it doesn't try to `dlopen()` them:
+    foreign_platform = @static if platform_key() == :linuxaarch64
+        # Arbitrary architecture that is not dlopen()'able
+        :linuxppc64le
+    else
+        # If we're not :linuxaarch64, then say the libraries are
+        :linuxaarch64
+    end
+
+    # Test for valid library name permutations
+    for ext in ["1.so", "so", "so.1", "so.1.2", "so.1.2.3"]
+        temp_prefix() do prefix
+            l_path = joinpath(libdir(prefix), "libfoo.$ext")
+            l = LibraryProduct(prefix, "libfoo")
+            mkdir(dirname(l_path))
+            touch(l_path)
+            @test satisfied(l; verbose=true, platform=foreign_platform)
+        end
+    end
+
+    # Test for invalid library name permutations
+    for ext in ["so.1.2.3a", "so.1.a", "so."]
+        temp_prefix() do prefix
+            l_path = joinpath(libdir(prefix), "libfoo.$ext")
+            l = LibraryProduct(prefix, "libfoo")
+            mkdir(dirname(l_path))
+            touch(l_path)
+            @test !satisfied(l; verbose=true, platform=foreign_platform)
+        end
     end
 end
 

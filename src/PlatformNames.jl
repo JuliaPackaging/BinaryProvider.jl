@@ -64,7 +64,7 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
 end
 
 
-# Helpful routines to abstract-away
+# Helpful routines to abstract away platform differences on dynamic libraries
 const platform_to_dlext_mapping = Dict(
     :linux64 => "so",
     :linex32 => "so",
@@ -89,22 +89,25 @@ function platform_dlext(platform::Symbol = platform_key())
 end
 
 """
-`valid_dl_path(path::AbstractString)`
+`valid_dl_path(path::AbstractString, platform::Symbol)`
 
 Return `true` if the given `path` ends in a valid dynamic library filename.
 E.g. returns `true` for a path like `"usr/lib/libfoo.so.3.5"`, but returns
 `false` for a path like `"libbar.so.f.a"`.
 """
-function valid_dl_path(path::AbstractString)
-    const dlext_regexes = [
+function valid_dl_path(path::AbstractString, platform::Symbol)
+    const dlext_regexes = Dict(
         # On Linux, libraries look like `libnettle.so.6.3.0`
-        r"^(.*).so(\.[\d]+){0,3}$",
+        "so" => r"^(.*).so(\.[\d]+){0,3}$",
         # On OSX, libraries look like `libnettle.6.3.dylib`
-        r"^(.*).dylib$",
+        "dylib" => r"^(.*).dylib$",
         # On Windows, libraries look like `libnettle-6.dylib`
-        r"^(.*).dll$"
-    ]
+        "dll" => r"^(.*).dll$"
+    )
 
-    # If any of these match, we're happy
-    return any(ismatch(dlregex, basename(path)) for dlregex in dlext_regexes)
+    # Given a platform, find the dlext regex that matches it
+    dlregex = dlext_regexes[platform_dlext(platform)]
+
+    # Return whether or not that regex matches the basename of the given path
+    return ismatch(dlregex, basename(path))
 end

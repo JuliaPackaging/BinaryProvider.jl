@@ -48,12 +48,17 @@ immutable LibraryProduct <: Product
 end
 
 """
-`locate(fp::FileProduct; verbose::Bool = false)`
+locate(lp::LibraryProduct; verbose::Bool = false,
+        platform::Symbol = platform_key())
 
-If the given library exists (under any reasonable name) and is `dlopen()`'able,
-return its path.
+If the given library exists (under any reasonable name) and is `dlopen()`able,
+(assuming it was built for the current platform) return its location.  Note
+that the `dlopen()` test is only run if the current platform matches the given
+`platform` keyword argument, as cross-compiled libraries cannot be `dlopen()`ed
+on foreign platforms.
 """
-function locate(lp::LibraryProduct; verbose::Bool = false)
+function locate(lp::LibraryProduct; verbose::Bool = false,
+                platform::Symbol = platform_key())
     if !isdir(lp.dir_path)
         if verbose
             info("Director $(lp.dir_path) does not exist!")
@@ -61,8 +66,10 @@ function locate(lp::LibraryProduct; verbose::Bool = false)
         return nothing
     end
     for f in readdir(lp.dir_path)
-        # Skip any names that aren't a valid dynamic library
-        if !valid_dl_path(f)
+        # Skip any names that aren't a valid dynamic library for the given
+        # platform (note this will cause problems if something compiles a `.so`
+        # on OSX, for instance)
+        if !valid_dl_path(f, platform)
             continue
         end
 
@@ -78,15 +85,21 @@ function locate(lp::LibraryProduct; verbose::Bool = false)
                 info("$(dl_path) matches our search criteria of $(lp.libname)")
             end
             
-            # If it does, try to `dlopen()` it:
-            hdl = Libdl.dlopen_e(dl_path)
-            if hdl == C_NULL
-                if verbose
-                    info("$(dl_path) cannot be dlopen'ed")
+            # If it does, try to `dlopen()` it if the current platform is good
+            if platform == platform_key()
+                hdl = Libdl.dlopen_e(dl_path)
+                if hdl == C_NULL
+                    if verbose
+                        info("$(dl_path) cannot be dlopen'ed")
+                    end
+                else
+                    # Hey!  It worked!  Yay!
+                    Libdl.dlclose(hdl)
+                    return dl_path
                 end
             else
-                # Hey!  It worked!  Yay!
-                Libdl.dlclose(hdl)
+                # If the current platform doesn't match, then just trust in our
+                # cross-compilers and go with the flow
                 return dl_path
             end
         end
@@ -130,11 +143,13 @@ immutable ExecutableProduct <: Product
 end
 
 """
-`locate(fp::FileProduct; verbose::Bool = false)`
+`locate(fp::FileProduct; platform::Symbol = platform_key(),
+                         verbose::Bool = false)`
 
 If the given executable file exists and is executable, return its path.
 """
-function locate(ep::ExecutableProduct; verbose::Bool = false)
+function locate(ep::ExecutableProduct; platform::Symbol = platform_key(),
+                verbose::Bool = false)
     # We need to determine whether we need to slap a .exe onto the end of our
     # path, so we just try the plain path, and if it doesn't exist, and the
     # current path doesn't already contain a `.exe` on the end, we try slapping
@@ -172,11 +187,14 @@ immutable FileProduct <: Product
 end
 
 """
-`locate(fp::FileProduct; verbose::Bool = false)`
+locate(fp::FileProduct; platform::Symbol = platform_key(),
+                        verbose::Bool = false)
 
-If the given file exists, return its path.
+If the given file exists, return its path.  The platform argument is ignored
+here, but included for uniformity.
 """
-function locate(fp::FileProduct; verbose::Bool = false)
+function locate(fp::FileProduct; platform::Symbol = platform_key(),
+                                 verbose::Bool = false)
     if isfile(fp.path)
         if verbose
             info("FileProduct $(fp.path) does not exist")
@@ -188,13 +206,15 @@ end
 
 
 """
-`satisfied(p::Product; verbose::Bool = false)`
+`satisfied(p::Product; platform::Symbol = platform_key(),
+                       verbose::Bool = false)`
 
 Given a `Product`, return `true` if that `Product` is satisfied, e.g. whether
 a file exists that matches all criteria setup for that `Product`.
 """
-function satisfied(p::Product; verbose::Bool = false)
-    return locate(p; verbose=verbose) != nothing
+function satisfied(p::Product; platform::Symbol = platform_key(),
+                               verbose::Bool = false)
+    return locate(p; platform=platform, verbose=verbose) != nothing
 end
 
 
@@ -241,6 +261,8 @@ macro write_deps_file(capture...)
         const source = VERSION >= v"0.7.0-" ? $("$(dummy_source)") : @__FILE__
         const depsjl_path = joinpath(dirname(source), "deps.jl")
         const package_name = basename(dirname(dirname(source)))
+        const platform = platform_key()
+        escape_path = path -> replace(path, "\\", "\\\\")
 
         const rebuild = strip("""
         Please re-run Pkg.build(\\\"$(package_name)\\\"), and restart Julia.
@@ -277,10 +299,9 @@ macro write_deps_file(capture...)
 
                 # Escape the location so that e.g. Windows platforms are happy
                 # with the backslashes in a string literal
-                escaped_location = replace(locate(product),"\\", "\\\\")
-
+                escaped_path = escape_path(locate(product, platform=platform))
                 println(depsjl_file, strip("""
-                const $(name) = \"$(escaped_location)\"
+                const $(name) = \"$(escaped_path)\"
                 """))
             end
 
