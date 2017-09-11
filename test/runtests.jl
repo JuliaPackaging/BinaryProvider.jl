@@ -5,8 +5,8 @@ using SHA
 # The platform we're running on
 const platform = platform_key()
 
-# Useful command to launch `bash` on any given platform
-const bash = gen_bash_cmd
+# Useful command to launch `sh` on any platform
+const sh = gen_sh_cmd
 
 # Output of a few scripts we are going to run
 const simple_out = "1\n2\n3\n4\n"
@@ -15,7 +15,7 @@ const long_out = join(["$(idx)\n" for idx in 1:100], "")
 @testset "OutputCollector" begin
     cd("output_tests") do
         # Collect the output of `simple.sh``
-        oc = OutputCollector(bash(`./simple.sh`))
+        oc = OutputCollector(sh(`./simple.sh`))
 
         # Ensure we can wait on it and it exited properly
         @test wait(oc)
@@ -52,7 +52,7 @@ const long_out = join(["$(idx)\n" for idx in 1:100], "")
 
     # Next test a much longer output program
     cd("output_tests") do
-        oc = OutputCollector(bash(`./long.sh`))
+        oc = OutputCollector(sh(`./long.sh`))
 
         # Test that it worked, we can read it, and tail() works
         @test wait(oc)
@@ -62,7 +62,7 @@ const long_out = join(["$(idx)\n" for idx in 1:100], "")
 
     # Next, test a command that fails
     cd("output_tests") do
-        oc = OutputCollector(bash(`./fail.sh`))
+        oc = OutputCollector(sh(`./fail.sh`))
 
         @test !wait(oc)
         @test merge(oc) == "1\n2\n"
@@ -71,7 +71,7 @@ const long_out = join(["$(idx)\n" for idx in 1:100], "")
     # Next, test a command that kills itself (NOTE: This doesn't work on windows.  sigh.)
     @static if !is_windows()
         cd("output_tests") do
-            oc = OutputCollector(bash(`./kill.sh`))
+            oc = OutputCollector(sh(`./kill.sh`))
 
             @test !wait(oc)
             @test merge(oc) == "1\n2\n"
@@ -79,7 +79,7 @@ const long_out = join(["$(idx)\n" for idx in 1:100], "")
     end
 
     # Next, test reading the output of a pipeline()
-    grepline = pipeline(bash(`-c 'printf "Hello\nWorld\nJulia"'`), `grep ul`)
+    grepline = pipeline(sh(`-c 'printf "Hello\nWorld\nJulia"'`), `grep ul`)
     oc = OutputCollector(grepline)
 
     @test wait(oc)
@@ -103,7 +103,7 @@ end
         # Create a little script within the bindir to ensure we can run it
         ppt_path = joinpath(bindir(prefix), "prefix_path_test.sh")
         open(ppt_path, "w") do f
-            write(f, "#!/bin/bash\n")
+            write(f, "#!/bin/sh\n")
             write(f, "echo yolo\n")
         end
         chmod(ppt_path, 0o775)
@@ -119,7 +119,7 @@ end
         # something about Windows | busybox | Julia won't pick this up even though
         # the path clearly points to the file.  :(
         @static if !is_windows()
-            @test success(bash(`prefix_path_test.sh`))
+            @test success(sh(`prefix_path_test.sh`))
         end
         
         # Now deactivate and make sure that all traces are gone
@@ -238,7 +238,7 @@ end
         mkpath(libdir(prefix))
         bar_path = joinpath(bindir(prefix), "bar.sh")
         open(bar_path, "w") do f
-            write(f, "#!/bin/bash\n")
+            write(f, "#!/bin/sh\n")
             write(f, "echo yolo\n")
         end
         baz_path = joinpath(libdir(prefix), "baz.so")

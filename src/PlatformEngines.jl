@@ -3,7 +3,7 @@
 # and determine the most appropriate platform binaries to call.
 
 export gen_download_cmd, gen_unpack_cmd, gen_package_cmd, gen_list_tarball_cmd,
-       parse_tarball_listing, gen_bash_cmd, parse_7z_list, parse_tar_list,
+       parse_tarball_listing, gen_sh_cmd, parse_7z_list, parse_tar_list,
        download_verify_unpack, download_verify, unpack
 
 """
@@ -67,17 +67,17 @@ parse_tarball_listing = (output::AbstractString) ->
     error("Call `probe_platform_engines()` before `parse_tarball_listing()`")
 
 """
-`run_bash(cmd::Cmd)`
+`gen_sh_cmd(cmd::Cmd)`
 
-Runs a command using `bash`.  On Unices, this will default to the first `bash`
+Runs a command using `sh`.  On Unices, this will default to the first `sh`
 found on the `PATH`, however on Windows if that is not found it will fall back
-to the `busybox.exe` shipped with Julia.
+to the `sh` provided by the `busybox.exe` shipped with Julia.
 
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-gen_bash_cmd = (cmd::Cmd) ->
-    error("Call `probe_platform_engines()` before `run_bash()`")
+gen_sh_cmd = (cmd::Cmd) ->
+    error("Call `probe_platform_engines()` before `gen_sh_cmd()`")
 
 
 """
@@ -107,7 +107,7 @@ Searches the environment for various tools needed to download, unpack, and
 package up binaries.  Searches for a download engine to be used by
 `gen_download_cmd()` and a compression engine to be used by `gen_unpack_cmd()`,
 `gen_package_cmd()`, `gen_list_tarball_cmd()` and `parse_tarball_listing()`, as
-well as a `bash` execution engine for `gen_bash_cmd()`.  Running this function
+well as a `sh` execution engine for `gen_sh_cmd()`.  Running this function
 will set the global functions to their appropriate implementations given the
 environment this package is running on.
 
@@ -132,7 +132,7 @@ If `verbose` is `true`, print out the various engines as they are searched.
 """
 function probe_platform_engines!(;verbose::Bool = false)
     global gen_download_cmd, gen_list_tarball_cmd, gen_package_cmd
-    global gen_unpack_cmd, parse_tarball_listing, gen_bash_cmd
+    global gen_unpack_cmd, parse_tarball_listing, gen_sh_cmd
     
     # download_engines is a list of (test_cmd, download_opts_functor)
     # The probulator will check each of them by attempting to run `$test_cmd`,
@@ -179,9 +179,9 @@ function probe_platform_engines!(;verbose::Bool = false)
         (`tar --help`, unpack_tar, package_tar, list_tar, parse_tar_list),
     ]
 
-    # bash_engines is just a list of Cmds-as-paths
-    const bash_engines = [
-        `bash`
+    # sh_engines is just a list of Cmds-as-paths
+    const sh_engines = [
+        `sh`
     ]
 
     # For windows, we need to tweak a few things, as the tools available differ
@@ -218,9 +218,9 @@ function probe_platform_engines!(;verbose::Bool = false)
         const exe7z = joinpath(JULIA_HOME, "7z.exe")
         prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
 
-        # And finally, we want to look for bash as busybox as well:
+        # And finally, we want to look for sh as busybox as well:
         const busybox = joinpath(JULIA_HOME, "busybox.exe")
-        prepend!(bash_engines, [(`$busybox bash`)])
+        prepend!(sh_engines, [(`$busybox sh`)])
     end
 
     # Allow environment override
@@ -258,7 +258,7 @@ function probe_platform_engines!(;verbose::Bool = false)
 
     download_found = false
     compression_found = false
-    bash_found = false
+    sh_found = false
 
     if verbose
         info("Probing for download engine...")
@@ -301,16 +301,16 @@ function probe_platform_engines!(;verbose::Bool = false)
     end
 
     if verbose
-        info("Probing for bash engine...")
+        info("Probing for sh engine...")
     end
 
-    for path in bash_engines
+    for path in sh_engines
         if probe_cmd(`$path --help`; verbose=verbose)
-            gen_bash_cmd = (cmd) -> `$path $cmd`
+            gen_sh_cmd = (cmd) -> `$path $cmd`
             if verbose
-                info("Found bash engine $(path.exec[1])")
+                info("Found sh engine $(path.exec[1])")
             end
-            bash_found = true
+            sh_found = true
             break
         end
     end
@@ -330,14 +330,14 @@ function probe_platform_engines!(;verbose::Bool = false)
         errmsg *= ". Install one and ensure it is available on the path.\n"
     end
 
-    if !bash_found
-        errmsg *= "No bash engines found. We looked for: "
-        errmsg *= join([b.exec[1] for b in bash_engines], ", ")
+    if !sh_found
+        errmsg *= "No sh engines found. We looked for: "
+        errmsg *= join([b.exec[1] for b in sh_engines], ", ")
         errmsg *= ". Install one and ensure it is available on the path.\n"
     end
 
     # Error out if we couldn't find something
-    if !download_found || !compression_found || !bash_found
+    if !download_found || !compression_found || !sh_found
         error(errmsg)
     end
 end

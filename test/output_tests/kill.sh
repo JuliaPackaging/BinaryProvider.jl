@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 SELF=$$
 (sleep 3; kill $SELF) &
