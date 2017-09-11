@@ -145,24 +145,26 @@ end
         @test !satisfied(lf, verbose=true)
 
         # Test that simply creating a file that is not executable doesn't
-        # satisfy an Executable Product
+        # satisfy an Executable Product (and say it's on Linux so it doesn't
+        # complain about the lack of an .exe extension)
         mkpath(bindir(prefix))
         touch(e_path)
         @test satisfied(ef, verbose=true)
         @static if !is_windows()
             # Windows doesn't care about executable bit, grumble grumble
-            @test !satisfied(e, verbose=true)
+            @test !satisfied(e, verbose=true, platform=:linux64)
         end
 
         # Make it executable and ensure this does satisfy the Executable
         chmod(e_path, 0o777)
-        @test satisfied(e, verbose=true)
+        @test satisfied(e, verbose=true, platform=:linux64)
 
-        # Remove it and add a `$(path).exe` version to check again
+        # Remove it and add a `$(path).exe` version to check again, this
+        # time saying it's a Windows executable
         rm(e_path; force=true)
         touch("$(e_path).exe")
         chmod("$(e_path).exe", 0o777)
-        @test locate(e) == "$(e_path).exe"
+        @test locate(e, platform=:win64) == "$(e_path).exe"
 
         # Test that simply creating a library file doesn't satisfy it if we are
         # testing something that matches the current platform's dynamic library

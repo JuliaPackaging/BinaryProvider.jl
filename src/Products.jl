@@ -112,11 +112,12 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
 end
 
 """
-An `ExecutableProduct` is a `Product` that represents an executable file, e.g.
-one that that exists and has the executable bit set.  Note that when searching
-for an executable file, if the given path does not exist, but `"path.exe"`
-does exist, that file will be considered to satisfy the `ExecutableProduct`,
-unless `path` ends with `.exe`, of course.
+An `ExecutableProduct` is a `Product` that represents an executable file.
+
+On all platforms, an ExecutableProduct checks for existence of the file.  On
+non-Windows platforms, it will check for the executable bit being set.  On
+Windows platforms, it will check that the file ends with ".exe", (adding it on
+automatically, if it is not already present).
 """
 immutable ExecutableProduct <: Product
     path::AbstractString
@@ -147,26 +148,31 @@ end
                          verbose::Bool = false)`
 
 If the given executable file exists and is executable, return its path.
+
+On all platforms, an ExecutableProduct checks for existence of the file.  On
+non-Windows platforms, it will check for the executable bit being set.  On
+Windows platforms, it will check that the file ends with ".exe", (adding it on
+automatically, if it is not already present).
 """
 function locate(ep::ExecutableProduct; platform::Symbol = platform_key(),
                 verbose::Bool = false)
-    # We need to determine whether we need to slap a .exe onto the end of our
-    # path, so we just try the plain path, and if it doesn't exist, and the
-    # current path doesn't already contain a `.exe` on the end, we try slapping
-    # an `.exe` on the end.
-    path = ep.path
-    if !isfile(path)
-        if !endswith(path, ".exe") && isfile("$(path).exe")
-            path = "$(path).exe"
-        else
-            if verbose
-                info("$(ep.path) does not exist, reporting unsatisfied")
-            end
-            return nothing
-        end
+    # On windows, we always slap an .exe onto the end if it doesn't already
+    # exist, as Windows won't execute files that don't have a .exe at the end.
+    path = if startswith(String(platform), "win") && !endswith(ep.path, ".exe")
+        "$(ep.path).exe"
+    else
+        ep.path
     end
 
-    # If the file is not executable, fail out (unless we're on windows)
+    if !isfile(path)
+        if verbose
+            info("$(ep.path) does not exist, reporting unsatisfied")
+        end
+        return nothing
+    end
+
+    # If the file is not executable, fail out (unless we're on windows since
+    # windows doesn't honor these permissions on its filesystems)
     @static if !is_windows()
         if uperm(path) & 0x1 == 0
             if verbose
