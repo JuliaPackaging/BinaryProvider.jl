@@ -67,7 +67,7 @@ end
 # Helpful routines to abstract away platform differences on dynamic libraries
 const platform_to_dlext_mapping = Dict(
     :linux64 => "so",
-    :linex32 => "so",
+    :linux32 => "so",
     :linuxaarch64 => "so",
     :linuxarmv7l => "so",
     :linuxppc64le => "so",
