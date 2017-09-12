@@ -90,6 +90,30 @@ BinaryProvider.probe_platform_engines!(;verbose=true)
     @test merge(oc) == "Julia\n"
 end
 
+@testset "PlatformNames" begin
+    @test platform_dlext(:linux64) == platform_dlext(:linux32)
+    @test platform_dlext(:win64) == platform_dlext(:win32)
+    @test platform_dlext(:mac64) != platform_dlext(:linuxarmv7l)
+    @test valid_dl_path("libfoo.so.1.2.3", :linux64)
+    @test valid_dl_path("libfoo-1.dll", :win64)
+    @test valid_dl_path("libfoo.1.2.3.dylib", :mac64)
+    @test !valid_dl_path("libfoo.dylib", :linux64)
+    @test !valid_dl_path("libfoo.so", :win64)
+
+    @test platform_key("x86_64-linux-gnu") == :linux64
+    @test platform_key("i686-unknown-linux-gnu") == :linux32
+    @test platform_key("x86_64-apple-darwin14") == :mac64
+    @test platform_key("armv7l-pc-linux-gnueabihf") == :linuxarmv7l
+    @test platform_key("aarch64-unknown-linux-gnu") == :linuxaarch64
+    @test platform_key("powerpc64le-linux-gnu") == :linuxppc64le
+    @test platform_key("x86_64-w64-mingw32") == :win64
+    @test platform_key("i686-w64-mingw32") == :win32
+
+    @test_throws ErrorException platform_key("invalid-triplet-yo")
+    @test_throws ErrorException platform_key("aarch64-unknown-gnueabihf")
+    @test_throws ErrorException platform_key("x86_64-w32-mingw64")
+end
+
 @testset "Prefix" begin
     mktempdir() do temp_dir
         prefix = Prefix(temp_dir)

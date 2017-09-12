@@ -1,4 +1,4 @@
-export supported_platforms, platform_triplet, platform_key
+export supported_platforms, platform_triplet, platform_key, platform_dlext, valid_dl_path
 
 const platform_to_triplet_mapping = Dict(
     :linux64 => "x86_64-linux-gnu",
@@ -58,6 +58,15 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
     end
     if ismatch(r"i\d86-(pc-)?(unknown-)?linux-gnu", machine)
         return :linux32
+    end
+    if ismatch(r"aarch64-(pc-)?(unknown-)?linux-gnu", machine)
+        return :linuxaarch64
+    end
+    if ismatch(r"armv7l-(pc-)?(unknown-)?linux-gnueabihf", machine)
+        return :linuxarmv7l
+    end
+    if ismatch(r"powerpc64le-(pc-)?(unknown-)?linux-gnu", machine)
+        return :linuxpowerpc64le
     end
 
     error("Platform `$(machine)` is not an officially supported platform")
