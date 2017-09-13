@@ -373,6 +373,13 @@ function parse_7z_list(output::AbstractString)
     bounds = [i for i in 1:length(lines) if all([c for c in lines[i]] .== '-')]
     lines = lines[bounds[1]+1:bounds[2]-1]
 
+    # Eliminate `./` prefix, if it exists
+    for idx in 1:length(lines)
+        if startswith(lines[idx], "./") || startswith(lines[idx], ".\\")
+            lines[idx] = lines[idx][3:end]
+        end
+    end
+
     return lines
 end
 
@@ -387,6 +394,13 @@ function parse_tar_list(output::AbstractString)
 
     # Drop empty lines and and directories
     lines = [l for l in lines if !isempty(l) && !endswith(l, '/')]
+
+    # Eliminate `./` prefix, if it exists
+    for idx in 1:length(lines)
+        if startswith(lines[idx], "./") || startswith(lines[idx], ".\\")
+            lines[idx] = lines[idx][3:end]
+        end
+    end
 
     return lines
 end

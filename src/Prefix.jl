@@ -399,16 +399,7 @@ function list_tarball_files(path::AbstractString; verbose::Bool = false)
     catch
         error("Could not list contents of tarball $(path)")
     end
-    lines = parse_tarball_listing(stdout(oc))
-
-    # If there are `./` prefixes on our files, remove them
-    for idx in 1:length(lines)
-        if startswith(lines[idx], "./")
-            lines[idx] = lines[idx][3:end]
-        end
-    end
-
-    return lines
+    return parse_tarball_listing(stdout(oc))
 end
 
 """
