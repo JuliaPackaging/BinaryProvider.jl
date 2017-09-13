@@ -389,6 +389,14 @@ const libfoo_downloads = Dict(
             @test foo != C_NULL
             @test ccall(foo, Cdouble, (Cdouble, Cdouble), 2.2, 1.1) ≈ result
             Libdl.dlclose(hdl)
+
+            # Test uninstallation
+            @test uninstall(manifest_from_url(url; prefix=prefix); verbose=true)
+
+            # Test that download_verify_unpack() works
+            download_verify_unpack(url, hash, prefix.path)
+            @test satisfied(fooifier; verbose=true)
+            @test satisfied(libfoo; verbose=true)
         end
 
         # Test a bad download fails properly
