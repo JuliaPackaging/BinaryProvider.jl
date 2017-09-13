@@ -122,10 +122,9 @@ end
         @test prefix.path == abspath(temp_dir)
 
         # Test that `bindir()`, `libdir()` and `includedir()` all work
-        for f_dir in [bindir, libdir, includedir]
-            @test !isdir(f_dir(prefix))
-            mkpath(f_dir(prefix))
-            @test isdir(f_dir(prefix))
+        for dir in unique([bindir(prefix), libdir(prefix), includedir(prefix)])
+            @test !isdir(dir)
+            mkpath(dir)
         end
 
         # Create a little script within the bindir to ensure we can run it
