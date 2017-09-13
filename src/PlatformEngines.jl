@@ -113,20 +113,20 @@ environment this package is running on.
 
 This probing function will automatically search for download engines using a
 particular ordering; if you wish to override this ordering and use one over all
-others, set the `BINDEPS2_DOWNLOAD_ENGINE` environment variable to its name,
-and it will be the only engine searched for. For example, put:
+others, set the `BINARYPROVIDER_DOWNLOAD_ENGINE` environment variable to its
+name, and it will be the only engine searched for. For example, put:
 
-    ENV["BINDEPS2_DOWNLOAD_ENGINE"] = "fetch"
+    ENV["BINARYPROVIDER_DOWNLOAD_ENGINE"] = "fetch"
 
 within your `~/.juliarc.jl` file to force `fetch` to be used over `curl`.  If
 the given override does not match any of the download engines known to this
 function, a warning will be printed and the typical ordering will be performed.
 
 Similarly, if you wish to override the compression engine used, set the
-`BINDEPS2_COMPRESSION_ENGINE` environment variable to its name (e.g. `7z` or
-`tar`) and it will be the only engine searched for.  If the given override does
-not match any of the compression engines known to this function, a warning will
-be printed and the typical searching will be performed.
+`BINARYPROVIDER_COMPRESSION_ENGINE` environment variable to its name (e.g. `7z`
+or `tar`) and it will be the only engine searched for.  If the given override
+does not match any of the compression engines known to this function, a warning
+will be printed and the typical searching will be performed.
 
 If `verbose` is `true`, print out the various engines as they are searched.
 """
@@ -224,33 +224,33 @@ function probe_platform_engines!(;verbose::Bool = false)
     end
 
     # Allow environment override
-    if haskey(ENV, "BINDEPS2_DOWNLOAD_ENGINE")
-        engine = ENV["BINDEPS2_DOWNLOAD_ENGINE"]
+    if haskey(ENV, "BINARYPROVIDER_DOWNLOAD_ENGINE")
+        engine = ENV["BINARYPROVIDER_DOWNLOAD_ENGINE"]
         dl_ngs = filter(e -> e[1].exec[1] == engine, download_engines)
         if isempty(dl_ngs)
-            all_engines = join([d[1].exec[1] for d in download_engines], ", ")
-            warn_msg  = "Ignoring BINDEPS2_DOWNLOAD_ENGINE as its value of "
-            warn_msg *= "`$(engine)` does not match any known valid engines. "
-            warn_msg *= "Try one of `$(all_engines)`."
+            all_ngs = join([d[1].exec[1] for d in download_engines], ", ")
+            warn_msg  = "Ignoring BINARYPROVIDER_DOWNLOAD_ENGINE as its value "
+            warn_msg *= "of `$(engine)` doesn't match any known valid engines."
+            warn_msg *= " Try one of `$(all_ngs)`."
             warn(warn_msg)
         else
-            # If BINDEPS2_DOWNLOAD_ENGINE matches one of our download engines,
+            # If BINARYPROVIDER_DOWNLOAD_ENGINE matches one of our download engines,
             # then restrict ourselves to looking only at that engine
             download_engines = dl_ngs
         end
     end
 
-    if haskey(ENV, "BINDEPS2_COMPRESSION_ENGINE")
-        engine = ENV["BINDEPS2_COMPRESSION_ENGINE"]
+    if haskey(ENV, "BINARYPROVIDER_COMPRESSION_ENGINE")
+        engine = ENV["BINARYPROVIDER_COMPRESSION_ENGINE"]
         comp_ngs = filter(e -> e[1].exec[1] == engine, compression_engines)
         if isempty(comp_ngs)
-            all_engines = join([c[1].exec[1] for c in compression_engines], ", ")
-            warn_msg  = "Ignoring BINDEPS2_COMPRESSION_ENGINE as its value of "
-            warn_msg *= "`$(engine)` does not match any known valid engines. "
-            warn_msg *= "Try one of `$(all_engines)`."
+            all_ngs = join([c[1].exec[1] for c in compression_engines], ", ")
+            warn_msg  = "Ignoring BINARYPROVIDER_COMPRESSION_ENGINE as its "
+            warn_msg *= "value of `$(engine)` doesn't match any known valid "
+            warn_msg *= "engines. Try one of `$(all_ngs)`."
             warn(warn_msg)
         else
-            # If BINDEPS2_COMPRESSION_ENGINE matches one of our download
+            # If BINARYPROVIDER_COMPRESSION_ENGINE matches one of our download
             # engines, then restrict ourselves to looking only at that engine
             compression_engines = comp_ngs
         end
