@@ -87,7 +87,7 @@ function manifest_path(pkg::BinaryPackage; prefix::Prefix = global_prefix(),
                                            verbose::Bool = false)
     name = pkg_name(pkg)
     # First, see if we can auto-guess the manifest file path:
-    manifest_path = manifest_from_url(tarball_path, prefix=prefix)
+    manifest_path = manifest_from_url(pkg.url, prefix=prefix)
     if isfile(manifest_path)
         if verbose
             info("Correctly auto-guessed manifest path $(manifest_path)")
@@ -100,7 +100,7 @@ function manifest_path(pkg::BinaryPackage; prefix::Prefix = global_prefix(),
     end
 
     # Otherwise, let's try to guess from our products
-    if empty(pkg.products)
+    if isempty(pkg.products)
         msg = """
         Cannot find manifest path for package $(name) with unguessable manifest
         file and no products.
@@ -133,8 +133,8 @@ this `pkg` was not installed in the first place.
 function uninstall(pkg::BinaryPackage; prefix::Prefix = global_prefix,
                                        verbose::Bool = false)
     # Find the manifest path for this pkg, then uninstall it
-    manifest_path = manifest_path(pkg; prefix=prefix, verbose=verbose)
-    uninstall(manifest_path; verbose=verbose)
+    manipath = manifest_path(pkg; prefix=prefix, verbose=verbose)
+    uninstall(manipath; verbose=verbose)
 end
 
 """
