@@ -112,7 +112,10 @@ function manifest_path(pkg::BinaryPackage; prefix::Prefix = global_prefix(),
         product_path = locate(product, platform=pkg.platform)
         if product_path != nothing
             try
-                manifest_path = manifest_for_file(product_path, prefix=prefix)
+                manifest_path = manifest_for_file(product_path; prefix=prefix)
+                relmani = relpath(manifest_path, prefix.path)
+                relprod = relpath(product_path, prefix.path)
+                info("Found $(relmani) for product $(relprod)")
                 return manifest_path
             end
         end
