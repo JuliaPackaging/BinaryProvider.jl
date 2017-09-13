@@ -237,7 +237,7 @@ end
     end
 
     # Test for invalid library name permutations
-    for ext in ["so.1.2.3a", "so.1.a", "so."]
+    for ext in ["so.1.2.3a", "so.1.a"]
         temp_prefix() do prefix
             l_path = joinpath(libdir(prefix), "libfoo.$ext")
             l = LibraryProduct(prefix, "libfoo")
