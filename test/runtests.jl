@@ -78,7 +78,7 @@ BinaryProvider.probe_platform_engines!(;verbose=true)
             oc = OutputCollector(sh(`./kill.sh`))
 
             @test !wait(oc)
-            @test merge(oc) == "1\n2\n"
+            @test stdout(oc) == "1\n2\n"
         end
     end
 
