@@ -1,6 +1,8 @@
 # BinaryProvider
 
-[![Build Status](https://travis-ci.org/JuliaPackaging/BinaryProvider.jl.svg?branch=master)](https://travis-ci.org/JuliaPackaging/BinaryProvider.jl)
+[![Travis Status](https://travis-ci.org/JuliaPackaging/BinaryProvider.jl.svg?branch=master)](https://travis-ci.org/JuliaPackaging/BinaryProvider.jl)
+
+[![Appveyor Status](https://ci.appveyor.com/api/projects/status/0sbp28iie07c5dn3/branch/master?svg=true)](https://ci.appveyor.com/project/staticfloat/binaryprovider-jl-fu5p5/branch/master)
 
 [![codecov.io](http://codecov.io/github/JuliaPackaging/BinaryProvider.jl/coverage.svg?branch=master)](http://codecov.io/github/JuliaPackaging/BinaryProvider.jl?branch=master)
 
