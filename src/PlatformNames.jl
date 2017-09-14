@@ -1,7 +1,8 @@
-import Base: is_linux, is_windows, is_apple
 export supported_platforms, platform_triplet, platform_key, platform_dlext,
-       valid_dl_path, is_linux, is_windows, is_apple
+       valid_dl_path, platform_is_linux, platform_is_windows, platform_is_apple
 
+# Remember, when adding to this mapping, to include the new platform in the
+# `platform_is_*()` functions below.
 const platform_to_triplet_mapping = Dict(
     :linux64 => "x86_64-linux-gnu",
     :linux32 => "i686-linux-gnu",
@@ -24,11 +25,11 @@ function supported_platforms()
 end
 
 """
-`is_linux(platform::Symbol)`
+`platform_is_linux(platform::Symbol)`
 
 Returns `true` if the given platform is some kind of Linux-based platform.
 """
-function is_linux(platform::Symbol)
+function platform_is_linux(platform::Symbol)
     const linuces = [
         :linux64,
         :linux32,
@@ -40,11 +41,11 @@ function is_linux(platform::Symbol)
 end
 
 """
-`is_apple(platform::Symbol)`
+`platform_is_apple(platform::Symbol)`
 
 Returns `true` if the given platform is some kind of Apple-based platform.
 """
-function is_apple(platform::Symbol)
+function platform_is_apple(platform::Symbol)
     const overpriced_fruit = [
         :mac64,
     ]
@@ -52,11 +53,11 @@ function is_apple(platform::Symbol)
 end
 
 """
-`is_windows(platform::Symbol)`
+`platform_is_windows(platform::Symbol)`
 
 Returns `true` if the given platform is some kind of Windows-based platform.
 """
-function is_windows(platform::Symbol)
+function platform_is_windows(platform::Symbol)
     const easily_shattered = [
         :win32,
         :win64,

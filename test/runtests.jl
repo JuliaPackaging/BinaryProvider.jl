@@ -117,15 +117,16 @@ end
     @test_throws ErrorException platform_key("x86_64-w32-mingw64")
 
     # Test that we can indeed ask if something is linux or windows, etc...
-    @test is_linux(:linuxaarch64)
-    @test !is_linux(:win64)
-    @test is_windows(:win32)
-    @test !is_windows(:linux64)
-    @test is_apple(:mac64)
-    @test !is_apple(:linuxppc64le)
+    @test platform_is_linux(:linuxaarch64)
+    @test !platform_is_linux(:win64)
+    @test platform_is_windows(:win32)
+    @test !platform_is_windows(:linux64)
+    @test platform_is_apple(:mac64)
+    @test !platform_is_apple(:linuxppc64le)
 
     # Test that every supported platform is _something_
-    is_something = p -> is_linux(p) || is_windows(p) || is_apple(p)
+    is_something = p -> platform_is_linux(p) || platform_is_windows(p) ||
+                        platform_is_apple(p)
     @test all(is_something(p) for p in supported_platforms())
 end
 
