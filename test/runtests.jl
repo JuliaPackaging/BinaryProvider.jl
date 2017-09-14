@@ -91,15 +91,19 @@ BinaryProvider.probe_platform_engines!(;verbose=true)
 end
 
 @testset "PlatformNames" begin
+    # Test that our platform_dlext stuff works
     @test platform_dlext(:linux64) == platform_dlext(:linux32)
     @test platform_dlext(:win64) == platform_dlext(:win32)
     @test platform_dlext(:mac64) != platform_dlext(:linuxarmv7l)
+
+    # Test some valid dynamic library paths
     @test valid_dl_path("libfoo.so.1.2.3", :linux64)
     @test valid_dl_path("libfoo-1.dll", :win64)
     @test valid_dl_path("libfoo.1.2.3.dylib", :mac64)
     @test !valid_dl_path("libfoo.dylib", :linux64)
     @test !valid_dl_path("libfoo.so", :win64)
 
+    # Make sure the platform_key() with explicit triplet works or doesn't
     @test platform_key("x86_64-linux-gnu") == :linux64
     @test platform_key("i686-unknown-linux-gnu") == :linux32
     @test platform_key("x86_64-apple-darwin14") == :mac64
@@ -108,10 +112,21 @@ end
     @test platform_key("powerpc64le-linux-gnu") == :linuxppc64le
     @test platform_key("x86_64-w64-mingw32") == :win64
     @test platform_key("i686-w64-mingw32") == :win32
-
     @test_throws ErrorException platform_key("invalid-triplet-yo")
     @test_throws ErrorException platform_key("aarch64-unknown-gnueabihf")
     @test_throws ErrorException platform_key("x86_64-w32-mingw64")
+
+    # Test that we can indeed ask if something is linux or windows, etc...
+    @test is_linux(:linuxaarch64)
+    @test !is_linux(:win64)
+    @test is_windows(:win32)
+    @test !is_windows(:linux64)
+    @test is_apple(:mac64)
+    @test !is_apple(:linuxppc64le)
+
+    # Test that every supported platform is _something_
+    is_something = p -> is_linux(p) || is_windows(p) || is_apple(p)
+    @test all(is_something(p) for p in supported_platforms())
 end
 
 @testset "Prefix" begin

@@ -1,4 +1,6 @@
-export supported_platforms, platform_triplet, platform_key, platform_dlext, valid_dl_path
+import Base: is_linux, is_windows, is_apple
+export supported_platforms, platform_triplet, platform_key, platform_dlext,
+       valid_dl_path, is_linux, is_windows, is_apple
 
 const platform_to_triplet_mapping = Dict(
     :linux64 => "x86_64-linux-gnu",
@@ -19,6 +21,47 @@ Return the list of supported platforms as an array of Symbols.
 function supported_platforms()
     global platform_to_triplet_mapping
     return keys(platform_to_triplet_mapping)
+end
+
+"""
+`is_linux(platform::Symbol)`
+
+Returns `true` if the given platform is some kind of Linux-based platform.
+"""
+function is_linux(platform::Symbol)
+    const linuces = [
+        :linux64,
+        :linux32,
+        :linuxaarch64,
+        :linuxarmv7l,
+        :linuxppc64le,
+    ]
+    return platform in linuces
+end
+
+"""
+`is_apple(platform::Symbol)`
+
+Returns `true` if the given platform is some kind of Apple-based platform.
+"""
+function is_apple(platform::Symbol)
+    const overpriced_fruit = [
+        :mac64,
+    ]
+    return platform in overpriced_fruit
+end
+
+"""
+`is_windows(platform::Symbol)`
+
+Returns `true` if the given platform is some kind of Windows-based platform.
+"""
+function is_windows(platform::Symbol)
+    const easily_shattered = [
+        :win32,
+        :win64,
+    ]
+    return platform in easily_shattered
 end
 
 """
