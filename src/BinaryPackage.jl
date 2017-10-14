@@ -16,13 +16,13 @@ There exist `install()`, `uninstall()` and `satisfied()` methods for
 immutable BinaryPackage
     url::String
     hash::String
-    platform::Symbol
+    platform::Platform
     products::Vector{Product}
     dependencies::Vector{BinaryPackage}
 
     function BinaryPackage(url::AbstractString,
                            hash::AbstractString,
-                           platform::Symbol,
+                           platform::Platform,
                            products::Vector{Product}=Product[],
                            dependencies::Vector{BinaryPackage}=BinaryPackage[])
         return new(url, hash, platform, products, dependencies)
@@ -60,7 +60,7 @@ function install(pkg::BinaryPackage; verbose::Bool = false, kwargs...)
         # TODO: We may want to handle this through `Pkg3` operations
         install(dep; verbose=verbose, kwargs...)
     end
-    
+
     # Finally, install ourselves
     install(pkg.url, pkg.hash; verbose=verbose, kwargs...)
 
@@ -94,7 +94,7 @@ function manifest_path(pkg::BinaryPackage; prefix::Prefix = global_prefix(),
         end
         return manifest_path
     end
-    
+
     if verbose
         info("Could not auto-guess manifest path for $(name)")
     end
