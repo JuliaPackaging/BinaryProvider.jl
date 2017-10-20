@@ -49,7 +49,7 @@ end
 
 """
 locate(lp::LibraryProduct; verbose::Bool = false,
-        platform::Symbol = platform_key())
+        platform::Platform = platform_key())
 
 If the given library exists (under any reasonable name) and is `dlopen()`able,
 (assuming it was built for the current platform) return its location.  Note
@@ -58,7 +58,7 @@ that the `dlopen()` test is only run if the current platform matches the given
 on foreign platforms.
 """
 function locate(lp::LibraryProduct; verbose::Bool = false,
-                platform::Symbol = platform_key())
+                platform::Platform = platform_key())
     if !isdir(lp.dir_path)
         if verbose
             info("Directory $(lp.dir_path) does not exist!")
@@ -84,7 +84,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
             if verbose
                 info("$(dl_path) matches our search criteria of $(lp.libname)")
             end
-            
+
             # If it does, try to `dlopen()` it if the current platform is good
             if platform == platform_key()
                 hdl = Libdl.dlopen_e(dl_path)
@@ -144,7 +144,7 @@ immutable ExecutableProduct <: Product
 end
 
 """
-`locate(fp::FileProduct; platform::Symbol = platform_key(),
+`locate(fp::FileProduct; platform::Platform = platform_key(),
                          verbose::Bool = false)`
 
 If the given executable file exists and is executable, return its path.
@@ -154,11 +154,11 @@ non-Windows platforms, it will check for the executable bit being set.  On
 Windows platforms, it will check that the file ends with ".exe", (adding it on
 automatically, if it is not already present).
 """
-function locate(ep::ExecutableProduct; platform::Symbol = platform_key(),
+function locate(ep::ExecutableProduct; platform::Platform = platform_key(),
                 verbose::Bool = false)
     # On windows, we always slap an .exe onto the end if it doesn't already
     # exist, as Windows won't execute files that don't have a .exe at the end.
-    path = if startswith(string(platform), "win") && !endswith(ep.path, ".exe")
+    path = if platform isa Windows && !endswith(ep.path, ".exe")
         "$(ep.path).exe"
     else
         ep.path
@@ -193,13 +193,13 @@ immutable FileProduct <: Product
 end
 
 """
-locate(fp::FileProduct; platform::Symbol = platform_key(),
+locate(fp::FileProduct; platform::Platform = platform_key(),
                         verbose::Bool = false)
 
 If the given file exists, return its path.  The platform argument is ignored
 here, but included for uniformity.
 """
-function locate(fp::FileProduct; platform::Symbol = platform_key(),
+function locate(fp::FileProduct; platform::Platform = platform_key(),
                                  verbose::Bool = false)
     if isfile(fp.path)
         if verbose
@@ -212,13 +212,13 @@ end
 
 
 """
-`satisfied(p::Product; platform::Symbol = platform_key(),
+`satisfied(p::Product; platform::Platform = platform_key(),
                        verbose::Bool = false)`
 
 Given a `Product`, return `true` if that `Product` is satisfied, e.g. whether
 a file exists that matches all criteria setup for that `Product`.
 """
-function satisfied(p::Product; platform::Symbol = platform_key(),
+function satisfied(p::Product; platform::Platform = platform_key(),
                                verbose::Bool = false)
     return locate(p; platform=platform, verbose=verbose) != nothing
 end

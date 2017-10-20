@@ -38,10 +38,10 @@ function temp_prefix(func::Function)
             return tempdir()
         end
     end
-    
+
     mktempdir(_tempdir()) do path
         prefix = Prefix(path)
-        
+
         # Run the user function
         func(prefix)
     end
@@ -55,7 +55,7 @@ immutable Prefix
 
     """
     `Prefix(path::AbstractString)`
-    
+
     A `Prefix` represents a binary installation location.  There is a default
     global `Prefix` (available at `BinaryProvider.global_prefix`) that packages
     are installed into by default, however custom prefixes can be created
@@ -432,7 +432,7 @@ end
 
 """
 `package(prefix::Prefix, tarball_base::AbstractString,
-         platform::Symbol = platform_key(), verbose::Bool = false)`
+         platform::Platform = platform_key(), verbose::Bool = false)`
 
 Build a tarball of the `prefix`, storing the tarball at `tarball_base` plus a
 platform-dependent suffix and a file extension (defaults to the current
@@ -445,19 +445,19 @@ Returns the full path to and the hash of the generated tarball.
 """
 function package(prefix::Prefix,
                  tarball_base::AbstractString;
-                 platform::Symbol = platform_key(),
+                 platform::Platform = platform_key(),
                  verbose::Bool = false)
     # First calculate the output path given our tarball_base and platform
     out_path = try
-        "$(tarball_base).$(platform_triplet(platform)).tar.gz"
+        "$(tarball_base).$(triplet(platform)).tar.gz"
     catch
         error("Platform key `$(platform)` not recognized")
     end
-    
+
     if isfile(out_path)
         error("$(out_path) already exists, refusing to package into it")
     end
-    
+
     withenv("GZIP" => "-9") do
         package_cmd = gen_package_cmd(prefix.path, out_path)
         oc = OutputCollector(package_cmd; verbose=verbose)
@@ -473,7 +473,7 @@ function package(prefix::Prefix,
             error("Packaging of $(prefix.path) did not complete successfully")
         end
     end
-    
+
     # Also spit out the hash of the archive file
     hash = open(out_path, "r") do f
         return bytes2hex(sha256(f))

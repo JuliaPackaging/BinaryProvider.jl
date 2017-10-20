@@ -1,6 +1,8 @@
 __precompile__()
 module BinaryProvider
 
+using Compat
+
 # Include our subprocess running funtionality
 include("OutputCollector.jl")
 # External utilities such as downloading/decompressing tarballs
@@ -21,7 +23,7 @@ include("BinaryPackage.jl")
 
 function __init__()
     global global_prefix
-    
+
     # Initialize our global_prefix
     global_prefix = Prefix(joinpath(dirname(@__FILE__), "../", "global_prefix"))
     activate(global_prefix)

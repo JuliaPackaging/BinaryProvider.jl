@@ -1,5 +1,6 @@
 using BinaryProvider
-using Base.Test
+using Compat
+using Compat.Test
 using SHA
 
 # The platform we're running on
@@ -91,43 +92,63 @@ BinaryProvider.probe_platform_engines!(;verbose=true)
 end
 
 @testset "PlatformNames" begin
+    # Ensure the platform type constructors are well behaved
+    @test_throws ArgumentError Linux(:not_a_platform)
+    @test_throws ArgumentError MacOS(:i686)
+    @test_throws ArgumentError Windows(:armv7l)
+    @test_throws ArgumentError Linux(:x86_64, :crazy_libc)
+
     # Test that our platform_dlext stuff works
-    @test platform_dlext(:linux64) == platform_dlext(:linux32)
-    @test platform_dlext(:win64) == platform_dlext(:win32)
-    @test platform_dlext(:mac64) != platform_dlext(:linuxarmv7l)
+    @test platform_dlext(Linux(:x86_64)) == platform_dlext(Linux(:i686))
+    @test platform_dlext(Windows(:x86_64)) == platform_dlext(Windows(:i686))
+    @test platform_dlext(MacOS()) != platform_dlext(Linux(:armv7l))
 
     # Test some valid dynamic library paths
-    @test valid_dl_path("libfoo.so.1.2.3", :linux64)
-    @test valid_dl_path("libfoo-1.dll", :win64)
-    @test valid_dl_path("libfoo.1.2.3.dylib", :mac64)
-    @test !valid_dl_path("libfoo.dylib", :linux64)
-    @test !valid_dl_path("libfoo.so", :win64)
+    @test valid_dl_path("libfoo.so.1.2.3", Linux(:x86_64))
+    @test valid_dl_path("libfoo-1.dll", Windows(:x86_64))
+    @test valid_dl_path("libfoo.1.2.3.dylib", MacOS())
+    @test !valid_dl_path("libfoo.dylib", Linux(:x86_64))
+    @test !valid_dl_path("libfoo.so", Windows(:x86_64))
 
     # Make sure the platform_key() with explicit triplet works or doesn't
-    @test platform_key("x86_64-linux-gnu") == :linux64
-    @test platform_key("i686-unknown-linux-gnu") == :linux32
-    @test platform_key("x86_64-apple-darwin14") == :mac64
-    @test platform_key("armv7l-pc-linux-gnueabihf") == :linuxarmv7l
-    @test platform_key("aarch64-unknown-linux-gnu") == :linuxaarch64
-    @test platform_key("powerpc64le-linux-gnu") == :linuxppc64le
-    @test platform_key("x86_64-w64-mingw32") == :win64
-    @test platform_key("i686-w64-mingw32") == :win32
-    @test_throws ErrorException platform_key("invalid-triplet-yo")
-    @test_throws ErrorException platform_key("aarch64-unknown-gnueabihf")
-    @test_throws ErrorException platform_key("x86_64-w32-mingw64")
+    @test platform_key("x86_64-linux-gnu") == Linux(:x86_64)
+    @test platform_key("i686-unknown-linux-gnu") == Linux(:i686)
+    @test platform_key("x86_64-apple-darwin14") == MacOS()
+    @test platform_key("armv7l-pc-linux-gnueabihf") == Linux(:armv7l)
+    @test platform_key("aarch64-unknown-linux-gnu") == Linux(:aarch64)
+    @test platform_key("powerpc64le-linux-gnu") == Linux(:ppc64le)
+    @test platform_key("x86_64-w64-mingw32") == Windows(:x86_64)
+    @test platform_key("i686-w64-mingw32") == Windows(:i686)
+    @test_throws ArgumentError platform_key("invalid-triplet-yo")
+    @test_throws ArgumentError platform_key("aarch64-unknown-gnueabihf")
+    @test_throws ArgumentError platform_key("x86_64-w32-mingw64")
 
     # Test that we can indeed ask if something is linux or windows, etc...
-    @test platform_is_linux(:linuxaarch64)
-    @test !platform_is_linux(:win64)
-    @test platform_is_windows(:win32)
-    @test !platform_is_windows(:linux64)
-    @test platform_is_apple(:mac64)
-    @test !platform_is_apple(:linuxppc64le)
+    @test Compat.Sys.islinux(Linux(:aarch64))
+    @test !Compat.Sys.islinux(Windows(:x86_64))
+    @test Compat.Sys.iswindows(Windows(:i686))
+    @test !Compat.Sys.iswindows(Linux(:x86_64))
+    @test Compat.Sys.isapple(MacOS())
+    @test !Compat.Sys.isapple(Linux(:ppc64le))
 
     # Test that every supported platform is _something_
-    is_something = p -> platform_is_linux(p) || platform_is_windows(p) ||
-                        platform_is_apple(p)
-    @test all(is_something(p) for p in supported_platforms())
+    if isdefined(Base.Sys, :isapple)
+        isbasesomething(p) = Sys.islinux(p) || Sys.iswindows(p) || Sys.isapple(p)
+        @test all(isbasesomething, supported_platforms())
+    end
+    issomething(p) = Compat.Sys.islinux(p) || Compat.Sys.iswindows(p) ||
+                     Compat.Sys.isapple(p)
+    @test all(issomething, supported_platforms())
+
+    @test wordsize(Linux(:i686)) == wordsize(Linux(:armv7l)) == 32
+    @test wordsize(MacOS()) == wordsize(Linux(:aarch64)) == 64
+
+    @test triplet(Windows(:i686)) == "i686-w64-mingw32"
+    @test triplet(Linux(:x86_64, :musl)) == "x86_64-linux-musl"
+    @test triplet(Linux(:armv7l, :musl)) == "arm-linux-musleabihf"
+    @test triplet(Linux(:x86_64)) == "x86_64-linux-gnu"
+    @test triplet(Linux(:armv7l)) == "arm-linux-gnueabihf"
+    @test triplet(MacOS()) == "x86_64-apple-darwin14"
 end
 
 @testset "Prefix" begin
@@ -165,7 +186,7 @@ end
             @test success(sh(`$(ppt_path)`))
             @test success(sh(`prefix_path_test.sh`))
         end
-        
+
         # Now deactivate and make sure that all traces are gone
         deactivate(prefix)
         @test BinaryProvider.split_PATH()[1] != bindir(prefix)
@@ -196,19 +217,19 @@ end
         @test satisfied(ef, verbose=true)
         @static if !is_windows()
             # Windows doesn't care about executable bit, grumble grumble
-            @test !satisfied(e, verbose=true, platform=:linux64)
+            @test !satisfied(e, verbose=true, platform=Linux(:x86_64))
         end
 
         # Make it executable and ensure this does satisfy the Executable
         chmod(e_path, 0o777)
-        @test satisfied(e, verbose=true, platform=:linux64)
+        @test satisfied(e, verbose=true, platform=Linux(:x86_64))
 
         # Remove it and add a `$(path).exe` version to check again, this
         # time saying it's a Windows executable
         rm(e_path; force=true)
         touch("$(e_path).exe")
         chmod("$(e_path).exe", 0o777)
-        @test locate(e, platform=:win64) == "$(e_path).exe"
+        @test locate(e, platform=Windows(:x86_64)) == "$(e_path).exe"
 
         # Test that simply creating a library file doesn't satisfy it if we are
         # testing something that matches the current platform's dynamic library
@@ -223,22 +244,22 @@ end
         @static if is_windows()
             l_path = joinpath(libdir(prefix), "libfoo.so")
             touch(l_path)
-            @test satisfied(l, verbose=true, platform=:linux64)
+            @test satisfied(l, verbose=true, platform=Linux(:x86_64))
         else
             l_path = joinpath(libdir(prefix), "libfoo.dll")
             touch(l_path)
-            @test satisfied(l, verbose=true, platform=:win64)
+            @test satisfied(l, verbose=true, platform=Windows(:x86_64))
         end
     end
 
     # Ensure that the test suite thinks that these libraries are foreign
     # so that it doesn't try to `dlopen()` them:
-    foreign_platform = @static if platform_key() == :linuxaarch64
+    foreign_platform = @static if platform_key() == Linux(:aarch64)
         # Arbitrary architecture that is not dlopen()'able
-        :linuxppc64le
+        Linux(:ppc64le)
     else
-        # If we're not :linuxaarch64, then say the libraries are
-        :linuxaarch64
+        # If we're not Linux(:aarch64), then say the libraries are
+        Linux(:aarch64)
     end
 
     # Test for valid library name permutations
@@ -272,7 +293,7 @@ end
         end
         rm(f; force=true)
     end
-    
+
     # Gotta set this guy up beforehand
     tarball_path = nothing
     tarball_hash = nothing
@@ -290,7 +311,7 @@ end
         open(baz_path, "w") do f
             write(f, "this is not an actual .so\n")
         end
-        
+
         # Next, package it up as a .tar.gz file
         tarball_path, tarball_hash = package(prefix, "./libfoo"; verbose=true)
         @test isfile(tarball_path)
@@ -346,7 +367,7 @@ end
 
         # Ensure that we don't want to install tarballs from other platforms
         cp(tarball_path, "./libfoo_juliaos64.tar.gz")
-        @test_throws ErrorException install("./libfoo_juliaos64.tar.gz", tarball_hash; prefix=prefix)
+        @test_throws ArgumentError install("./libfoo_juliaos64.tar.gz", tarball_hash; prefix=prefix)
         rm("./libfoo_juliaos64.tar.gz"; force=true)
 
         # Ensure that hash mismatches throw errors
@@ -360,14 +381,14 @@ end
 # Use `build_libfoo_tarball.jl` in the BinDeps2.jl repository to generate more of these
 const bin_prefix = "https://github.com/staticfloat/small_bin/raw/74b7fd81e3fbc8963b14b0ebbe5421e270d8bdcf"
 const libfoo_downloads = Dict(
-    :linux32 =>      ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz", "1398353bcbbd88338189ece9c1d6e7c508df120bc4f93afbaed362a9f91358ff"),
-    :linux64 =>      ("$bin_prefix/libfoo.x86_64-linux-gnu.tar.gz", "b9d57a6e032a56b1f8641771fa707523caa72f1a2e322ab99eeeb011f13ad9f3"),
-    :linuxaarch64 => ("$bin_prefix/libfoo.aarch64-linux-gnu.tar.gz", "19d9da0e6e7fb506bf4889eb91e936fda43493a39cd4fd7bd5d65506cede6f95"),
-    :linuxarmv7l =>  ("$bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz", "8e33c1a0e091e6e5b8fcb902e5d45329791bb57763ee9cbcde49c1ec9bd8532a"),
-    :linuxppc64le => ("$bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz", "b48a64d48be994ec99b1a9fb60e0af7f4415a57596518cb90a340987b79fad81"),
-    :mac64 =>        ("$bin_prefix/libfoo.x86_64-apple-darwin14.tar.gz", "661b71edb433ab334b0fef70db3b5c45d35f2b3bee0d244f54875f1ec899c10f"),
-    :win32 =>        ("$bin_prefix/libfoo.i686-w64-mingw32.tar.gz", "3d4a8d4bf0169007a42d809a1d560083635b1540a1bc4a42108841dcb6d2aaea"),
-    :win64 =>        ("$bin_prefix/libfoo.x86_64-w64-mingw32.tar.gz", "2d08fbc9a534cd021f36b6bbe86ddabb2dafbedeb589581240aa4a8c5b896055"),
+    Linux(:i686) =>     ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz", "1398353bcbbd88338189ece9c1d6e7c508df120bc4f93afbaed362a9f91358ff"),
+    Linux(:x86_64) =>   ("$bin_prefix/libfoo.x86_64-linux-gnu.tar.gz", "b9d57a6e032a56b1f8641771fa707523caa72f1a2e322ab99eeeb011f13ad9f3"),
+    Linux(:aarch64) =>  ("$bin_prefix/libfoo.aarch64-linux-gnu.tar.gz", "19d9da0e6e7fb506bf4889eb91e936fda43493a39cd4fd7bd5d65506cede6f95"),
+    Linux(:armv7l) =>   ("$bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz", "8e33c1a0e091e6e5b8fcb902e5d45329791bb57763ee9cbcde49c1ec9bd8532a"),
+    Linux(:ppc64le) =>  ("$bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz", "b48a64d48be994ec99b1a9fb60e0af7f4415a57596518cb90a340987b79fad81"),
+    MacOS() =>          ("$bin_prefix/libfoo.x86_64-apple-darwin14.tar.gz", "661b71edb433ab334b0fef70db3b5c45d35f2b3bee0d244f54875f1ec899c10f"),
+    Windows(:i686) =>   ("$bin_prefix/libfoo.i686-w64-mingw32.tar.gz", "3d4a8d4bf0169007a42d809a1d560083635b1540a1bc4a42108841dcb6d2aaea"),
+    Windows(:x86_64) => ("$bin_prefix/libfoo.x86_64-w64-mingw32.tar.gz", "2d08fbc9a534cd021f36b6bbe86ddabb2dafbedeb589581240aa4a8c5b896055"),
 )
 
 # Test manually downloading and using libfoo
@@ -389,15 +410,15 @@ const libfoo_downloads = Dict(
             fooifier_path = locate(fooifier)
             libfoo_path = locate(libfoo)
 
-            
+
             # We know that foo(a, b) returns 2*a^2 - b
             result = 2*2.2^2 - 1.1
-        
+
             # Test that we can invoke fooifier
             @test !success(`$fooifier_path`)
             @test success(`$fooifier_path 1.5 2.0`)
             @test parse(Float64,readchomp(`$fooifier_path 2.2 1.1`)) ≈ result
-        
+
             # Test that we can dlopen() libfoo and invoke it directly
             hdl = Libdl.dlopen_e(libfoo_path)
             @test hdl != C_NULL

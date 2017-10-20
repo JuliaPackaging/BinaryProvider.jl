@@ -12,7 +12,7 @@ notifications:
 matrix:
   include:
     # Make sure to override to "wget" at least once
-    - julia: 0.5
+    - julia: 0.6
       os: linux
       env: BINARYPROVIDER_DOWNLOAD_ENGINE="wget"
 
