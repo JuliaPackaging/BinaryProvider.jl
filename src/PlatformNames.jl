@@ -14,8 +14,8 @@ struct Linux <: Platform
         if libc !== :glibc && libc !== :musl
             throw(ArgumentError("Unsupported libc '$libc' for Linux"))
         end
-        if arch === :powerpc64le
-            arch = :ppc64le
+        if arch === :ppc64le
+            arch = :powerpc64le
         end
         new(arch, libc)
     end
@@ -117,7 +117,7 @@ function supported_platforms()
         Linux(:x86_64),
         Linux(:aarch64),
         Linux(:armv7l),
-        Linux(:ppc64le),
+        Linux(:powerpc64le),
         MacOS(),
         Windows(:i686),
         Windows(:x86_64),
