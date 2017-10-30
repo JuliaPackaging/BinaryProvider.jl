@@ -407,32 +407,52 @@ end
 
 """
 `download_verify(url::AbstractString, hash::AbstractString;
-                 verbose::Bool = false)`
+                 verbose::Bool = false, force::Bool = false)`
 
 Download file located at `url`, verify it matches the given `hash`, and throw
-an error if anything goes wrong.  If `dest` already exists, just verify it.
+an error if anything goes wrong.  If `dest` already exists, just verify it. If
+`force` is set to `true`, overwrite the given file if it exists but does not
+match the given `hash`.
 """
 function download_verify(url::AbstractString, hash::AbstractString,
-                         dest::AbstractString; verbose::Bool = false)
+                         dest::AbstractString; verbose::Bool = false,
+                         force::Bool = false)
     # download to given path
-    if !isfile(dest)
-        download_cmd = gen_download_cmd(url, dest)
-        oc = OutputCollector(download_cmd; verbose=verbose)
-        try
-            if !wait(oc)
-                error()
-            end
-        catch
-            error("Could not download $(url) to $(dest)")
-        end
-    else
+    if isfile(dest)
         if verbose
             info("Destination file $(dest) already exists, verifying...")
         end
+
+        # verify download, if it passes, return happy.  If it fails, (and
+        # `force` is `true`, re-download!)
+        try
+            verify(dest, hash; verbose=verbose)
+            return true
+        catch
+            if !force
+                rethrow()
+            end
+            if verbose
+                info("Verification failed, re-downloading...")
+            end
+        end
     end
 
+    download_cmd = gen_download_cmd(url, dest)
+    if verbose
+        info("Downloading $(url) to $(dest)...")
+    end
+    oc = OutputCollector(download_cmd; verbose=verbose)
+    try
+        if !wait(oc)
+            error()
+        end
+    catch
+        error("Could not download $(url) to $(dest)")
+    end
+    
     # verify download
-    verify(dest, hash; verbose=verbose)
+    return verify(dest, hash; verbose=verbose)
 end
 
 """

@@ -428,6 +428,8 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
             error(msg)
         end
     end
+
+    return true
 end
 
 """

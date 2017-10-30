@@ -443,6 +443,19 @@ const libfoo_downloads = Dict(
             download_verify_unpack(url, hash, prefix.path)
             @test satisfied(fooifier; verbose=true)
             @test satisfied(libfoo; verbose=true)
+
+            # Test that download_verify twice in a row works, and that mucking
+            # with the file causes a redownload if `force` is true:
+            tmpfile = joinpath(prefix, "libfoo.tar.gz")
+            @test download_verify(url, hash, tmpfile; verbose=true)
+            @test download_verify(url, hash, tmpfile; verbose=true)
+            open(tmpfile, "w") do f
+                write(f, "hehehehe")
+            end
+
+            @test_throws ErrorException download_verify(url, hash, tmpfile; verbose=true)
+            @test download_verify(url, hash, tmpfile; verbose=true, force=true)
+
         end
 
         # Test a bad download fails properly
