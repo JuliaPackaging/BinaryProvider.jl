@@ -11,6 +11,18 @@ immutable LineStream
     task::Task
 end
 
+function readuntil_many(s::IO, delims::Vector)
+	out = IOBuffer()
+    while !eof(s)
+        c = read(s, Char)
+        write(out, c)
+        if c in delims
+            break
+        end
+    end
+    return String(take!(out))
+end
+
 """
 `LineStream(pipe::Pipe)`
 
@@ -28,7 +40,7 @@ function LineStream(pipe::Pipe, event::Condition)
         # Read lines in until we can't anymore
         while !eof(pipe)
             # Push this line onto our lines, then notify() the event
-            line = chomp(readline(pipe))
+            line = chomp(readuntil_many(pipe, ['\n', '\r']))
             push!(lines, (time(), line))
             notify(event)
         end
