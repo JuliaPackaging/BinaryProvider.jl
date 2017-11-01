@@ -98,6 +98,16 @@ BinaryProvider.probe_platform_engines!(;verbose=true)
         @test wait(oc)
         @test stdout(oc) == newlines_out
     end
+
+    # Next, test that tee'ing to a stream works
+    cd("output_tests") do
+        ios = IOBuffer()
+        oc = OutputCollector(sh(`./simple.sh`); tee_stream=ios, verbose=true)
+        @test wait(oc)
+        @test merge(oc) == simple_out
+        seekstart(ios)
+        println(readstring(ios))
+    end
 end
 
 @testset "PlatformNames" begin
