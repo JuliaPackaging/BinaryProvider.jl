@@ -102,7 +102,7 @@ Run `cmd`, and collect the output such that `stdout` and `stderr` are captured
 independently, but with the time of each line recorded such that they can be
 stored/analyzed independently, but replayed synchronously.
 """
-function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false)
+function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false, tee_stream=STDOUT)
     # First, launch the command
     out_pipe = Pipe()
     err_pipe = Pipe()
@@ -124,7 +124,7 @@ function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false)
 
     # If we're set as verbose, then start reading ourselves out to stdout
     if verbose
-        tee(self)
+        tee(self; stream = tee_stream)
     end
 
     return self
@@ -271,7 +271,7 @@ end
 Spawn a background task to incrementally output lines from `collector` to the
 standard output, optionally colored.
 """
-function tee(c::OutputCollector; colored::Bool = Base.have_color)
+function tee(c::OutputCollector; colored::Bool = Base.have_color, stream=STDOUT)
     tee_task = @async begin
         out_idx = 1
         err_idx = 1
@@ -283,30 +283,30 @@ function tee(c::OutputCollector; colored::Bool = Base.have_color)
             timestr = Libc.strftime("[%T] ", time())
             # We know we have data, so figure out if it's for stdout or stderr
             if length(out_lines) >= out_idx
-                print_color(:default, timestr; bold=true)
+                print_color(:default, stream, timestr; bold=true)
                 if length(err_lines) >= err_idx
                     # If we've got input waiting from both lines, then output
                     # the one with the lowest capture time
                     if out_lines[out_idx][1] < err_lines[err_idx][1]
                         # Print the out line as it's older
-                        println(out_lines[out_idx][2])
+                        println(stream, out_lines[out_idx][2])
                         out_idx += 1
                     else
                         # Print the err line as it's older
-                        print_color(:red, err_lines[err_idx][2])
-                        println()
+                        print_color(:red, stream, err_lines[err_idx][2])
+                        println(stream)
                         err_idx += 1
                     end
                 else
                     # Pring the out line that is the only one waiting
-                    println(out_lines[out_idx][2])
+                    println(stream, out_lines[out_idx][2])
                     out_idx += 1
                 end
             else length(err_lines) > err_idx
                 # Print the err line that is the only one waiting
-                print_color(:default, timestr; bold=true)
-                print_color(:red, err_lines[err_idx][2])
-                println()
+                print_color(:default, stream, timestr; bold=true)
+                print_color(:red, stream, err_lines[err_idx][2])
+                println(stream)
                 err_idx += 1
             end
         end
@@ -344,19 +344,19 @@ end
 Functionally identical to `Base.print_with_color` except that this works
 identically across Julia 0.5 and 0.6.
 """
-function print_color(color::Symbol, msg::AbstractString; bold::Bool=false)
+function print_color(color::Symbol, out::IO, msg::AbstractString; bold::Bool=false)
     # Engage the color, and optionally the boldness
-    print(Base.text_colors[color])
+    print(out, Base.text_colors[color])
     if bold
-        print("\e[1m")
+        print(out, "\e[1m")
     end
 
     # Print the message
-    print(msg)
+    print(out, msg)
 
     # Disengage the color, and optionally the boldness
     if bold
-        print("\e[22m")
+        print(out, "\e[22m")
     end
-    print(Base.text_colors[:normal])
+    print(out, Base.text_colors[:normal])
 end
