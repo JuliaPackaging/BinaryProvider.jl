@@ -491,7 +491,8 @@ Returns the full path to and the hash of the generated tarball.
 function package(prefix::Prefix,
                  tarball_base::AbstractString;
                  platform::Platform = platform_key(),
-                 verbose::Bool = false)
+                 verbose::Bool = false,
+                 force::Bool = false)
     # First calculate the output path given our tarball_base and platform
     out_path = try
         "$(tarball_base).$(triplet(platform)).tar.gz"
@@ -500,7 +501,15 @@ function package(prefix::Prefix,
     end
 
     if isfile(out_path)
-        error("$(out_path) already exists, refusing to package into it")
+        if force
+            rm(out_path; force=true)
+        else
+            msg = replace(strip("""
+            $(out_path) already exists, refusing to package into it without
+            `force` being set to `true`.
+            """), "\n", " ")
+            error(msg)
+        end
     end
 
     withenv("GZIP" => "-9") do
