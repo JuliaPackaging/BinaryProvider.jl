@@ -406,13 +406,51 @@ end
     verify(path::String, hash::String; verbose::Bool)
 
 Given a file `path` and a `hash`, calculate the SHA256 of the file and compare
-it to `hash`.  If an error occurs, `verify()` will throw an error.
+it to `hash`.  If an error occurs, `verify()` will throw an error.  This method
+caches verification results in a `"\$(path).sha256"` file to accelerate re-
+verification of files that have been previously verified.  If no `".sha256"`
+file exists, a full verification will be done and the file will be created,
+with the calculated hash being stored within the `".sha256"` file..  If a
+`".sha256"` file does exist, its contents are checked to ensure that the hash
+contained within matches the given `hash` parameter, and its modification time
+shows that the file located at `path` has not been modified since the last
+verification.
 """
 function verify(path::AbstractString, hash::AbstractString; verbose::Bool = false)
     if length(hash) != 64
         msg  = "Hash must be 256 bits (64 characters) long, "
         msg *= "given hash is $(length(hash)) characters long"
         error(msg)
+    end
+
+    # Fist, check to see if the hash cache is consistent
+    hash_path = "$(path).sha256"
+
+    # First, it must exist
+    if isfile(hash_path)
+        # Next, it must contain the same hash as what we're verifying against
+        if readstring(open(hash_path, "r")) == hash
+            # Next, it must be no older than the actual path
+            if stat(hash_path).mtime >= stat(path).mtime
+                # If all of that is true, then we're good!
+                if verbose
+                    info("Hash cache is consistent, returning true")
+                end
+                return true
+            else
+                if verbose
+                    info("File has been modified, hash cache invalidated")
+                end
+            end
+        else
+            if verbose
+                info("Hash has changed, hash cache invalidated")
+            end
+        end
+    else
+        if verbose
+            info("No hash cache found")
+        end
     end
     
     open(path) do file
@@ -427,6 +465,11 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
             msg *= "  Calculated sha256: $calc_hash"
             error(msg)
         end
+    end
+
+    # Save a hash cache if everything worked out fine
+    open(hash_path, "w") do file
+        write(file, hash)
     end
 
     return true

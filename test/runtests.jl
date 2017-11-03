@@ -307,7 +307,7 @@ end
 @testset "Packaging" begin
     # Clear out previous build products
     for f in readdir(".")
-        if !endswith(f, ".tar.gz")
+        if !endswith(f, ".tar.gz") || !endswith(f, ".sha256")
             continue
         end
         rm(f; force=true)
@@ -395,6 +395,44 @@ end
     end
 
     rm(tarball_path; force=true)
+    rm("$(tarball_path).sha256"; force=true)
+end
+
+@testset "Verification" begin
+    temp_prefix() do prefix
+        foo_path = joinpath(prefix, "foo")
+        open(foo_path, "w") do file
+            write(file, "test")
+        end
+        foo_hash = bytes2hex(sha256("test"))
+
+        # Check that verifying with the right hash works
+        info("This should say; no hash cache found")
+        @test verify(foo_path, foo_hash; verbose=true)
+
+        # Check that it created a .sha256 file
+        @test isfile("$(foo_path).sha256")
+
+        # Check that it verifies the second time around properly
+        info("This should say; hash cache is consistent")
+        @test verify(foo_path, foo_hash; verbose=true)
+
+        # Sleep for imprecise filesystems
+        sleep(2)
+
+        # Get coverage of messing with different parts of the verification chain
+        touch(foo_path)
+        info("This should say; file has been modified")
+        @test verify(foo_path, foo_hash; verbose=true)
+        @test_throws ErrorException verify(foo_path, "0"^32; verbose=true)
+        touch(foo_path)
+        @test verify(foo_path, foo_hash; verbose=true)
+        open("$(foo_path).sha256", "w") do file
+            write(file, "this is not the right hash")
+        end
+        info("This should say; hash has changed")
+        @test verify(foo_path, foo_hash; verbose=true)
+    end
 end
 
 # Use `build_libfoo_tarball.jl` in the BinDeps2.jl repository to generate more of these
@@ -459,6 +497,11 @@ const libfoo_downloads = Dict(
             tmpfile = joinpath(prefix, "libfoo.tar.gz")
             @test download_verify(url, hash, tmpfile; verbose=true)
             @test download_verify(url, hash, tmpfile; verbose=true)
+
+            # We sleep for at least a second here so that filesystems with low
+            # precision in their mtime implementations don't get confused
+            sleep(2)
+
             open(tmpfile, "w") do f
                 write(f, "hehehehe")
             end
