@@ -138,8 +138,8 @@ function probe_platform_engines!(;verbose::Bool = false)
     # The probulator will check each of them by attempting to run `$test_cmd`,
     # and if that works, will set the global download functions appropriately.
     const download_engines = [
-        (`curl --help`, (url, path) -> `curl -\# -f -o $path -L $url`),
-        (`wget --help`, (url, path) -> `wget -O $path $url`),
+        (`curl --help`, (url, path) -> `curl -C - -\# -f -o $path -L $url`),
+        (`wget --help`, (url, path) -> `wget -c -O $path $url`),
         (`fetch --help`, (url, path) -> `fetch -f $path $url`),
     ]
 
@@ -406,8 +406,31 @@ function parse_tar_list(output::AbstractString)
 end
 
 """
-`download_verify(url::AbstractString, hash::AbstractString;
-                 verbose::Bool = false, force::Bool = false)`
+    download(url::AbstractString, dest::AbstractString;
+             verbose::Bool = false)
+
+Download file located at `url`, store it at `dest`, continuing if `dest`
+already exists and the server and download engine support it.
+"""
+function download(url::AbstractString, dest::AbstractString;
+                  verbose::Bool = false)
+    download_cmd = gen_download_cmd(url, dest)
+    if verbose
+        info("Downloading $(url) to $(dest)...")
+    end
+    oc = OutputCollector(download_cmd; verbose=verbose)
+    try
+        if !wait(oc)
+            error()
+        end
+    catch
+        error("Could not download $(url) to $(dest)")
+    end
+end
+
+"""
+    download_verify(url::AbstractString, hash::AbstractString;
+                    verbose::Bool = false, force::Bool = false)
 
 Download file located at `url`, verify it matches the given `hash`, and throw
 an error if anything goes wrong.  If `dest` already exists, just verify it. If
@@ -417,8 +440,11 @@ match the given `hash`.
 function download_verify(url::AbstractString, hash::AbstractString,
                          dest::AbstractString; verbose::Bool = false,
                          force::Bool = false)
-    # download to given path
+    # Whether the file existed in the first place
+    file_existed = false
+
     if isfile(dest)
+        file_existed = true
         if verbose
             info("Destination file $(dest) already exists, verifying...")
         end
@@ -438,21 +464,34 @@ function download_verify(url::AbstractString, hash::AbstractString,
         end
     end
 
-    download_cmd = gen_download_cmd(url, dest)
-    if verbose
-        info("Downloading $(url) to $(dest)...")
-    end
-    oc = OutputCollector(download_cmd; verbose=verbose)
+    # Download the file, optionally continuing
+    download(url, dest; verbose=verbose)
+
+    # If it worked, then yay!
     try
-        if !wait(oc)
-            error()
-        end
+        return verify(dest, hash; verbose=verbose)
     catch
-        error("Could not download $(url) to $(dest)")
+        # If the file already existed, it's possible the initially downloaded chunk
+        # was bad.  If verification fails after downloading, auto-delete the file
+        # and start over from scratch.
+        if file_existed
+            if verbose
+                msg = strip("""
+                Continued download did not yield change in file size, restarting
+                from scratch...""")
+                info(msg)
+            end
+            rm(dest; force=true)
+
+            # Download and verify from scratch
+            download(url, dest; verbose=verbose)
+            return verify(dest, hash; verbose=verbose)
+        else
+            # If it didn't verify properly and we didn't resume, something is
+            # very wrong and we must complain mightily.
+            rethrow()
+        end
     end
-    
-    # verify download
-    return verify(dest, hash; verbose=verbose)
 end
 
 """
