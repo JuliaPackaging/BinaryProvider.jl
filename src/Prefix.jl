@@ -502,6 +502,9 @@ function package(prefix::Prefix,
 
     if isfile(out_path)
         if force
+            if verbose
+                info("$(out_path) already exists, force-overwriting...")
+            end
             rm(out_path; force=true)
         else
             msg = replace(strip("""
