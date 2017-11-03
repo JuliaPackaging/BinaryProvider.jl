@@ -9,7 +9,7 @@ export Prefix, bindir, libdir, includedir, logdir, activate, deactivate,
        manifest_for_file, list_tarball_files, verify, temp_prefix, package
 
 """
-`temp_prefix(func::Function)`
+    temp_prefix(func::Function)
 
 Create a temporary prefix, passing the prefix into the user-defined function so
 that build/packaging operations can occur within the temporary prefix, which is
@@ -54,7 +54,7 @@ immutable Prefix
     path::String
 
     """
-    `Prefix(path::AbstractString)`
+        Prefix(path::AbstractString)
 
     A `Prefix` represents a binary installation location.  There is a default
     global `Prefix` (available at `BinaryProvider.global_prefix`) that packages
@@ -79,7 +79,7 @@ convert(::Type{AbstractString}, prefix::Prefix) = prefix.path
 show(io::IO, prefix::Prefix) = show(io, "Prefix($(prefix.path))")
 
 """
-`split_PATH(PATH::AbstractString = ENV["PATH"])`
+    split_PATH(PATH::AbstractString = ENV["PATH"])
 
 Splits a string such as the  `PATH` environment variable into a list of strings
 according to the path separation rules for the current platform.
@@ -93,7 +93,7 @@ function split_PATH(PATH::AbstractString = ENV["PATH"])
 end
 
 """
-`join_PATH(PATH::Vector{AbstractString})`
+    join_PATH(PATH::Vector{AbstractString})
 
 Given a list of strings, return a joined string suitable for the `PATH`
 environment variable appropriate for the current platform.
@@ -107,7 +107,7 @@ function join_PATH{S<:AbstractString}(paths::Vector{S})
 end
 
 """
-`bindir(prefix::Prefix)`
+    bindir(prefix::Prefix)
 
 Returns the binary directory for the given `prefix`.
 """
@@ -116,7 +116,7 @@ function bindir(prefix::Prefix)
 end
 
 """
-`libdir(prefix::Prefix)`
+    libdir(prefix::Prefix)
 
 Returns the library directory for the given `prefix` (not ethat this differs
 between unix systems and windows systems).
@@ -130,7 +130,7 @@ function libdir(prefix::Prefix)
 end
 
 """
-`includedir(prefix::Prefix)`
+    includedir(prefix::Prefix)
 
 Returns the include directory for the given `prefix`
 """
@@ -139,7 +139,7 @@ function includedir(prefix::Prefix)
 end
 
 """
-`logdir(prefix::Prefix)`
+    logdir(prefix::Prefix)
 
 Returns the logs directory for the given `prefix`.
 """
@@ -148,7 +148,7 @@ function logdir(prefix::Prefix)
 end
 
 """
-`activate(prefix::Prefix)`
+    activate(prefix::Prefix)
 
 Prepends paths to environment variables so that binaries and libraries are
 available to Julia.
@@ -169,7 +169,7 @@ function activate(prefix::Prefix)
 end
 
 """
-`activate(func::Function, prefix::Prefix)`
+    activate(func::Function, prefix::Prefix)
 
 Prepends paths to environment variables so that binaries and libraries are
 available to Julia, calls the user function `func`, then `deactivate()`'s
@@ -182,7 +182,7 @@ function activate(func::Function, prefix::Prefix)
 end
 
 """
-`deactivate(prefix::Prefix)`
+    deactivate(prefix::Prefix)
 
 Removes paths added to environment variables by `activate()`
 """
@@ -198,7 +198,7 @@ function deactivate(prefix::Prefix)
 end
 
 """
-`extract_platform_key(path::AbstractString)`
+    extract_platform_key(path::AbstractString)
 
 Given the path to a tarball, return the platform key of that tarball. If none
 can be found, prints a warning and return the current platform suffix.
@@ -216,12 +216,12 @@ function extract_platform_key(path::AbstractString)
 end
 
 """
-install(tarball_url::AbstractString,
-        hash::AbstractString;
-        prefix::Prefix = global_prefix,
-        force::Bool = false,
-        ignore_platform::Bool = false,
-        verbose::Bool = false)
+    install(tarball_url::AbstractString,
+            hash::AbstractString;
+            prefix::Prefix = global_prefix,
+            force::Bool = false,
+            ignore_platform::Bool = false,
+            verbose::Bool = false)
 
 Given a `prefix`, a `tarball_url` and a `hash`, download that tarball into the
 prefix, verify its integrity with the `hash`, and install it into the `prefix`.
@@ -299,7 +299,7 @@ function install(tarball_url::AbstractString,
 end
 
 """
-`uninstall(manifest::AbstractString; verbose::Bool = false)`
+    uninstall(manifest::AbstractString; verbose::Bool = false)
 
 Uninstall a package from a prefix by providing the `manifest_path` that was
 generated during `install()`.  To find the `manifest_file` for a particular
@@ -342,7 +342,7 @@ function uninstall(manifest::AbstractString;
 end
 
 """
-`manifest_from_url(url::AbstractString; prefix::Prefix = global_prefix())`
+    manifest_from_url(url::AbstractString; prefix::Prefix = global_prefix())
 
 Returns the file path of the manifest file for the tarball located at `url`.
 """
@@ -353,7 +353,7 @@ function manifest_from_url(url::AbstractString;
 end
 
 """
-`manifest_for_file(path::AbstractString; prefix::Prefix = global_prefix)`
+    manifest_for_file(path::AbstractString; prefix::Prefix = global_prefix)
 
 Returns the manifest file containing the installation receipt for the given
 `path`, throws an error if it cannot find a matching manifest.
@@ -381,7 +381,7 @@ function manifest_for_file(path::AbstractString;
 end
 
 """
-`list_tarball_files(path::AbstractString; verbose::Bool = false)`
+    list_tarball_files(path::AbstractString; verbose::Bool = false)
 
 Given a `.tar.gz` filepath, list the compressed contents.
 """
@@ -403,7 +403,7 @@ function list_tarball_files(path::AbstractString; verbose::Bool = false)
 end
 
 """
-`verify(path::String, hash::String; verbose::Bool)`
+    verify(path::String, hash::String; verbose::Bool)
 
 Given a file `path` and a `hash`, calculate the SHA256 of the file and compare
 it to `hash`.  If an error occurs, `verify()` will throw an error.
@@ -433,8 +433,8 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
 end
 
 """
-`package(prefix::Prefix, tarball_base::AbstractString,
-         platform::Platform = platform_key(), verbose::Bool = false)`
+    package(prefix::Prefix, tarball_base::AbstractString,
+            platform::Platform = platform_key(), verbose::Bool = false)
 
 Build a tarball of the `prefix`, storing the tarball at `tarball_base` plus a
 platform-dependent suffix and a file extension (defaults to the current
