@@ -50,7 +50,7 @@ end
 # This is the default prefix that things get saved to, it is initialized within
 # __init__() on first module load.
 global_prefix = nothing
-immutable Prefix
+struct Prefix
     path::String
 
     """
@@ -98,7 +98,7 @@ end
 Given a list of strings, return a joined string suitable for the `PATH`
 environment variable appropriate for the current platform.
 """
-function join_PATH{S<:AbstractString}(paths::Vector{S})
+function join_PATH(paths::Vector{S}) where S<:AbstractString
     @static if is_windows()
         return join(paths, ";")
     else

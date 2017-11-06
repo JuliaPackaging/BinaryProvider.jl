@@ -3,7 +3,7 @@ import BinDeps: Binaries, can_use, package_available, bindir, libdir,
                 generate_steps, LibraryDependency, provider, provides
 import Base: show
 
-type BP <: Binaries
+mutable struct BP <: Binaries
     url::String
     hash::String
     prefix::Prefix
