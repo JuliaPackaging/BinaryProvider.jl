@@ -20,7 +20,7 @@ const download_info = Dict(
     Windows(:i686) =>   ("$bin_prefix/libfoo.i686-w64-mingw32.tar.gz", "3d4a8d4bf0169007a42d809a1d560083635b1540a1bc4a42108841dcb6d2aaea"),
     Windows(:x86_64) => ("$bin_prefix/libfoo.x86_64-w64-mingw32.tar.gz", "2d08fbc9a534cd021f36b6bbe86ddabb2dafbedeb589581240aa4a8c5b896055"),
 )
-if platform in keys(download_info)
+if haskey(download_info, platform)
     # Grab the url and tarball hash for this particular platform
     url, tarball_hash = download_info[platform]
 
@@ -33,5 +33,3 @@ if platform in keys(download_info)
 else
     error("Your platform $(Sys.MACHINE) is not recognized, we cannot install Libfoo!")
 end
-
-
