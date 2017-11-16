@@ -75,7 +75,7 @@ BinaryProvider.probe_platform_engines!(;verbose=true)
     end
 
     # Next, test a command that kills itself (NOTE: This doesn't work on windows.  sigh.)
-    @static if !is_windows()
+    @static if !Compat.Sys.iswindows()
         cd("output_tests") do
             oc = OutputCollector(sh(`./kill.sh`))
 
@@ -201,7 +201,7 @@ end
         # Test we can run the script we dropped within this prefix.  Once again,
         # something about Windows | busybox | Julia won't pick this up even though
         # the path clearly points to the file.  :(
-        @static if !is_windows()
+        @static if !Compat.Sys.iswindows()
             @test success(sh(`$(ppt_path)`))
             @test success(sh(`prefix_path_test.sh`))
         end
@@ -234,7 +234,7 @@ end
         mkpath(bindir(prefix))
         touch(e_path)
         @test satisfied(ef, verbose=true)
-        @static if !is_windows()
+        @static if !Compat.Sys.iswindows()
             # Windows doesn't care about executable bit, grumble grumble
             @test !satisfied(e, verbose=true, platform=Linux(:x86_64))
         end
@@ -260,7 +260,7 @@ end
 
         # But if it is from a different platform, simple existence will be
         # enough to satisfy a LibraryProduct
-        @static if is_windows()
+        @static if Compat.Sys.iswindows()
             l_path = joinpath(libdir(prefix), "libfoo.so")
             touch(l_path)
             @test satisfied(l, verbose=true, platform=Linux(:x86_64))
@@ -347,7 +347,7 @@ end
 
     # Test that we can inspect the contents of the tarball
     contents = list_tarball_files(tarball_path)
-    const libdir_name = is_windows() ? "bin" : "lib"
+    const libdir_name = Compat.Sys.iswindows() ? "bin" : "lib"
     @test joinpath("bin", "bar.sh") in contents
     @test joinpath(libdir_name, "baz.so") in contents
 
