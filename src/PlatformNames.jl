@@ -195,7 +195,7 @@ E.g. returns `true` for a path like `"usr/lib/libfoo.so.3.5"`, but returns
 `false` for a path like `"libbar.so.f.a"`.
 """
 function valid_dl_path(path::AbstractString, platform::Platform)
-    const dlext_regexes = Dict(
+    dlext_regexes = Dict(
         # On Linux, libraries look like `libnettle.so.6.3.0`
         "so" => r"^(.*).so(\.[\d]+){0,3}$",
         # On OSX, libraries look like `libnettle.6.3.dylib`
