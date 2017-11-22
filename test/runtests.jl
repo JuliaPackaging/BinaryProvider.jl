@@ -12,7 +12,7 @@ const sh = gen_sh_cmd
 # Output of a few scripts we are going to run
 const simple_out = "1\n2\n3\n4\n"
 const long_out = join(["$(idx)\n" for idx in 1:100], "")
-const newlines_out = join(["marco$d\npolo$d\n" for d in ("","\r","\r\n")], "")
+const newlines_out = join(["marco$(d)polo$(d)" for d in ("\n","\r","\r\n")], "")
 
 # Explicitly probe platform engines in verbose mode to get coverage and make
 # CI debugging easier

@@ -46,7 +46,7 @@ function LineStream(pipe::Pipe, event::Condition)
         # Read lines in until we can't anymore
         while !eof(pipe)
             # Push this line onto our lines, then notify() the event
-            line = chomp(readuntil_many(pipe, ['\n', '\r']))
+            line = readuntil_many(pipe, ['\n', '\r'])
             push!(lines, (time(), line))
             notify(event)
         end
@@ -189,7 +189,7 @@ function merge(collector::OutputCollector; colored::Bool = false)
             print(output, color)
         end
         t, line = shift!(lines)
-        println(output, line)
+        print(output, line)
     end
 
     # These help us keep track of colorizing the output
@@ -234,7 +234,7 @@ end
 Returns all stdout lines collected by this collector so far.
 """
 function stdout(collector::OutputCollector)
-    return join([l[2] * "\n" for l in collector.stdout_linestream.lines], "")
+    return join([l[2] for l in collector.stdout_linestream.lines], "")
 end
 
 """
@@ -243,7 +243,7 @@ end
 Returns all stderr lines collected by this collector so far.
 """
 function stderr(collector::OutputCollector)
-    return join([l[2] * "\n" for l in collector.stderr_linestream.lines], "")
+    return join([l[2] for l in collector.stderr_linestream.lines], "")
 end
 
 """
@@ -289,24 +289,24 @@ function tee(c::OutputCollector; colored::Bool = Base.have_color, stream=STDOUT)
                     # the one with the lowest capture time
                     if out_lines[out_idx][1] < err_lines[err_idx][1]
                         # Print the out line as it's older
-                        println(stream, out_lines[out_idx][2])
+                        print(stream, out_lines[out_idx][2])
                         out_idx += 1
                     else
                         # Print the err line as it's older
                         print_color(:red, stream, err_lines[err_idx][2])
-                        println(stream)
+                        print(stream)
                         err_idx += 1
                     end
                 else
                     # Pring the out line that is the only one waiting
-                    println(stream, out_lines[out_idx][2])
+                    print(stream, out_lines[out_idx][2])
                     out_idx += 1
                 end
             else length(err_lines) > err_idx
                 # Print the err line that is the only one waiting
                 print_color(:default, stream, timestr; bold=true)
                 print_color(:red, stream, err_lines[err_idx][2])
-                println(stream)
+                print(stream)
                 err_idx += 1
             end
         end
