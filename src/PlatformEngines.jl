@@ -165,10 +165,10 @@ function probe_platform_engines!(;verbose::Bool = false)
     # Tar is rather less verbose, and we don't need to search multiple places
     # for it, so just rely on PATH to have `tar` available for us:
     unpack_tar = (tarball_path, out_path) ->
-        `tar xzf $(tarball_path) --directory=$(out_path)`
+        `tar xf $(tarball_path) --directory=$(out_path)`
     package_tar = (in_path, tarball_path) ->
         `tar -czvf $tarball_path -C $(in_path) .`
-    list_tar = (in_path) -> `tar tzf $in_path`
+    list_tar = (in_path) -> `tar tf $in_path`
 
     # compression_engines is a list of (test_cmd, unpack_opts_functor,
     # package_opts_functor, list_opts_functor, parse_functor).  The probulator
