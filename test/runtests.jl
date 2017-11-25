@@ -507,8 +507,10 @@ const libfoo_downloads = Dict(
             end
 
             @test_throws ErrorException download_verify(url, hash, tmpfile; verbose=true)
-            @test download_verify(url, hash, tmpfile; verbose=true, force=true)
 
+            # This should return `false`, signifying that the download had to erase
+            # the previously downloaded file.
+            @test !download_verify(url, hash, tmpfile; verbose=true, force=true)
         end
 
         # Test a bad download fails properly

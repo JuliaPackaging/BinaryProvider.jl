@@ -436,6 +436,12 @@ Download file located at `url`, verify it matches the given `hash`, and throw
 an error if anything goes wrong.  If `dest` already exists, just verify it. If
 `force` is set to `true`, overwrite the given file if it exists but does not
 match the given `hash`.
+
+This method returns `true` if the file was downloaded successfully, `false`
+if an existing file was removed due to the use of `force`, and throws an error
+if `force` is not set and the already-existant file fails verification, or if
+`force` is set, verification fails, and then verification fails again after
+redownloading the file.
 """
 function download_verify(url::AbstractString, hash::AbstractString,
                          dest::AbstractString; verbose::Bool = false,
@@ -464,12 +470,15 @@ function download_verify(url::AbstractString, hash::AbstractString,
         end
     end
 
+    # Make sure the containing folder exists
+    mkpath(dirname(dest))
+
     # Download the file, optionally continuing
     download(url, dest; verbose=verbose)
 
     # If it worked, then yay!
     try
-        return verify(dest, hash; verbose=verbose)
+        verify(dest, hash; verbose=verbose)
     catch
         # If the file already existed, it's possible the initially downloaded chunk
         # was bad.  If verification fails after downloading, auto-delete the file
@@ -485,13 +494,18 @@ function download_verify(url::AbstractString, hash::AbstractString,
 
             # Download and verify from scratch
             download(url, dest; verbose=verbose)
-            return verify(dest, hash; verbose=verbose)
+            verify(dest, hash; verbose=verbose)
         else
             # If it didn't verify properly and we didn't resume, something is
             # very wrong and we must complain mightily.
             rethrow()
         end
     end
+
+    # If the file previously existed, this means we removed it (due to `force`)
+    # and redownloaded, so return `false`.  If it didn't exist, then this means
+    # that we successfully downloaded it, so return `true`.
+    return !file_existed
 end
 
 """
@@ -517,26 +531,66 @@ end
 
 """
 `download_verify_unpack(url::AbstractString, hash::AbstractString,
-                        dest::AbstractString; verbose::Bool = false)`
+                        dest::AbstractString; verbose::Bool = false,
+                        force::Bool = false)`
 
 Helper method to download tarball located at `url`, verify it matches the
 given `hash`, then unpack it into folder `dest`.  In general, the method
 `install()` should be used to download and install tarballs into a `Prefix`;
 this method should only be used if the extra functionality of `install()` is
 undesired.
+
+If `tarball_path` is specified, the given `url` will be downloaded to
+`tarball_path`, and it will not be removed after downloading and verification
+is complete.  If it is not specified, the tarball will be downloaded to a
+temporary location, and removed after verification is complete.
+
+If `force` is specified, a verification failure will cause `tarball_path` to be
+deleted (if it exists), the `dest` folder to be removed (if it exists) and the
+tarball to be redownloaded and reverified.  If the verification check is failed
+a second time, an exception is raised.  If `force` is not specified, a
+verification failure will result in an immediate raised exception.
 """
 function download_verify_unpack(url::AbstractString,
                                 hash::AbstractString,
                                 dest::AbstractString;
+                                tarball_path = nothing,
+                                force::Bool = false,
                                 verbose::Bool = false)
-    # First, download tarball to temporary path and verify it
-    tarball_path = "$(tempname())-download.tar.gz"
-    download_verify(url, hash, tarball_path)
+    # First, determine whether we should keep this tarball around
+    remove_tarball = false
+    if tarball_path === nothing
+        remove_tarball = true
+        tarball_path = "$(tempname())-download.tar.gz"
+    end
+
+    # Download the tarball; if it already existed and we needed to remove it
+    # then we should remove the unpacked path as well
+    should_delete = !download_verify(url, hash, tarball_path;
+                                     force=force, verbose=verbose)
+    if should_delete
+        if verbose
+            info("Removing dest directory $(dest) as source tarball changed")
+        end
+        rm(dest; recursive=true, force=true)
+    end
+
+    # If the destination path already exists, don't bother to unpack
+    if isdir(dest)
+        if verbose
+            info("Destination directory $(dest) already exists, returning")
+        end
+        return
+    end
 
     try
+        if verbose
+            info("Unpacking $(tarball_path) into $(dest)...")
+        end
         unpack(tarball_path, dest; verbose=verbose)
     finally
-        # Clear out the tarball path no matter what
-        rm(tarball_path)
+        if remove_tarball
+            rm(tarball_path)
+        end
     end
 end
