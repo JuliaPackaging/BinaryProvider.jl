@@ -517,7 +517,7 @@ Unpack tarball located at file `tarball_path` into directory `dest`.
 function unpack(tarball_path::AbstractString, dest::AbstractString;
                 verbose::Bool = false)
     # unpack into dest
-    try mkpath(dest) end
+    mkpath(dest)
     oc = OutputCollector(gen_unpack_cmd(tarball_path, dest); verbose=verbose)
     try 
         if !wait(oc)
