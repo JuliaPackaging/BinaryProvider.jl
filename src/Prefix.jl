@@ -444,7 +444,7 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
             end
         else
             if verbose
-                info("Hash has changed, hash cache invalidated")
+                info("Verification hash mismatch, hash cache invalidated")
             end
         end
     else
