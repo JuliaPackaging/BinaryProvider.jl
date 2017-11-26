@@ -423,7 +423,10 @@ function download(url::AbstractString, dest::AbstractString;
         if !wait(oc)
             error()
         end
-    catch
+    catch e
+        if isa(e, InterruptException)
+            rethrow()
+        end
         error("Could not download $(url) to $(dest)")
     end
 end
@@ -460,7 +463,10 @@ function download_verify(url::AbstractString, hash::AbstractString,
         try
             verify(dest, hash; verbose=verbose)
             return true
-        catch
+        catch e
+            if isa(e, InterruptException)
+                rethrow()
+            end
             if !force
                 rethrow()
             end
@@ -479,7 +485,10 @@ function download_verify(url::AbstractString, hash::AbstractString,
     # If it worked, then yay!
     try
         verify(dest, hash; verbose=verbose)
-    catch
+    catch e
+        if isa(e, InterruptException)
+            rethrow()
+        end
         # If the file already existed, it's possible the initially downloaded chunk
         # was bad.  If verification fails after downloading, auto-delete the file
         # and start over from scratch.
@@ -523,7 +532,10 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
         if !wait(oc)
             error()
         end
-    catch
+    catch e
+        if isa(e, InterruptException)
+            rethrow()
+        end
         error("Could not unpack $(tarball_path) into $(dest)")
     end
 end
