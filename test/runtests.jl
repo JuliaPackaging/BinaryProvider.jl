@@ -488,6 +488,7 @@ const libfoo_downloads = Dict(
             @test uninstall(manifest_from_url(url; prefix=prefix); verbose=true)
 
             # Test that download_verify_unpack() works
+            rm(prefix.path; recursive=true, force=true)
             download_verify_unpack(url, hash, prefix.path)
             @test satisfied(fooifier; verbose=true)
             @test satisfied(libfoo; verbose=true)
