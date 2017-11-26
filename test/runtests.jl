@@ -488,6 +488,7 @@ const libfoo_downloads = Dict(
             @test uninstall(manifest_from_url(url; prefix=prefix); verbose=true)
 
             # Test that download_verify_unpack() works
+            rm(prefix.path; recursive=true, force=true)
             download_verify_unpack(url, hash, prefix.path)
             @test satisfied(fooifier; verbose=true)
             @test satisfied(libfoo; verbose=true)
@@ -507,8 +508,10 @@ const libfoo_downloads = Dict(
             end
 
             @test_throws ErrorException download_verify(url, hash, tmpfile; verbose=true)
-            @test download_verify(url, hash, tmpfile; verbose=true, force=true)
 
+            # This should return `false`, signifying that the download had to erase
+            # the previously downloaded file.
+            @test !download_verify(url, hash, tmpfile; verbose=true, force=true)
         end
 
         # Test a bad download fails properly
