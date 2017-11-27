@@ -479,11 +479,10 @@ function download_verify(url::AbstractString, hash::AbstractString,
     # Make sure the containing folder exists
     mkpath(dirname(dest))
 
-    # Download the file, optionally continuing
-    download(url, dest; verbose=verbose)
-
-    # If it worked, then yay!
     try
+        # Download the file, optionally continuing
+        download(url, dest; verbose=verbose)
+
         verify(dest, hash; verbose=verbose)
     catch e
         if isa(e, InterruptException)
@@ -494,10 +493,7 @@ function download_verify(url::AbstractString, hash::AbstractString,
         # and start over from scratch.
         if file_existed
             if verbose
-                msg = strip("""
-                Continued download did not yield change in file size, restarting
-                from scratch...""")
-                info(msg)
+                info("Continued download didn't work, restarting from scratch")
             end
             rm(dest; force=true)
 
