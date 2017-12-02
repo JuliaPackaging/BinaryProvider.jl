@@ -283,7 +283,7 @@ function tee(c::OutputCollector; colored::Bool = Base.have_color, stream=STDOUT)
             timestr = Libc.strftime("[%T] ", time())
             # We know we have data, so figure out if it's for stdout or stderr
             if length(out_lines) >= out_idx
-                print_color(:default, stream, timestr; bold=true)
+                print_with_color(:default, stream, timestr; bold=true)
                 if length(err_lines) >= err_idx
                     # If we've got input waiting from both lines, then output
                     # the one with the lowest capture time
@@ -293,7 +293,7 @@ function tee(c::OutputCollector; colored::Bool = Base.have_color, stream=STDOUT)
                         out_idx += 1
                     else
                         # Print the err line as it's older
-                        print_color(:red, stream, err_lines[err_idx][2])
+                        print_with_color(:red, stream, err_lines[err_idx][2])
                         print(stream)
                         err_idx += 1
                     end
@@ -304,8 +304,8 @@ function tee(c::OutputCollector; colored::Bool = Base.have_color, stream=STDOUT)
                 end
             else length(err_lines) > err_idx
                 # Print the err line that is the only one waiting
-                print_color(:default, stream, timestr; bold=true)
-                print_color(:red, stream, err_lines[err_idx][2])
+                print_with_color(:default, stream, timestr; bold=true)
+                print_with_color(:red, stream, err_lines[err_idx][2])
                 print(stream)
                 err_idx += 1
             end
@@ -338,25 +338,3 @@ function tee(c::OutputCollector; colored::Bool = Base.have_color, stream=STDOUT)
     return tee_task
 end
 
-"""
-`print_color(color::Symbol, msg::AbstractString; bold::Bool = false)`
-
-Functionally identical to `Base.print_with_color` except that this works
-identically across Julia 0.5 and 0.6.
-"""
-function print_color(color::Symbol, out::IO, msg::AbstractString; bold::Bool=false)
-    # Engage the color, and optionally the boldness
-    print(out, Base.text_colors[color])
-    if bold
-        print(out, "\e[1m")
-    end
-
-    # Print the message
-    print(out, msg)
-
-    # Disengage the color, and optionally the boldness
-    if bold
-        print(out, "\e[22m")
-    end
-    print(out, Base.text_colors[:normal])
-end
