@@ -256,8 +256,13 @@ function tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)
 
     idx = length(out)
     for line_idx in 1:len
-        idx = findprev(out, '\n', idx-1)
-        if idx <= 0
+        # We can run into UnicodeError's here
+        try
+            idx = findprev(out, '\n', idx-1)
+            if idx <= 0
+                break
+            end
+        catch
             break
         end
     end
