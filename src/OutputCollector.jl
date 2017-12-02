@@ -251,7 +251,7 @@ end
 
 Write out the last `len` lines, optionally writing colored lines.
 """
-function tail(collector::OutputCollector; len::Int = 10, colored::Bool = false)
+function tail(collector::OutputCollector; len::Int = 30, colored::Bool = false)
     out = merge(collector; colored=colored)
 
     idx = length(out)
