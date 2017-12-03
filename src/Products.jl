@@ -10,11 +10,13 @@ A `LibraryProduct` is a special kind of `Product` that not only needs to exist,
 but needs to be `dlopen()`'able.  You must know which directory the library
 will be installed to, and its name, e.g. to build a `LibraryProduct` that
 refers to `"/lib/libnettle.so"`, the "directory" would be "/lib", and the
-"libname" would be "libnettle".
+"libname" would be "libnettle".  Note that a `LibraryProduct` can support
+multiple libnames, as some software projects change the libname based on the
+build configuration.
 """
 struct LibraryProduct <: Product
     dir_path::String
-    libname::String
+    libnames::Vector{String}
 
     """
     `LibraryProduct(prefix::Prefix, libname::AbstractString)`
@@ -33,7 +35,11 @@ struct LibraryProduct <: Product
     `dlopen()`'able.
     """
     function LibraryProduct(prefix::Prefix, libname::AbstractString)
-        return LibraryProduct(libdir(prefix), libname)
+        return LibraryProduct(libdir(prefix), [libname])
+    end
+
+    function LibraryProduct(prefix::Prefix, libnames::Vector{S}) where {S <: AbstractString}
+        return new(libdir(prefix), libnames)
     end
 
     """
@@ -43,7 +49,11 @@ struct LibraryProduct <: Product
     pass in the `dir_path` instead of auto-inferring it from `libdir(prefix)`.
     """
     function LibraryProduct(dir_path::AbstractString, libname::AbstractString)
-        return new(dir_path, libname)
+        return new(dir_path, [libname])
+    end
+
+    function LibraryProduct(dir_path::AbstractString, libnames::Vector{S}) where {S <: AbstractString}
+       return new(dir_path, libnames)
     end
 end
 
@@ -74,39 +84,41 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
         end
 
         if verbose
-            info("Found a valid dl path $(f) while looking for $(lp.libname)")
+            info("Found a valid dl path $(f) while looking for $(join(lp.libnames, ", "))")
         end
 
         # If we found something that is a dynamic library, let's check to see
         # if it matches our libname:
-        if startswith(basename(f), lp.libname)
-            dl_path = abspath(joinpath(lp.dir_path), f)
-            if verbose
-                info("$(dl_path) matches our search criteria of $(lp.libname)")
-            end
+        for libname in lp.libnames
+            if startswith(basename(f), libname)
+                dl_path = abspath(joinpath(lp.dir_path), f)
+                if verbose
+                    info("$(dl_path) matches our search criteria of $(libname)")
+                end
 
-            # If it does, try to `dlopen()` it if the current platform is good
-            if platform == platform_key()
-                hdl = Libdl.dlopen_e(dl_path)
-                if hdl == C_NULL
-                    if verbose
-                        info("$(dl_path) cannot be dlopen'ed")
+                # If it does, try to `dlopen()` it if the current platform is good
+                if platform == platform_key()
+                    hdl = Libdl.dlopen_e(dl_path)
+                    if hdl == C_NULL
+                        if verbose
+                            info("$(dl_path) cannot be dlopen'ed")
+                        end
+                    else
+                        # Hey!  It worked!  Yay!
+                        Libdl.dlclose(hdl)
+                        return dl_path
                     end
                 else
-                    # Hey!  It worked!  Yay!
-                    Libdl.dlclose(hdl)
+                    # If the current platform doesn't match, then just trust in our
+                    # cross-compilers and go with the flow
                     return dl_path
                 end
-            else
-                # If the current platform doesn't match, then just trust in our
-                # cross-compilers and go with the flow
-                return dl_path
             end
         end
     end
 
     if verbose
-        info("Could not locate $(lp.libname) inside $(lp.dir_path)")
+        info("Could not locate $(join(lp.libnames, ", ")) inside $(lp.dir_path)")
     end
     return nothing
 end
