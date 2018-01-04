@@ -226,6 +226,11 @@ end
 Given a `prefix`, a `tarball_url` and a `hash`, download that tarball into the
 prefix, verify its integrity with the `hash`, and install it into the `prefix`.
 Also save a manifest of the files into the prefix for uninstallation later.
+
+This will not overwrite any files within `prefix` unless `force` is set.
+
+By default, this will not install a tarball that does not match the platform of
+the current host system, this can be overridden by setting `ignore_platform`.
 """
 function install(tarball_url::AbstractString,
                  hash::AbstractString;
@@ -233,14 +238,31 @@ function install(tarball_url::AbstractString,
                  force::Bool = false,
                  ignore_platform::Bool = false,
                  verbose::Bool = false)
-    # Get the platform key from the tarball and complain if it doesn't match
-    # the platform we're currently running on
-    platform = extract_platform_key(tarball_url)
-    if !ignore_platform && platform_key() != platform
-        msg  = "Will not install a tarball of platform $(platform) on a system "
-        msg *= "of platform $(platform_key()) unless `ignore_platform` is "
-        msg *= "explicitly set to `true`."
-        error(msg)
+    # If we're not ignoring the platform, get the platform key from the tarball
+    # and complain if it doesn't match the platform we're currently running on
+    if !ignore_platform
+        try
+            platform = extract_platform_key(tarball_url)
+
+            # Check if we had a well-formed platform that just doesn't match
+            if platform_key() != platform
+                msg = replace(strip("""
+                Will not install a tarball of platform $(triplet(platform)) on
+                a system of platform $(triplet(platform_key())) unless
+                `ignore_platform` is explicitly set to `true`.
+                """), "\n", " ")
+                throw(ArgumentError(msg))
+            end
+        catch e
+            # Check if we had a malformed platform
+            if isa(e, ArgumentError)
+                msg = "$(e.msg), override this by setting `ignore_platform`"
+                throw(ArgumentError(msg))
+            else
+                # Something else went wrong, pass it along
+                rethrow(e)
+            end
+        end
     end
     
     # Create the downloads directory if it does not already exist

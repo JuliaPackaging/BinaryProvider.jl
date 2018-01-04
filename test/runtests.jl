@@ -307,7 +307,7 @@ end
 @testset "Packaging" begin
     # Clear out previous build products
     for f in readdir(".")
-        if !endswith(f, ".tar.gz") || !endswith(f, ".sha256")
+        if !endswith(f, ".tar.gz") && !endswith(f, ".sha256")
             continue
         end
         rm(f; force=true)
@@ -394,8 +394,40 @@ end
         @test_throws ErrorException install(tarball_path, fake_hash; prefix=prefix)
     end
 
+    # Get a valid platform tarball name that is not our native platform
+    other_platform = Linux(:x86_64)
+    if platform == Linux(:x86_64)
+        other_platform = MacOS()
+    end
+    new_tarball_path = "libfoo.$(triplet(other_platform)).tar.gz"
+    cp(tarball_path, new_tarball_path)
+    cp("$(tarball_path).sha256", "$(new_tarball_path).sha256")
+
+    # Also generate a totally bogus tarball pathname
+    bogus_tarball_path = "libfoo.not-a-triplet.tar.gz"
+    cp(tarball_path, bogus_tarball_path)
+    cp("$(tarball_path).sha256", "$(bogus_tarball_path).sha256")
+
+
+    # Check that installation fails with a valid but "incorrect" platform, but can be forced
+    temp_prefix() do prefix
+        @test_throws ArgumentError install(new_tarball_path, tarball_hash; prefix=prefix, verbose=true)
+        @test install(new_tarball_path, tarball_hash; prefix=prefix, verbose=true, ignore_platform = true)
+    end
+
+    # Next, check installing with a bogus platform also fails, but can be forced
+    temp_prefix() do prefix
+        @test_throws ArgumentError install(bogus_tarball_path, tarball_hash; prefix=prefix, verbose=true)
+        @test install(bogus_tarball_path, tarball_hash; prefix=prefix, verbose=true, ignore_platform = true)
+    end
+
+    # Cleanup after ourselves
     rm(tarball_path; force=true)
     rm("$(tarball_path).sha256"; force=true)
+    rm(bogus_tarball_path; force=true)
+    rm("$(bogus_tarball_path).sha256"; force=true)
+    rm(new_tarball_path; force=true)
+    rm("$(new_tarball_path).sha256"; force=true)
 end
 
 @testset "Verification" begin
