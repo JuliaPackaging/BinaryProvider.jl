@@ -515,7 +515,7 @@ const libfoo_downloads = Dict(
         end
 
         # Test a bad download fails properly
-        bad_url = "http://localhost:1/this_is_not_a_file.x86_64-linux-gnu.tar.gz"
+        bad_url = "http://localhost:1/this_is_not_a_file.$(triplet(platform)).tar.gz"
         bad_hash = "0"^64
         @test_throws ErrorException install(bad_url, bad_hash; prefix=prefix, verbose=true)
     end
