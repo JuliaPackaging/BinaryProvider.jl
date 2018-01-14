@@ -158,7 +158,6 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
     if ismatch(r"x86_64-.*-linux(-gnu)?", machine)
         return Linux(:x86_64)
     end
-       x86_64-.*-linux(-gnu)?
     if ismatch(r"i\d86-.*-linux(-gnu)?", machine)
         return Linux(:i686)
     end
