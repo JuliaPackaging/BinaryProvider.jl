@@ -155,19 +155,20 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
     if startswith(machine, "x86_64-apple-darwin")
         return MacOS()
     end
-    if ismatch(r"x86_64-(pc-)?(unknown-)?(redhat-)?linux(-gnu)?", machine)
+    if ismatch(r"x86_64-.*-linux(-gnu)?", machine)
         return Linux(:x86_64)
     end
-    if ismatch(r"i\d86-(pc-)?(unknown-)?(redhat-)?linux(-gnu)?", machine)
+       x86_64-.*-linux(-gnu)?
+    if ismatch(r"i\d86-.*-linux(-gnu)?", machine)
         return Linux(:i686)
     end
-    if ismatch(r"aarch64-(pc-)?(unknown-)?(redhat-)?linux(-gnu)?", machine)
+    if ismatch(r"aarch64-.*-linux(-gnu)?", machine)
         return Linux(:aarch64)
     end
-    if ismatch(r"armv7l-(pc-)?(unknown-)?(redhat-)?linux(-gnu)?eabihf", machine)
+    if ismatch(r"armv7l-.*-linux(-gnu)?eabihf", machine)
         return Linux(:armv7l)
     end
-    if ismatch(r"powerpc64le-(pc-)?(unknown-)?(redhat-)?linux(-gnu)?", machine)
+    if ismatch(r"powerpc64le-.*-linux(-gnu)?", machine)
         return Linux(:powerpc64le)
     end
 
