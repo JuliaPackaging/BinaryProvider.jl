@@ -3,6 +3,10 @@ using Compat
 using Compat.Test
 using SHA
 
+if VERSION >= v"0.7.0-DEV.3382"
+    import Libdl
+end
+
 # The platform we're running on
 const platform = platform_key()
 

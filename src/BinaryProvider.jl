@@ -1,6 +1,10 @@
 __precompile__()
 module BinaryProvider
 
+if VERSION >= v"0.7.0-DEV.3382"
+    import Libdl
+end
+
 using Compat
 
 # Include our subprocess running funtionality
