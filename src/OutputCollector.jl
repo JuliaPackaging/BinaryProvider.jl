@@ -85,13 +85,17 @@ mutable struct OutputCollector
     stdout_linestream::LineStream
     stderr_linestream::LineStream
     event::Condition
+    tee_stream::IO
     verbose::Bool
-    done::Bool
+    tail_error::Bool
 
+    done::Bool
     extra_tasks::Vector{Task}
 
-    function OutputCollector(cmd, P, out_ls, err_ls, event, verbose)
-        return new(cmd, P, out_ls, err_ls, event, verbose, false, Task[])
+    function OutputCollector(cmd, P, out_ls, err_ls, event, tee_stream,
+                             verbose, tail_error)
+        return new(cmd, P, out_ls, err_ls, event, tee_stream, verbose,
+                   tail_error, false, Task[])
     end
 end
 
@@ -102,7 +106,8 @@ Run `cmd`, and collect the output such that `stdout` and `stderr` are captured
 independently, but with the time of each line recorded such that they can be
 stored/analyzed independently, but replayed synchronously.
 """
-function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false, tee_stream=STDOUT)
+function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false,
+                         tail_error::Bool=true, tee_stream::IO=STDOUT)
     # First, launch the command
     out_pipe = Pipe()
     err_pipe = Pipe()
@@ -120,7 +125,8 @@ function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false, tee_stream=
 
     # Finally, wrap this up in an object so that we can merge stdout and stderr
     # back together again at the end
-    self = OutputCollector(cmd, P, out_ls, err_ls, event, verbose)
+    self = OutputCollector(cmd, P, out_ls, err_ls, event, tee_stream,
+                           verbose, tail_error)
 
     # If we're set as verbose, then start reading ourselves out to stdout
     if verbose
@@ -156,10 +162,10 @@ function wait(collector::OutputCollector)
     # From this point on, we are actually done!
     collector.done = true
 
-    # If we failed, then tail the output, unless we've been tee()'ing it out
-    # this whole time
-    if !success(collector.P) && !collector.verbose
-        print(tail(collector; colored=Base.have_color))
+    # If we failed, then print out the tail of the output, unless we've been
+    # tee()'ing it out this whole time, but only if the user said it's okay to.
+    if !success(collector.P) && !collector.verbose && collector.tail_error
+        print(collector.tee_stream, tail(collector; colored=Base.have_color))
     end
     
     # Shout to the world how we've done
@@ -271,12 +277,13 @@ function tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)
 end
 
 """
-`tee(c::OutputCollector; colored::Bool = false)`
+`tee(c::OutputCollector; colored::Bool = false, stream::IO = STDOUT)`
 
 Spawn a background task to incrementally output lines from `collector` to the
 standard output, optionally colored.
 """
-function tee(c::OutputCollector; colored::Bool = Base.have_color, stream=STDOUT)
+function tee(c::OutputCollector; colored::Bool=Base.have_color,
+             stream::IO=STDOUT)
     tee_task = @async begin
         out_idx = 1
         err_idx = 1

@@ -22,6 +22,17 @@ const newlines_out = join(["marco$(d)polo$(d)" for d in ("\n","\r","\r\n")], "")
 # CI debugging easier
 BinaryProvider.probe_platform_engines!(;verbose=true)
 
+# Helper function to strip out color codes from strings to make it easier to
+# compare output within tests that has been colorized
+function strip_colorization(s)
+    return replace(s, r"(\e\[\d+m)"m, "")
+end
+
+# Helper function to strip out log timestamps from strings
+function strip_timestamps(s)
+    return replace(s, r"^(\[\d\d:\d\d:\d\d\] )"m, "")
+end
+
 @testset "OutputCollector" begin
     cd("output_tests") do
         # Collect the output of `simple.sh``
@@ -109,8 +120,38 @@ BinaryProvider.probe_platform_engines!(;verbose=true)
         oc = OutputCollector(sh(`./simple.sh`); tee_stream=ios, verbose=true)
         @test wait(oc)
         @test merge(oc) == simple_out
+        
         seekstart(ios)
-        println(readstring(ios))
+        tee_out = readstring(ios)
+        tee_out = strip_colorization(tee_out)
+        tee_out = strip_timestamps(tee_out)
+        @test tee_out == simple_out
+    end
+
+    # Also test that auto-tail'ing can be can be directed to a stream
+    cd("output_tests") do
+        ios = IOBuffer()
+        oc = OutputCollector(sh(`./fail.sh`); tee_stream=ios)
+
+        @test !wait(oc)
+        @test merge(oc) == "1\n2\n"
+        seekstart(ios)
+        tee_out = readstring(ios)
+        tee_out = strip_colorization(tee_out)
+        tee_out = strip_timestamps(tee_out)
+        @test tee_out == "1\n2\n"
+    end
+
+    # Also test that auto-tail'ing can be turned off
+    cd("output_tests") do
+        ios = IOBuffer()
+        oc = OutputCollector(sh(`./fail.sh`); tee_stream=ios, tail_error=false)
+
+        @test !wait(oc)
+        @test merge(oc) == "1\n2\n"
+        
+        seekstart(ios)
+        @test readstring(ios) == ""
     end
 end
 
