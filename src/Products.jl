@@ -156,8 +156,8 @@ struct ExecutableProduct <: Product
 end
 
 """
-`locate(fp::FileProduct; platform::Platform = platform_key(),
-                         verbose::Bool = false)`
+`locate(fp::ExecutableProduct; platform::Platform = platform_key(),
+                               verbose::Bool = false)`
 
 If the given executable file exists and is executable, return its path.
 
