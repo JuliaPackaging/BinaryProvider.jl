@@ -340,7 +340,7 @@ function uninstall(manifest::AbstractString;
     # Remove every file listed within the manifest file
     for path in [chomp(l) for l in readlines(manifest)]
         delpath = joinpath(prefix_path, path)
-        if !isfile(delpath)
+        if !isfile(delpath) && !islink(delpath)
             if verbose
                 info("  $delpath does not exist, but ignoring")
             end
