@@ -194,7 +194,7 @@ function merge(collector::OutputCollector; colored::Bool = false)
         if should_color && colored
             print(output, color)
         end
-        t, line = shift!(lines)
+        t, line = popfirst!(lines)
         print(output, line)
     end
 
@@ -231,7 +231,7 @@ function merge(collector::OutputCollector; colored::Bool = false)
     end
 
     # Return our ill-gotten goods
-    return String(output)
+    return String(take!(output))
 end
 
 """
@@ -264,8 +264,10 @@ function tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)
     for line_idx in 1:len
         # We can run into UnicodeError's here
         try
-            idx = findprev(out, '\n', idx-1)
-            if idx <= 0
+            idx = findprev(equalto('\n'), out, idx-1)
+            # We have to check for both `nothing` or `0`, because we support Julia 0.6
+            if idx === nothing || idx == 0
+                idx = 0
                 break
             end
         catch

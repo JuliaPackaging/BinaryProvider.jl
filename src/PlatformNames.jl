@@ -124,14 +124,7 @@ function supported_platforms()
     ]
 end
 
-# Compat doesn't use the Base definitions for whatever terrible reason, so we'll overload
-# both, ensuring the user gets our definitions regardless of whether they use Sys.is* or
-# Compat.Sys.is*.
-if isdefined(Base.Sys, :isapple)
-    Base.Sys.isapple(p::Platform) = p isa MacOS
-    Base.Sys.islinux(p::Platform) = p isa Linux
-    Base.Sys.iswindows(p::Platform) = p isa Windows
-end
+# Override Compat definitions as well
 Compat.Sys.isapple(p::Platform) = p isa MacOS
 Compat.Sys.islinux(p::Platform) = p isa Linux
 Compat.Sys.iswindows(p::Platform) = p isa Windows
@@ -155,19 +148,19 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
     if startswith(machine, "x86_64-apple-darwin")
         return MacOS()
     end
-    if ismatch(r"x86_64-.*-linux(-gnu)?", machine)
+    if contains(machine, r"x86_64-.*-linux(-gnu)?")
         return Linux(:x86_64)
     end
-    if ismatch(r"i\d86-.*-linux(-gnu)?", machine)
+    if contains(machine, r"i\d86-.*-linux(-gnu)?")
         return Linux(:i686)
     end
-    if ismatch(r"aarch64-.*-linux(-gnu)?", machine)
+    if contains(machine, r"aarch64-.*-linux(-gnu)?")
         return Linux(:aarch64)
     end
-    if ismatch(r"armv7l-.*-linux(-gnu)?eabihf", machine)
+    if contains(machine, r"armv7l-.*-linux(-gnu)?eabihf")
         return Linux(:armv7l)
     end
-    if ismatch(r"powerpc64le-.*-linux(-gnu)?", machine)
+    if contains(machine, r"powerpc64le-.*-linux(-gnu)?")
         return Linux(:powerpc64le)
     end
 
