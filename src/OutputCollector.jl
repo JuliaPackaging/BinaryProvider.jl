@@ -265,7 +265,8 @@ function tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)
         # We can run into UnicodeError's here
         try
             idx = findprev(equalto('\n'), out, idx-1)
-            if idx === nothing
+            # We have to check for both `nothing` or `0`, because we support Julia 0.6
+            if idx === nothing || idx == 0
                 idx = 0
                 break
             end
