@@ -432,9 +432,9 @@ function download(url::AbstractString, dest::AbstractString;
 end
 
 """
-    download_verify(url::AbstractString, hash::AbstractString;
-                    verbose::Bool = false, force::Bool = false,
-                    quiet_download::Bool = false)
+    download_verify(url::AbstractString, hash::AbstractString,
+                    dest::AbstractString; verbose::Bool = false,
+                    force::Bool = false, quiet_download::Bool = false)
 
 Download file located at `url`, verify it matches the given `hash`, and throw
 an error if anything goes wrong.  If `dest` already exists, just verify it. If
