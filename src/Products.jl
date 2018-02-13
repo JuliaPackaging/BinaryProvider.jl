@@ -274,6 +274,9 @@ macro write_deps_file(capture...)
     # have both `@__FILE__` and `__source__` interpreted by the same julia.
     dummy_source = VERSION >= v"0.7.0-" ? __source__.file : ""
 
+    # Set this to verbose if we've requested it from build.jl
+    verbose = "--verbose" in ARGS
+
     return quote
         # First pick up important pieces of information from the call-site
         const source = VERSION >= v"0.7.0-" ? $("$(dummy_source)") : @__FILE__
@@ -297,7 +300,7 @@ macro write_deps_file(capture...)
                 error(msg)
             end
 
-            if !satisfied(product; verbose=true)
+            if !satisfied(product; verbose=$(verbose))
                 error("$product is not satisfied, cannot generate deps.jl!")
             end
         end
