@@ -7,7 +7,9 @@ end
 
 using Compat
 
-# Include our subprocess running funtionality
+# Utilities for controlling verbosity
+include("LoggingUtils.jl")
+# Include our subprocess running functionality
 include("OutputCollector.jl")
 # External utilities such as downloading/decompressing tarballs
 include("PlatformEngines.jl")
@@ -19,11 +21,6 @@ include("Prefix.jl")
 include("Products.jl")
 # Abstraction of bundled binary package
 include("BinaryPackage.jl")
-
-# BinDeps support, disabled for now because I don't particularly want to force
-# users to install BinDeps to install this package.  That seems counter-productive
-#include("BinDepsIntegration.jl")
-
 
 function __init__()
     global global_prefix
