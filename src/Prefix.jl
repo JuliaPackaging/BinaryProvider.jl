@@ -453,29 +453,49 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
             if stat(hash_path).mtime >= stat(path).mtime
                 # If all of that is true, then we're good!
                 if verbose
-                    @info_onchange("Hash cache is consistent, returning true", "verify_$(hash_path)")
+                    info_onchange(
+                        "Hash cache is consistent, returning true",
+                        "verify_$(hash_path)",
+                        @__LINE__,
+                    )
                 end
                 return true
             else
                 if verbose
-                    @info_onchange("File has been modified, hash cache invalidated", "verify_$(hash_path)")
+                    info_onchange(
+                        "File has been modified, hash cache invalidated",
+                        "verify_$(hash_path)",
+                        @__LINE__,
+                    )
                 end
             end
         else
             if verbose
-                @info_onchange("Verification hash mismatch, hash cache invalidated", "verify_$(hash_path)")
+                info_onchange(
+                    "Verification hash mismatch, hash cache invalidated",
+                    "verify_$(hash_path)",
+                    @__LINE__,
+                )
             end
         end
     else
         if verbose
-            @info_onchange("No hash cache found", "verify_$(hash_path)")
+            info_onchange(
+                "No hash cache found",
+                "verify_$(hash_path)",
+                @__LINE__,
+            )
         end
     end
     
     open(path) do file
         calc_hash = bytes2hex(sha256(file))
         if verbose
-            info("Calculated hash $calc_hash for file $path")
+            info_onchange(
+                "Calculated hash $calc_hash for file $path",
+                "hash_$(hash_path)",
+                @__LINE__,
+            )
         end
 
         if calc_hash != hash
