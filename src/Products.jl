@@ -1,10 +1,44 @@
 export Product, LibraryProduct, FileProduct, ExecutableProduct, satisfied,
-       locate, @write_deps_file
+       locate, write_deps_file
 
 """
 A `Product` is an expected result after building or installation of a package.
+
+Examples of `Product`s include `LibraryProduct`, `ExecutableProduct` and
+`FileProduct`.  All `Product` types must define the following minimum set of
+functionality:
+
+* `locate(::Product)`: given a `Product`, locate it within the wrapped `Prefix`
+  returning its location as a string
+
+* `satisfied(::Product)`: given a `Product`, determine whether it has been
+  successfully satisfied (e.g. it is locateable and it passes all callbacks)
+
+* `variable_name(::Product)`: return the variable name assigned to a `Product`
 """
 abstract type Product end
+
+"""
+    satisfied(p::Product; platform::Platform = platform_key(), verbose = false)
+
+Given a `Product`, return `true` if that `Product` is satisfied, e.g. whether
+a file exists that matches all criteria setup for that `Product`.
+"""
+function satisfied(p::Product; platform::Platform = platform_key(),
+                               verbose::Bool = false)
+    return locate(p; platform=platform, verbose=verbose) != nothing
+end
+
+
+"""
+    variable_name(p::Product)
+
+Return the variable name associated with this `Product` as a string
+"""
+function variable_name(p::Product)
+    return string(p.variable_name)
+end
+
 
 """
 A `LibraryProduct` is a special kind of `Product` that not only needs to exist,
@@ -18,9 +52,11 @@ build configuration.
 struct LibraryProduct <: Product
     dir_path::String
     libnames::Vector{String}
+    variable_name::String
 
     """
-    `LibraryProduct(prefix::Prefix, libname::AbstractString)`
+        LibraryProduct(prefix::Prefix, libname::AbstractString,
+                       varname::Symbol)
 
     Declares a `LibraryProduct` that points to a library located within the
     `libdir` of the given `Prefix`, with a name containing `libname`.  As an
@@ -35,26 +71,31 @@ struct LibraryProduct <: Product
     Libraries matching the search pattern are rejected if they are not
     `dlopen()`'able.
     """
-    function LibraryProduct(prefix::Prefix, libname::AbstractString)
-        return LibraryProduct(libdir(prefix), [libname])
+    function LibraryProduct(prefix::Prefix, libname::AbstractString,
+                            varname::Symbol)
+        return LibraryProduct(libdir(prefix), [libname], varname)
     end
 
-    function LibraryProduct(prefix::Prefix, libnames::Vector{S}) where {S <: AbstractString}
-        return new(libdir(prefix), libnames)
+    function LibraryProduct(prefix::Prefix, libnames::Vector{S},
+                            varname::Symbol) where {S <: AbstractString}
+        return new(libdir(prefix), libnames, varname)
     end
 
     """
-    `LibraryProduct(dir_path::AbstractString, libname::AbstractString)`
+        LibraryProduct(dir_path::AbstractString, libname::AbstractString,
+                       varname::Symbol)
 
     For finer-grained control over `LibraryProduct` locations, you may directly
     pass in the `dir_path` instead of auto-inferring it from `libdir(prefix)`.
     """
-    function LibraryProduct(dir_path::AbstractString, libname::AbstractString)
-        return new(dir_path, [libname])
+    function LibraryProduct(dir_path::AbstractString, libname::AbstractString,
+                            varname::Symbol)
+        return new(dir_path, [libname], varname)
     end
 
-    function LibraryProduct(dir_path::AbstractString, libnames::Vector{S}) where {S <: AbstractString}
-       return new(dir_path, libnames)
+    function LibraryProduct(dir_path::AbstractString, libnames::Vector{S},
+                            varname::Symbol) where {S <: AbstractString}
+       return new(dir_path, libnames, varname)
     end
 end
 
@@ -134,25 +175,28 @@ automatically, if it is not already present).
 """
 struct ExecutableProduct <: Product
     path::AbstractString
+    variable_name::Symbol
 
     """
-    `ExecutableProduct(prefix::Prefix, binname::AbstractString)`
+    `ExecutableProduct(prefix::Prefix, binname::AbstractString,
+                       varname::Symbol)`
 
     Declares an `ExecutableProduct` that points to an executable located within
     the `bindir` of the given `Prefix`, named `binname`.
     """
-    function ExecutableProduct(prefix::Prefix, binname::AbstractString)
-        return ExecutableProduct(joinpath(bindir(prefix), binname))
+    function ExecutableProduct(prefix::Prefix, binname::AbstractString,
+                               varname::Symbol)
+        return new(joinpath(bindir(prefix), binname), varname)
     end
 
     """
-    `ExecutableProduct(binpath::AbstractString)`
+    `ExecutableProduct(binpath::AbstractString, varname::Symbol)`
 
     For finer-grained control over `ExecutableProduct` locations, you may directly
     pass in the full `binpath` instead of auto-inferring it from `bindir(prefix)`.
     """
-    function ExecutableProduct(binpath::AbstractString)
-        return new(binpath)
+    function ExecutableProduct(binpath::AbstractString, varname::Symbol)
+        return new(binpath, varname)
     end
 end
 
@@ -203,6 +247,7 @@ A `FileProduct` represents a file that simply must exist to be satisfied.
 """
 struct FileProduct <: Product
     path::AbstractString
+    variable_name::Symbol
 end
 
 """
@@ -223,139 +268,103 @@ function locate(fp::FileProduct; platform::Platform = platform_key(),
     return nothing
 end
 
-
 """
-`satisfied(p::Product; platform::Platform = platform_key(),
-                       verbose::Bool = false)`
+    write_deps_file(depsjl_path::AbstractString, products::Vector{Product};
+                    verbose::Bool = false)
 
-Given a `Product`, return `true` if that `Product` is satisfied, e.g. whether
-a file exists that matches all criteria setup for that `Product`.
-"""
-function satisfied(p::Product; platform::Platform = platform_key(),
-                               verbose::Bool = false)
-    return locate(p; platform=platform, verbose=verbose) != nothing
-end
+Generate a `deps.jl` file that contains the variables referred to by the
+products within `products`.  As an example, running the following code:
 
+    fooifier = ExecutableProduct(..., :foo_exe)
+    libbar = LibraryProduct(..., :libbar)
+    write_deps_file(joinpath(@__DIR__, "deps.jl"), [fooifier, libbar])
 
-"""
-`@write_deps_file(products...)`
+Will generate a `deps.jl` file that contains definitions for the two variables
+`foo_exe` and `libbar`.  If any `Product` object cannot be satisfied (e.g.
+`LibraryProduct` objects must be `dlopen()`-able, `FileProduct` objects must
+exist on the filesystem, etc...) this method will error out.  Ensure that you
+have used `install()` to install the binaries you wish to write a `deps.jl`
+file for.
 
-Helper macro to generate a `deps.jl` file out of a mapping of variable name
-to  `Product` objects. Call using something like:
-
-    fooifier = ExecutableProduct(...)
-    libbar = LibraryProduct(...)
-    @write_deps_file fooifier libbar
-
-If any `Product` object cannot be satisfied (e.g. `LibraryProduct` objects must
-be `dlopen()`-able, `FileProduct` objects must exist on the filesystem, etc...)
-this macro will error out.  Ensure that you have used `install()` to install
-the binaries you wish to write a `deps.jl` file for, and, optionally that you
-have used `activate()` on the `Prefix` in which the binaries were installed so
-as to make sure that the binaries are locatable.
-
-The result of this macro call is a `deps.jl` file containing variables named
-the same as the keys of the passed-in dictionary, holding the full path to the
+The result of this method is a `deps.jl` file containing variables named as
+defined within the `Product` objects passed in to it, holding the full path to the
 installed binaries.  Given the example above, it would contain code similar to:
 
-    global const fooifier = "<pkg path>/deps/usr/bin/fooifier"
+    global const foo_exe = "<pkg path>/deps/usr/bin/fooifier"
     global const libbar = "<pkg path>/deps/usr/lib/libbar.so"
 
-This file is intended to be `include()`'ed from within the `__init__()` method
-of your package.  Note that all files are checked for consistency on package
-load time, and if an error is discovered, package loading will fail, asking
-the user to re-run `Pkg.build("package_name")`.
+This `deps.jl` file is intended to be `include()`'ed from within the top-level
+source of your package.  Note that all files are checked for consistency on
+package load time, and if an error is discovered, package loading will fail,
+asking the user to re-run `Pkg.build("package_name")`.
 """
-macro write_deps_file(capture...)
-    # props to @tshort for his macro wizardry
-    names = :($(capture))
-    products = esc(Expr(:tuple, capture...))
+function write_deps_file(depsjl_path::AbstractString,
+                         products::Vector{Product}; verbose::Bool=false)
+    # helper function to escape paths
+    escape_path = path -> replace(path, "\\", "\\\\")
 
-    # We have to create this dummy_source, because we cannot, in a single line,
-    # have both `@__FILE__` and `__source__` interpreted by the same julia.
-    dummy_source = VERSION >= v"0.7.0-" ? __source__.file : ""
+    # Grab the package name as the name of the top-level directory of a package
+    package_name = basename(dirname(dirname(depsjl_path)))
 
-    # Set this to verbose if we've requested it from build.jl
-    verbose = "--verbose" in ARGS
+    # We say this a couple of times
+    const rebuild = strip("""
+    Please re-run Pkg.build(\\\"$(package_name)\\\"), and restart Julia.
+    """)
 
-    return quote
-        # First pick up important pieces of information from the call-site
-        const source = VERSION >= v"0.7.0-" ? $("$(dummy_source)") : @__FILE__
-        const depsjl_path = joinpath(dirname(source), "deps.jl")
-        const package_name = basename(dirname(dirname(source)))
-        const platform = platform_key()
-        escape_path = path -> replace(path, "\\", "\\\\")
+    # Begin by ensuring that we can satisfy every product RIGHT NOW
+    if any(.!(satisfied.(products; verbose=verbose)))
+        error("$product is not satisfied, cannot generate deps.jl!")
+    end
 
-        const rebuild = strip("""
-        Please re-run Pkg.build(\\\"$(package_name)\\\"), and restart Julia.
-        """)
+    # If things look good, let's generate the `deps.jl` file
+    open(depsjl_path, "w") do depsjl_file
+        # First, dump the preamble
+        println(depsjl_file, strip("""
+        ## This file autogenerated by BinaryProvider.write_deps_file().
+        ## Do not edit.
+        ##
+        ## Include this file within your main top-level source, and call
+        ## `check_deps()` from within your module's `__init__()` method
+        """))
 
-        # Begin by ensuring that we can satisfy every product RIGHT NOW
-        for product in $(products)
-            # Check to make sure that we've passed in the right kind of
-            # objects, e.g. subclasses of `Product`
-            if !(typeof(product) <: Product)
-                msg = "Cannot @write_deps_file for $product, which is " *
-                        "of type $(typeof(product)), which is not a " *
-                        "subtype of `Product`!"
-                error(msg)
-            end
-
-            if !satisfied(product; verbose=$(verbose))
-                error("$product is not satisfied, cannot generate deps.jl!")
-            end
+        # Next, spit out the paths of all our products
+        for product in products
+            # Escape the location so that e.g. Windows platforms are happy with
+            # the backslashes in a string literal
+            escaped_path = escape_path(locate(product, platform=platform_key(),
+                                              verbose=verbose))
+            println(depsjl_file, strip("""
+            const $(variable_name(product)) = \"$(escaped_path)\"
+            """))
         end
 
-        # If things look good, let's generate the `deps.jl` file
-        open(depsjl_path, "w") do depsjl_file
-            # First, dump the preamble
-            println(depsjl_file, strip("""
-            ## This file autogenerated by BinaryProvider.@write_deps_file.
-            ## Do not edit.
-            """))
+        # Next, generate a function to check they're all on the up-and-up
+        println(depsjl_file, "function check_deps()")
 
-            # Next, spit out the paths of all our products
-            for idx in 1:$(length(capture))
-                product = $(products)[idx]
-                name = $(names)[idx]
+        for product in products
+            varname = variable_name(product)
 
-                # Escape the location so that e.g. Windows platforms are happy
-                # with the backslashes in a string literal
-                escaped_path = escape_path(locate(product, platform=platform))
-                println(depsjl_file, strip("""
-                const $(name) = \"$(escaped_path)\"
-                """))
-            end
+            # Add a `global $(name)`
+            println(depsjl_file, "    global $(varname)");
 
-            # Next, generate a function to check they're all on the up-and-up
-            println(depsjl_file, "function check_deps()")
+            # Check that any file exists
+            println(depsjl_file, """
+                if !isfile($(varname))
+                    error("\$($(varname)) does not exist, $(rebuild)")
+                end
+            """)
 
-            for idx in 1:$(length(capture))
-                product = $(products)[idx]
-                name = $(names)[idx]
-
-                # Add a `global $(name)`
-                println(depsjl_file, "    global $(name)");
-
-                # Check that any file exists
+            # For Library products, check that we can dlopen it:
+            if typeof(product) <: LibraryProduct
                 println(depsjl_file, """
-                    if !isfile($(name))
-                        error("\$($(name)) does not exist, $(rebuild)")
+                    if Libdl.dlopen_e($(varname)) == C_NULL
+                        error("\$($(varname)) cannot be opened, $(rebuild)")
                     end
                 """)
-
-                # For Library products, check that we can dlopen it:
-                if typeof(product) <: LibraryProduct
-                    println(depsjl_file, """
-                        if Libdl.dlopen_e($(name)) == C_NULL
-                            error("\$($(name)) cannot be opened, $(rebuild)")
-                        end
-                    """)
-                end
             end
-
-            # Close the `check_deps()` function
-            println(depsjl_file, "end")
         end
+
+        # Close the `check_deps()` function
+        println(depsjl_file, "end")
     end
 end

@@ -462,7 +462,11 @@ function download_verify(url::AbstractString, hash::AbstractString,
     if isfile(dest)
         file_existed = true
         if verbose
-            info("Destination file $(dest) already exists, verifying...")
+            info_onchange(
+                "Destination file $(dest) already exists, verifying...",
+                "download_verify_$(dest)",
+                @__LINE__,
+            )
         end
 
         # verify download, if it passes, return happy.  If it fails, (and
@@ -478,7 +482,11 @@ function download_verify(url::AbstractString, hash::AbstractString,
                 rethrow()
             end
             if verbose
-                info("Verification failed, re-downloading...")
+                info_onchange(
+                    "Verification failed, re-downloading...",
+                    "download_verify_$(dest)",
+                    @__LINE__,
+                )
             end
         end
     end

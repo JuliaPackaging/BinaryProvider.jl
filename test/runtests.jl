@@ -263,10 +263,10 @@ end
         # Test that basic satisfication is not guaranteed
         e_path = joinpath(bindir(prefix), "fooifier")
         l_path = joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)")
-        e = ExecutableProduct(prefix, "fooifier")
-        ef = FileProduct(e_path)
-        l = LibraryProduct(prefix, "libfoo")
-        lf = FileProduct(l_path)
+        e = ExecutableProduct(prefix, "fooifier", :fooifier)
+        ef = FileProduct(e_path, :fooifier)
+        l = LibraryProduct(prefix, "libfoo", :libfoo)
+        lf = FileProduct(l_path, :libfoo)
 
         @test !satisfied(e; verbose=true)
         @test !satisfied(ef; verbose=true)
@@ -330,7 +330,7 @@ end
     for ext in ["1.so", "so", "so.1", "so.1.2", "so.1.2.3"]
         temp_prefix() do prefix
             l_path = joinpath(libdir(prefix), "libfoo.$ext")
-            l = LibraryProduct(prefix, "libfoo")
+            l = LibraryProduct(prefix, "libfoo", :libfoo)
             mkdir(dirname(l_path))
             touch(l_path)
             @test satisfied(l; verbose=true, platform=foreign_platform)
@@ -341,7 +341,7 @@ end
     for ext in ["so.1.2.3a", "so.1.a"]
         temp_prefix() do prefix
             l_path = joinpath(libdir(prefix), "libfoo.$ext")
-            l = LibraryProduct(prefix, "libfoo")
+            l = LibraryProduct(prefix, "libfoo", :libfoo)
             mkdir(dirname(l_path))
             touch(l_path)
             @test !satisfied(l; verbose=true, platform=foreign_platform)
@@ -485,14 +485,18 @@ end
 
         # Check that verifying with the right hash works
         info("This should say; no hash cache found")
-        @test verify(foo_path, foo_hash; verbose=true)
+        ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
+        @test ret == true
+        @test status == :hash_cache_missing
 
         # Check that it created a .sha256 file
         @test isfile("$(foo_path).sha256")
 
         # Check that it verifies the second time around properly
         info("This should say; hash cache is consistent")
-        @test verify(foo_path, foo_hash; verbose=true)
+        ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
+        @test ret == true
+        @test status == :hash_cache_consistent
 
         # Sleep for imprecise filesystems
         sleep(2)
@@ -500,15 +504,23 @@ end
         # Get coverage of messing with different parts of the verification chain
         touch(foo_path)
         info("This should say; file has been modified")
-        @test verify(foo_path, foo_hash; verbose=true)
+        ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
+        @test ret == true
+        @test status == :file_modified
+
+        # Ensure that we throw an exception when we can't verify properly
         @test_throws ErrorException verify(foo_path, "0"^32; verbose=true)
+
+        # Ensure that messing with the hash file works properly
         touch(foo_path)
         @test verify(foo_path, foo_hash; verbose=true)
         open("$(foo_path).sha256", "w") do file
             write(file, "this is not the right hash")
         end
         info("This should say; hash has changed")
-        @test verify(foo_path, foo_hash; verbose=true)
+        ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
+        @test ret == true
+        @test status == :hash_cache_mismatch
     end
 end
 
@@ -535,8 +547,8 @@ const libfoo_downloads = Dict(
             url, hash = libfoo_downloads[platform]
             @test install(url, hash; prefix=prefix, verbose=true)
 
-            fooifier = ExecutableProduct(prefix, "fooifier")
-            libfoo = LibraryProduct(prefix, "libfoo")
+            fooifier = ExecutableProduct(prefix, "fooifier", :fooifier)
+            libfoo = LibraryProduct(prefix, "libfoo", :libfoo)
 
             @test satisfied(fooifier; verbose=true)
             @test satisfied(libfoo; verbose=true)
