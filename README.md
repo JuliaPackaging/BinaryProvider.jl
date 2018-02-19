@@ -6,8 +6,6 @@
 
 [![codecov.io](http://codecov.io/github/JuliaPackaging/BinaryProvider.jl/coverage.svg?branch=master)](http://codecov.io/github/JuliaPackaging/BinaryProvider.jl?branch=master)
 
-**staticfloat's third draft**:  This package is intended to work alongside [`BinaryBuilder.jl`](https://github.com/JuliaPackaging/BinaryBuilder.jl); within this is all logic necessary to download and unpack tarballs into `Prefix`es.
-
 ## Basic concepts
 
 Packages are installed to a `Prefix`; a folder that acts similar to the `/usr/local` directory on Unix-like systems, containing a `bin` folder for binaries, a `lib` folder for libraries, etc...  `Prefix` objects can have tarballs `install()`'ed within them, `uninstall()`'ed from them, etc...
