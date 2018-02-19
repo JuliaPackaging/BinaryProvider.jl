@@ -1,5 +1,5 @@
 export Product, LibraryProduct, FileProduct, ExecutableProduct, satisfied,
-       locate, write_deps_file
+       locate, write_deps_file, variable_name
 
 """
 A `Product` is an expected result after building or installation of a package.
@@ -73,7 +73,7 @@ struct LibraryProduct <: Product
     """
     function LibraryProduct(prefix::Prefix, libname::AbstractString,
                             varname::Symbol)
-        return LibraryProduct(libdir(prefix), [libname], varname)
+        return new(libdir(prefix), [libname], varname)
     end
 
     function LibraryProduct(prefix::Prefix, libnames::Vector{S},
@@ -367,4 +367,47 @@ function write_deps_file(depsjl_path::AbstractString,
         # Close the `check_deps()` function
         println(depsjl_file, "end")
     end
+end
+
+
+function guess_varname(path::AbstractString)
+    # Take the basename of the path
+    path = basename(path)
+
+    # Chop off things that can't be part of variable names but are
+    # often part of paths:
+    bad_idxs = findin(path, "-.")
+    if !isempty(bad_idxs)
+        path = path[1:minimum(bad_idxs)-1]
+    end
+
+    # Return this as a Symbol
+    return Symbol(path)
+end
+
+# Define some deprecation warnings for users that haven't updated their syntax
+function LibraryProduct(dir_or_prefix, libnames)
+    varname = :unknown
+    if libnames isa Vector
+        varname = guess_varname(libnames[1])
+    elseif libnames isa AbstractString
+        varname = guess_varname(libnames)
+    end
+    warn("LibraryProduct() now takes a variable name! auto-choosing $(varname)")
+    return LibraryProduct(dir_or_prefix, libnames, varname)
+end
+
+function ExecutableProduct(prefix::Prefix, binname::AbstractString)
+    return ExecutableProduct(joinpath(bindir(prefix), binname))
+end
+function ExecutableProduct(binpath::AbstractString)
+    varname = guess_varname(binpath)
+    warn("ExecutableProduct() now takes a variable name!  auto-choosing $(varname)")
+    return ExecutableProduct(binpath, varname)
+end
+
+function FileProduct(path)
+    varname = guess_varname(path)
+    warn("FileProduct() now takes a variable name!  auto-choosing $(varname)")
+    return FileProduct(path, varname)
 end

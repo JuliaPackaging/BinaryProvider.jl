@@ -632,3 +632,19 @@ end
         end
     end
 end
+
+# Test that our deprecations are working
+@testset "Deprecations" begin
+    temp_prefix() do prefix
+        # Test that basic satisfication is not guaranteed
+        e_path = joinpath(bindir(prefix), "fooifier")
+        l_path = joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)")
+        e = ExecutableProduct(prefix, "fooifier")
+        ef = FileProduct(e_path)
+        l = LibraryProduct(prefix, "libfoo")
+
+        @test variable_name(e) == "fooifier"
+        @test variable_name(ef) == "fooifier"
+        @test variable_name(l) == "libfoo"
+    end
+end
