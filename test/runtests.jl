@@ -634,17 +634,44 @@ end
 end
 
 # Test that our deprecations are working
-@testset "Deprecations" begin
+@testset "Backwards-compatibility" begin
     temp_prefix() do prefix
-        # Test that basic satisfication is not guaranteed
-        e_path = joinpath(bindir(prefix), "fooifier")
-        l_path = joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)")
-        e = ExecutableProduct(prefix, "fooifier")
-        ef = FileProduct(e_path)
-        l = LibraryProduct(prefix, "libfoo")
+        src_depsjl = Pkg.dir("BinaryProvider", "test", "deps.jl")
+        dest_depsjl = joinpath(prefix.path, "deps.jl")
 
-        @test variable_name(e) == "fooifier"
-        @test variable_name(ef) == "fooifier"
-        @test variable_name(l) == "libfoo"
+        let
+            e_path = joinpath(bindir(prefix), "fooifier")
+            l_path = joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)")
+
+            # Create the executable
+            mkpath(bindir(prefix))
+            touch(e_path)
+            chmod(e_path, 0o777)
+
+            ep = ExecutableProduct(prefix, "fooifier")
+            efp = FileProduct(e_path)
+            lp = LibraryProduct(prefix, "libfoo")
+
+            @test variable_name(ep) == "fooifier"
+            @test variable_name(efp) == "fooifier"
+            @test variable_name(lp) == "libfoo"
+
+            # Don't try to write a deps file for `lp`, it's not satisfied
+            # Also, since @write_deps_file will place `deps.jl` into
+            # Pkg.dir("BinaryProvider", "test"), move it to our prefix.
+            @write_deps_file ep efp
+            @test isfile(src_depsjl)
+            mv(src_depsjl, dest_depsjl)
+        end
+
+        # Within a second scope (where we don't have `e` or `ef` defined)
+        let
+            # Include deps.jl, check_deps() and see if `e` and `ef` exist!
+            println(read(dest_depsjl, String))
+            include(dest_depsjl)
+            Base.invokelatest(check_deps)
+            @test isfile(ep)
+            @test isfile(efp)
+        end
     end
 end
