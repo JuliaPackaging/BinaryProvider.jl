@@ -263,10 +263,10 @@ end
         # Test that basic satisfication is not guaranteed
         e_path = joinpath(bindir(prefix), "fooifier")
         l_path = joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)")
-        e = ExecutableProduct(prefix, "fooifier")
-        ef = FileProduct(e_path)
-        l = LibraryProduct(prefix, "libfoo")
-        lf = FileProduct(l_path)
+        e = ExecutableProduct(prefix, "fooifier", :fooifier)
+        ef = FileProduct(e_path, :fooifier)
+        l = LibraryProduct(prefix, "libfoo", :libfoo)
+        lf = FileProduct(l_path, :libfoo)
 
         @test !satisfied(e; verbose=true)
         @test !satisfied(ef; verbose=true)
@@ -330,7 +330,7 @@ end
     for ext in ["1.so", "so", "so.1", "so.1.2", "so.1.2.3"]
         temp_prefix() do prefix
             l_path = joinpath(libdir(prefix), "libfoo.$ext")
-            l = LibraryProduct(prefix, "libfoo")
+            l = LibraryProduct(prefix, "libfoo", :libfoo)
             mkdir(dirname(l_path))
             touch(l_path)
             @test satisfied(l; verbose=true, platform=foreign_platform)
@@ -341,7 +341,7 @@ end
     for ext in ["so.1.2.3a", "so.1.a"]
         temp_prefix() do prefix
             l_path = joinpath(libdir(prefix), "libfoo.$ext")
-            l = LibraryProduct(prefix, "libfoo")
+            l = LibraryProduct(prefix, "libfoo", :libfoo)
             mkdir(dirname(l_path))
             touch(l_path)
             @test !satisfied(l; verbose=true, platform=foreign_platform)
@@ -547,8 +547,8 @@ const libfoo_downloads = Dict(
             url, hash = libfoo_downloads[platform]
             @test install(url, hash; prefix=prefix, verbose=true)
 
-            fooifier = ExecutableProduct(prefix, "fooifier")
-            libfoo = LibraryProduct(prefix, "libfoo")
+            fooifier = ExecutableProduct(prefix, "fooifier", :fooifier)
+            libfoo = LibraryProduct(prefix, "libfoo", :libfoo)
 
             @test satisfied(fooifier; verbose=true)
             @test satisfied(libfoo; verbose=true)
