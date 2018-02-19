@@ -485,14 +485,18 @@ end
 
         # Check that verifying with the right hash works
         info("This should say; no hash cache found")
-        @test verify(foo_path, foo_hash; verbose=true)
+        ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
+        @test ret == true
+        @test status == :hash_cache_missing
 
         # Check that it created a .sha256 file
         @test isfile("$(foo_path).sha256")
 
         # Check that it verifies the second time around properly
         info("This should say; hash cache is consistent")
-        @test verify(foo_path, foo_hash; verbose=true)
+        ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
+        @test ret == true
+        @test status == :hash_cache_consistent
 
         # Sleep for imprecise filesystems
         sleep(2)
@@ -500,15 +504,23 @@ end
         # Get coverage of messing with different parts of the verification chain
         touch(foo_path)
         info("This should say; file has been modified")
-        @test verify(foo_path, foo_hash; verbose=true)
+        ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
+        @test ret == true
+        @test status == :file_modified
+
+        # Ensure that we throw an exception when we can't verify properly
         @test_throws ErrorException verify(foo_path, "0"^32; verbose=true)
+
+        # Ensure that messing with the hash file works properly
         touch(foo_path)
         @test verify(foo_path, foo_hash; verbose=true)
         open("$(foo_path).sha256", "w") do file
             write(file, "this is not the right hash")
         end
         info("This should say; hash has changed")
-        @test verify(foo_path, foo_hash; verbose=true)
+        ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
+        @test ret == true
+        @test status == :hash_cache_mismatch
     end
 end
 

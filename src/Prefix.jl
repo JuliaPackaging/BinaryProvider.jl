@@ -422,7 +422,8 @@ function list_tarball_files(path::AbstractString; verbose::Bool = false)
 end
 
 """
-    verify(path::String, hash::String; verbose::Bool)
+    verify(path::AbstractString, hash::AbstractString;
+           verbose::Bool = false, report_cache_status::Bool = false)
 
 Given a file `path` and a `hash`, calculate the SHA256 of the file and compare
 it to `hash`.  If an error occurs, `verify()` will throw an error.  This method
@@ -434,8 +435,14 @@ with the calculated hash being stored within the `".sha256"` file..  If a
 contained within matches the given `hash` parameter, and its modification time
 shows that the file located at `path` has not been modified since the last
 verification.
+
+If `report_cache_status` is set to `true`, then the return value will be a
+`Symbol` giving a granular status report on the state of the hash cache, in
+addition to the `true`/`false` signifying whether verification completed
+successfully.
 """
-function verify(path::AbstractString, hash::AbstractString; verbose::Bool = false)
+function verify(path::AbstractString, hash::AbstractString; verbose::Bool = false,
+                report_cache_status::Bool = false)
     if length(hash) != 64
         msg  = "Hash must be 256 bits (64 characters) long, "
         msg *= "given hash is $(length(hash)) characters long"
@@ -444,6 +451,7 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
 
     # Fist, check to see if the hash cache is consistent
     hash_path = "$(path).sha256"
+    status = :hash_consistent
 
     # First, it must exist
     if isfile(hash_path)
@@ -459,7 +467,14 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
                         @__LINE__,
                     )
                 end
-                return true
+                status = :hash_cache_consistent
+
+                # If we're reporting our status, then report it!
+                if report_cache_status
+                    return true, status
+                else
+                    return true
+                end
             else
                 if verbose
                     info_onchange(
@@ -468,6 +483,7 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
                         @__LINE__,
                     )
                 end
+                status = :file_modified
             end
         else
             if verbose
@@ -477,6 +493,7 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
                     @__LINE__,
                 )
             end
+            status = :hash_cache_mismatch
         end
     else
         if verbose
@@ -486,6 +503,7 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
                 @__LINE__,
             )
         end
+        status = :hash_cache_missing
     end
     
     open(path) do file
@@ -511,7 +529,11 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
         write(file, hash)
     end
 
-    return true
+    if report_cache_status
+        return true, status
+    else
+        return true
+    end
 end
 
 """
