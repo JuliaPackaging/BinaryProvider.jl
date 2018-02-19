@@ -1,4 +1,5 @@
-export Product, LibraryProduct, FileProduct, ExecutableProduct, satisfied, locate, @write_deps_file
+export Product, LibraryProduct, FileProduct, ExecutableProduct, satisfied,
+       locate, @write_deps_file
 
 """
 A `Product` is an expected result after building or installation of a package.

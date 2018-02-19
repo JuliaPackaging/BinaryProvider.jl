@@ -24,9 +24,8 @@ if platform in keys(download_info)
     # Grab the url and tarball hash for this particular platform
     url, tarball_hash = download_info[platform]
 
-    # Build a BinaryPackage from the metadata, and install it
-    binpkg = BinaryPackage(url, tarball_hash, platform, [libfoo, fooifier])
-    install(binpkg; prefix=prefix, force=true, verbose=true)
+    # Build and install it
+    install(url, tarball_hash; prefix=prefix, force=true, verbose=true)
 
     # Finaly, write out a deps file containing paths to libfoo and fooifier
     @write_deps_file libfoo fooifier

@@ -19,8 +19,6 @@ include("PlatformNames.jl")
 include("Prefix.jl")
 # Abstraction of "needing" a file, that would trigger an install
 include("Products.jl")
-# Abstraction of bundled binary package
-include("BinaryPackage.jl")
 
 function __init__()
     global global_prefix
