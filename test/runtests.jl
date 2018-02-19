@@ -598,39 +598,6 @@ const libfoo_downloads = Dict(
     end
 end
 
-# Test the same as the above, but using BinaryPackage abstraction
-@testset "BinaryPackage" begin
-    temp_prefix() do prefix
-        if !haskey(libfoo_downloads, platform)
-            warn("Platform $platform does not have a libfoo download, skipping download tests")
-        else
-            url, hash = libfoo_downloads[platform]
-            fooifier = ExecutableProduct(prefix, "fooifier")
-            libfoo = LibraryProduct(prefix, "libfoo")
-            binpkg = BinaryPackage(url, hash, platform, [fooifier, libfoo])
-
-            # Test installation and uninstallation
-            @test install(binpkg; prefix=prefix, verbose=true)
-            @test uninstall(binpkg; prefix=prefix, verbose=true)
-
-            # Now test that we can uninstall even if we don't have the right `url`:
-            @test install(binpkg; prefix=prefix, verbose=true)
-            binpkg2 = BinaryPackage("fakeurl", hash, platform, [fooifier, libfoo])
-            @test uninstall(binpkg2; prefix=prefix, verbose=true)
-
-            # Test that we can't uninstall from the wrong prefix
-            temp_prefix() do wrong_prefix
-                @test_throws ErrorException uninstall(binpkg; prefix=wrong_prefix, verbose=true)
-            end
-
-            # Test that we can't guess a manifest path from a package with the wrong
-            # url and no products:
-            binpkg3 = BinaryPackage("fakeurl", hash, platform)
-            @test_throws ErrorException uninstall(binpkg3; prefix=prefix, verbose=true)
-        end
-    end
-end
-
 # Test installation and failure modes of the bundled LibFoo.jl
 @testset "LibFoo.jl" begin
     const color="--color=$(Base.have_color ? "yes" : "no")"
