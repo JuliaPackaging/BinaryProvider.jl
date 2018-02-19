@@ -453,22 +453,22 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
             if stat(hash_path).mtime >= stat(path).mtime
                 # If all of that is true, then we're good!
                 if verbose
-                    info("Hash cache is consistent, returning true")
+                    @info_onchange("Hash cache is consistent, returning true", "verify_$(hash_path)")
                 end
                 return true
             else
                 if verbose
-                    info("File has been modified, hash cache invalidated")
+                    @info_onchange("File has been modified, hash cache invalidated", "verify_$(hash_path)")
                 end
             end
         else
             if verbose
-                info("Verification hash mismatch, hash cache invalidated")
+                @info_onchange("Verification hash mismatch, hash cache invalidated", "verify_$(hash_path)")
             end
         end
     else
         if verbose
-            info("No hash cache found")
+            @info_onchange("No hash cache found", "verify_$(hash_path)")
         end
     end
     
