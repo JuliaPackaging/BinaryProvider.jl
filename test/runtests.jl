@@ -643,8 +643,11 @@ end
             e_path = joinpath(bindir(prefix), "fooifier")
             l_path = joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)")
 
-            # Create the executable
+            # Create the executable (if we're on windows, append .exe)
             mkpath(bindir(prefix))
+            if platform_key() isa Windows
+                e_path = "$(e_path).exe"
+            end
             touch(e_path)
             chmod(e_path, 0o777)
 
