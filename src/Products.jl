@@ -1,5 +1,5 @@
 export Product, LibraryProduct, FileProduct, ExecutableProduct, satisfied,
-       locate, write_deps_file
+       locate, write_deps_file, variable_name
 
 """
 A `Product` is an expected result after building or installation of a package.
@@ -73,7 +73,7 @@ struct LibraryProduct <: Product
     """
     function LibraryProduct(prefix::Prefix, libname::AbstractString,
                             varname::Symbol)
-        return LibraryProduct(libdir(prefix), [libname], varname)
+        return new(libdir(prefix), [libname], varname)
     end
 
     function LibraryProduct(prefix::Prefix, libnames::Vector{S},
@@ -312,8 +312,10 @@ function write_deps_file(depsjl_path::AbstractString,
     """)
 
     # Begin by ensuring that we can satisfy every product RIGHT NOW
-    if any(.!(satisfied.(products; verbose=verbose)))
-        error("$product is not satisfied, cannot generate deps.jl!")
+    for p in products
+        if !satisfied(p; verbose=verbose)
+            error("$p is not satisfied, cannot generate deps.jl!")
+        end
     end
 
     # If things look good, let's generate the `deps.jl` file
