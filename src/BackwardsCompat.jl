@@ -44,7 +44,7 @@ macro write_deps_file(capture...)
 
         # Insert our macro-captured information
         names = $(names)
-        products = [p for p in $(products)]
+        products = Product[p for p in $(products)]
 
         # Jam the captured names into here as new-style variable names
         for idx in 1:length(products)

@@ -298,8 +298,8 @@ source of your package.  Note that all files are checked for consistency on
 package load time, and if an error is discovered, package loading will fail,
 asking the user to re-run `Pkg.build("package_name")`.
 """
-function write_deps_file(depsjl_path::AbstractString,
-                         products::Vector{Product}; verbose::Bool=false)
+function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
+                         verbose::Bool=false) where {P <: Product}
     # helper function to escape paths
     escape_path = path -> replace(path, "\\", "\\\\")
 

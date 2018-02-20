@@ -667,7 +667,6 @@ end
         # Within a second scope (where we don't have `e` or `ef` defined)
         let
             # Include deps.jl, check_deps() and see if `e` and `ef` exist!
-            println(read(dest_depsjl, String))
             include(dest_depsjl)
             Base.invokelatest(check_deps)
             @test isfile(ep)
