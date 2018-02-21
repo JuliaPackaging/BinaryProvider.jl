@@ -612,6 +612,8 @@ const libfoo_downloads = Dict(
 
             @test_throws ErrorException install(url, hash; prefix=prefix, verbose=true)
             @test install(url, hash; prefix=prefix, verbose=true, force=true)
+            @test satisfied(fooifier; verbose=true)
+            @test satisfied(libfoo; verbose=true)
         end
 
         # Test a bad download fails properly
