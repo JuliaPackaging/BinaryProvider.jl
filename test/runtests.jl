@@ -593,7 +593,7 @@ const libfoo_downloads = Dict(
             sleep(2)
 
             open(tmpfile, "w") do f
-                write(f, "hehehehe")
+                write(f, "not the correct contents")
             end
 
             @test_throws ErrorException download_verify(url, hash, tmpfile; verbose=true)
@@ -601,6 +601,19 @@ const libfoo_downloads = Dict(
             # This should return `false`, signifying that the download had to erase
             # the previously downloaded file.
             @test !download_verify(url, hash, tmpfile; verbose=true, force=true)
+
+            # Now let's test that install() works the same way; freaking out if
+            # the local path has been messed with, unless `force` has been given:
+            tarball_path = joinpath(prefix, "downloads", basename(url))
+            try mkpath(dirname(tarball_path)) end
+            open(tarball_path, "w") do f
+                write(f, "not the correct contents")
+            end
+
+            @test_throws ErrorException install(url, hash; prefix=prefix, verbose=true)
+            @test install(url, hash; prefix=prefix, verbose=true, force=true)
+            @test satisfied(fooifier; verbose=true)
+            @test satisfied(libfoo; verbose=true)
         end
 
         # Test a bad download fails properly

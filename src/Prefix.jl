@@ -277,7 +277,8 @@ function install(tarball_url::AbstractString,
         verify(tarball_path, hash; verbose=verbose)
     else
         # If not, actually download it
-        download_verify(tarball_url, hash, tarball_path; verbose=verbose)
+        download_verify(tarball_url, hash, tarball_path;
+                        force=force, verbose=verbose)
     end
 
     if verbose
