@@ -419,7 +419,7 @@ function list_tarball_files(path::AbstractString; verbose::Bool = false)
     catch
         error("Could not list contents of tarball $(path)")
     end
-    return parse_tarball_listing(stdout(oc))
+    return parse_tarball_listing(collect_stdout(oc))
 end
 
 """

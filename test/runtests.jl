@@ -67,8 +67,8 @@ end
         end
 
         # Test that we can grab stdout and stderr separately
-        @test stdout(oc) == "1\n3\n4\n"
-        @test stderr(oc) == "2\n"
+        @test collect_stdout(oc) == "1\n3\n4\n"
+        @test collect_stderr(oc) == "2\n"
     end
 
     # Next test a much longer output program
@@ -95,7 +95,7 @@ end
             oc = OutputCollector(sh(`./kill.sh`))
 
             @test !wait(oc)
-            @test stdout(oc) == "1\n2\n"
+            @test collect_stdout(oc) == "1\n2\n"
         end
     end
 
@@ -111,7 +111,7 @@ end
         oc = OutputCollector(sh(`./newlines.sh`))
 
         @test wait(oc)
-        @test stdout(oc) == newlines_out
+        @test collect_stdout(oc) == newlines_out
     end
 
     # Next, test that tee'ing to a stream works
