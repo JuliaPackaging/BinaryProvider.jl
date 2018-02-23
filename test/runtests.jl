@@ -264,7 +264,7 @@ end
         e_path = joinpath(bindir(prefix), "fooifier")
         l_path = joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)")
         e = ExecutableProduct(prefix, "fooifier", :fooifier)
-        ef = FileProduct(e_path, :fooifier)
+        ef = FileProduct(prefix, joinpath("bin", "fooifier"), :fooifier)
         l = LibraryProduct(prefix, "libfoo", :libfoo)
         lf = FileProduct(l_path, :libfoo)
 
@@ -346,6 +346,25 @@ end
             touch(l_path)
             @test !satisfied(l; verbose=true, platform=foreign_platform)
         end
+    end
+
+    # Test for proper repr behavior
+    temp_prefix() do prefix
+        l = LibraryProduct(prefix, "libfoo", :libfoo)
+        @test repr(l) == "LibraryProduct(prefix, $(repr(["libfoo"])), :libfoo)"
+        l = LibraryProduct(libdir(prefix), ["libfoo", "libfoo2"], :libfoo)
+        @test repr(l) == "LibraryProduct($(repr(libdir(prefix))), $(repr(["libfoo", "libfoo2"])), :libfoo)"
+
+        e = ExecutableProduct(prefix, "fooifier", :fooifier)
+        @test repr(e) == "ExecutableProduct(prefix, \"fooifier\", :fooifier)"
+        e = ExecutableProduct(joinpath(bindir(prefix), "fooifier"), :fooifier)
+        @test repr(e) == "ExecutableProduct($(repr(joinpath(bindir(prefix), "fooifier"))), :fooifier)"
+
+        f = FileProduct(prefix, joinpath("etc", "fooifier"), :foo_conf)
+        @test repr(f) == "FileProduct(prefix, $(repr(joinpath("etc", "fooifier"))), :foo_conf)"
+
+        f = FileProduct(joinpath(prefix, "etc", "foo.conf"), :foo_conf)
+        @test repr(f) == "FileProduct($(repr(joinpath(prefix, "etc", "foo.conf"))), :foo_conf)"
     end
 end
 
