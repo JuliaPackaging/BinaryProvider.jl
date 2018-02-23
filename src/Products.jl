@@ -1,5 +1,6 @@
 export Product, LibraryProduct, FileProduct, ExecutableProduct, satisfied,
        locate, write_deps_file, variable_name
+import Base: repr
 
 """
 A `Product` is an expected result after building or installation of a package.
@@ -15,6 +16,9 @@ functionality:
   successfully satisfied (e.g. it is locateable and it passes all callbacks)
 
 * `variable_name(::Product)`: return the variable name assigned to a `Product`
+
+* `repr(::Product)`: Return a representation of this `Product`, useful for
+  auto-generating source code that constructs `Products`, if that's your thing.
 """
 abstract type Product end
 
@@ -52,7 +56,8 @@ build configuration.
 struct LibraryProduct <: Product
     dir_path::String
     libnames::Vector{String}
-    variable_name::String
+    variable_name::Symbol
+    prefix::Union{Prefix, Nothing}
 
     """
         LibraryProduct(prefix::Prefix, libname::AbstractString,
@@ -73,12 +78,12 @@ struct LibraryProduct <: Product
     """
     function LibraryProduct(prefix::Prefix, libname::AbstractString,
                             varname::Symbol)
-        return new(libdir(prefix), [libname], varname)
+        return LibraryProduct(prefix, [libname], varname)
     end
 
     function LibraryProduct(prefix::Prefix, libnames::Vector{S},
                             varname::Symbol) where {S <: AbstractString}
-        return new(libdir(prefix), libnames, varname)
+        return new(libdir(prefix), libnames, varname, prefix)
     end
 
     """
@@ -90,12 +95,22 @@ struct LibraryProduct <: Product
     """
     function LibraryProduct(dir_path::AbstractString, libname::AbstractString,
                             varname::Symbol)
-        return new(dir_path, [libname], varname)
+        return LibraryProduct(dir_path, [libname], varname)
     end
 
     function LibraryProduct(dir_path::AbstractString, libnames::Vector{S},
                             varname::Symbol) where {S <: AbstractString}
-       return new(dir_path, libnames, varname)
+       return new(dir_path, libnames, varname, nothing)
+    end
+end
+
+function repr(p::LibraryProduct)
+    libnames = repr(p.libnames)
+    varname = repr(p.variable_name)
+    if p.prefix === nothing
+        return "LibraryProduct($(repr(p.dir_path)), $(libnames), $(varname))"
+    else
+        return "LibraryProduct(prefix, $(libnames), $(varname))"
     end
 end
 
@@ -176,6 +191,7 @@ automatically, if it is not already present).
 struct ExecutableProduct <: Product
     path::AbstractString
     variable_name::Symbol
+    prefix::Union{Prefix, Nothing}
 
     """
     `ExecutableProduct(prefix::Prefix, binname::AbstractString,
@@ -186,7 +202,7 @@ struct ExecutableProduct <: Product
     """
     function ExecutableProduct(prefix::Prefix, binname::AbstractString,
                                varname::Symbol)
-        return new(joinpath(bindir(prefix), binname), varname)
+        return new(joinpath(bindir(prefix), binname), varname, prefix)
     end
 
     """
@@ -196,7 +212,17 @@ struct ExecutableProduct <: Product
     pass in the full `binpath` instead of auto-inferring it from `bindir(prefix)`.
     """
     function ExecutableProduct(binpath::AbstractString, varname::Symbol)
-        return new(binpath, varname)
+        return new(binpath, varname, nothing)
+    end
+end
+
+function repr(p::ExecutableProduct)
+    varname = repr(p.variable_name)
+    if p.prefix === nothing
+        return "ExecutableProduct($(repr(p.path)), $(varname))"
+    else
+        rp = relpath(p.path, bindir(p.prefix))
+        return "ExecutableProduct(prefix, $(repr(rp)), $(varname))"
     end
 end
 
@@ -248,6 +274,41 @@ A `FileProduct` represents a file that simply must exist to be satisfied.
 struct FileProduct <: Product
     path::AbstractString
     variable_name::Symbol
+    prefix::Union{Prefix, Nothing}
+
+    """
+        FileProduct(prefix::Prefix, relative_path::AbstractString,
+                                    varname::Symbol)`
+
+    Declares a `FileProduct` that points to a file located relative to a the
+    root of a `Prefix`.
+    """
+    function FileProduct(prefix::Prefix, relative_path::AbstractString,
+                                         varname::Symbol)
+        file_path = joinpath(prefix.path, relative_path)
+        return new(file_path, varname, prefix)
+    end
+
+    """
+        FileProduct(file_path::AbstractString, varname::Symbol)
+
+    For finer-grained control over `FileProduct` locations, you may directly
+    pass in the full `file_pathpath` instead of defining it in reference to
+    a root `Prefix`.
+    """
+    function FileProduct(file_path::AbstractString, varname::Symbol)
+        return new(file_path, varname, nothing)
+    end
+end
+
+function repr(p::FileProduct)
+    varname = repr(p.variable_name)
+    if p.prefix === nothing
+        return "FileProduct($(repr(p.path)), $(varname))"
+    else
+        rp = relpath(p.path, p.prefix.path)
+        return "FileProduct(prefix, $(repr(rp)), $(varname))"
+    end
 end
 
 """

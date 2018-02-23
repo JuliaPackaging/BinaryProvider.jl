@@ -3,7 +3,7 @@
 # intelligently after the fact, or keep them separate for proper analysis.
 import Base: wait, merge
 
-export OutputCollector, merge, stdout, stderr, tail, tee
+export OutputCollector, merge, collect_stdout, collect_stderr, tail, tee
 
 struct LineStream
     pipe::Pipe
@@ -235,20 +235,20 @@ function merge(collector::OutputCollector; colored::Bool = false)
 end
 
 """
-`stdout(collector::OutputCollector)`
+    collect_stdout(collector::OutputCollector)
 
 Returns all stdout lines collected by this collector so far.
 """
-function stdout(collector::OutputCollector)
+function collect_stdout(collector::OutputCollector)
     return join([l[2] for l in collector.stdout_linestream.lines], "")
 end
 
 """
-`stderr(collector::OutputCollector)`
+    collect_stderr(collector::OutputCollector)
 
 Returns all stderr lines collected by this collector so far.
 """
-function stderr(collector::OutputCollector)
+function collect_stderr(collector::OutputCollector)
     return join([l[2] for l in collector.stderr_linestream.lines], "")
 end
 
