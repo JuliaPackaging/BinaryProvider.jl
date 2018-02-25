@@ -656,6 +656,35 @@ end
         @test isfile("deps/deps.jl")
     end
 
+    # Test that the generated deps.jl file gives us the important stuff
+    cd("LibFoo.jl/deps") do
+        dllist = Sys.Libdl.dllist()
+        libjulia = filter(x -> contains(x, "libjulia"), dllist)[1]
+        julia_libdir = joinpath(dirname(libjulia), "julia")
+        envvar_name = @static if Compat.Sys.isapple()
+            "DYLD_LIBRARY_PATH"
+        else Compat.Sys.islinux()
+            "LD_LIBRARY_PATH"
+        end
+
+        original_libdirs = split(get(ENV, envvar_name, ""), ":")
+        @static if !Compat.Sys.iswindows()
+            original_libdirs = filter(x -> x != julia_libdir, original_libdirs)
+            ENV[envvar_name] = join(original_libdirs, ":")
+        end
+
+        # Include deps.jl, run check_deps() and see if we get our products,
+        # and also if the julia libdir gets added to the end of *_LIBRARY_PATH
+        include("LibFoo.jl/deps/deps.jl")
+        Base.invokelatest(check_deps)
+        @test isfile(libfoo)
+        @test isfile(fooifier)
+
+        @static if !Compat.Sys.iswindows()
+            @test julia_libdir in split(ENV[envvar_name], ":")
+        end
+    end
+
     cd("LibFoo.jl/test") do
         # Now, run `LibFoo.jl`'s tests, adding `LibFoo.jl` to the LOAD_PATH
         # so that the tests can pick up the `LibFoo` module

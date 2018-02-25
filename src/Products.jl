@@ -427,6 +427,30 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
             end
         end
 
+        # If any of the products are `ExecutableProduct`s, we need to add Julia's
+        # library directory onto the end of {DYLD,LD}_LIBRARY_PATH
+        @static if !Compat.Sys.iswindows()
+            if any(p isa ExecutableProduct for p in products)
+                dllist = Sys.Libdl.dllist()
+                libjulia = filter(x -> contains(x, "libjulia"), dllist)[1]
+                julia_libdir = repr(joinpath(dirname(libjulia), "julia"))
+                envvar_name = @static if Compat.Sys.isapple()
+                    "DYLD_LIBRARY_PATH"
+                else Compat.Sys.islinux()
+                    "LD_LIBRARY_PATH"
+                end
+                envvar_name = repr(envvar_name)
+
+                println(depsjl_file, """
+                    libpaths = split(get(ENV, $(envvar_name), ""), ":")
+                    if !($(julia_libdir) in libpaths)
+                        push!(libpaths, $(julia_libdir))
+                    end
+                    ENV[$(envvar_name)] = join(filter(!isempty, libpaths), ":")
+                """)
+            end
+        end
+
         # Close the `check_deps()` function
         println(depsjl_file, "end")
     end
