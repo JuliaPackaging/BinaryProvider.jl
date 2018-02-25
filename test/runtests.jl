@@ -543,7 +543,7 @@ end
     end
 end
 
-# Use `build_libfoo_tarball.jl` in the BinDeps2.jl repository to generate more of these
+# Use `build_libfoo_tarball.jl` in the BinaryBuilder.jl repository to generate more of these
 const bin_prefix = "https://github.com/staticfloat/small_bin/raw/74b7fd81e3fbc8963b14b0ebbe5421e270d8bdcf"
 const libfoo_downloads = Dict(
     Linux(:i686) =>     ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz", "1398353bcbbd88338189ece9c1d6e7c508df120bc4f93afbaed362a9f91358ff"),
