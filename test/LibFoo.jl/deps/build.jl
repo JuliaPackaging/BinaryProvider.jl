@@ -5,9 +5,10 @@ const verbose = "--verbose" in ARGS
 const prefix = Prefix(get([a for a in ARGS if a != "--verbose"], 1, joinpath(@__DIR__, "usr")))
 
 # These are the two binary objects we care about
-libfoo = LibraryProduct(prefix, "libfoo", :libfoo)
-fooifier = ExecutableProduct(prefix, "fooifier", :fooifier)
-products = [libfoo, fooifier]
+products = Product[
+    LibraryProduct(prefix, "libfoo", :libfoo),
+    ExecutableProduct(prefix, "fooifier", :fooifier),
+]
 
 # Download binaries from hosted location
 bin_prefix = "https://github.com/staticfloat/small_bin/raw/74b7fd81e3fbc8963b14b0ebbe5421e270d8bdcf"
