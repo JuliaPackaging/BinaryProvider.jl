@@ -3,11 +3,7 @@
 # intelligently after the fact, or keep them separate for proper analysis.
 import Base: wait, merge
 
-<<<<<<< HEAD
 export OutputCollector, merge, collect_stdout, collect_stderr, tail, tee
-=======
-export OutputCollector, merge, tail, tee
->>>>>>> 0.7 compat
 
 struct LineStream
     pipe::Pipe
@@ -240,11 +236,7 @@ function merge(collector::OutputCollector; colored::Bool = false)
 end
 
 """
-<<<<<<< HEAD
     collect_stdout(collector::OutputCollector)
-=======
-`BinaryProvider.stdout(collector::OutputCollector)`
->>>>>>> 0.7 compat
 
 Returns all stdout lines collected by this collector so far.
 """
@@ -253,11 +245,7 @@ function collect_stdout(collector::OutputCollector)
 end
 
 """
-<<<<<<< HEAD
     collect_stderr(collector::OutputCollector)
-=======
-`BinaryProvider.stderr(collector::OutputCollector)`
->>>>>>> 0.7 compat
 
 Returns all stderr lines collected by this collector so far.
 """

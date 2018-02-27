@@ -78,20 +78,12 @@ struct LibraryProduct <: Product
     """
     function LibraryProduct(prefix::Prefix, libname::AbstractString,
                             varname::Symbol)
-<<<<<<< HEAD
         return LibraryProduct(prefix, [libname], varname)
-=======
-        return new(libdir(prefix), [libname], String(varname))
->>>>>>> 0.7 compat
     end
 
     function LibraryProduct(prefix::Prefix, libnames::Vector{S},
                             varname::Symbol) where {S <: AbstractString}
-<<<<<<< HEAD
         return new(libdir(prefix), libnames, varname, prefix)
-=======
-        return new(libdir(prefix), libnames, String(varname))
->>>>>>> 0.7 compat
     end
 
     """
@@ -103,16 +95,11 @@ struct LibraryProduct <: Product
     """
     function LibraryProduct(dir_path::AbstractString, libname::AbstractString,
                             varname::Symbol)
-<<<<<<< HEAD
         return LibraryProduct(dir_path, [libname], varname)
-=======
-        return new(dir_path, [libname], String(varname))
->>>>>>> 0.7 compat
     end
 
     function LibraryProduct(dir_path::AbstractString, libnames::Vector{S},
                             varname::Symbol) where {S <: AbstractString}
-<<<<<<< HEAD
        return new(dir_path, libnames, varname, nothing)
     end
 end
@@ -124,9 +111,6 @@ function repr(p::LibraryProduct)
         return "LibraryProduct($(repr(p.dir_path)), $(libnames), $(varname))"
     else
         return "LibraryProduct(prefix, $(libnames), $(varname))"
-=======
-       return new(dir_path, libnames, String(varname))
->>>>>>> 0.7 compat
     end
 end
 
