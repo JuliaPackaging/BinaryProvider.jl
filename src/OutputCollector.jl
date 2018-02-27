@@ -3,7 +3,11 @@
 # intelligently after the fact, or keep them separate for proper analysis.
 import Base: wait, merge
 
+<<<<<<< HEAD
 export OutputCollector, merge, collect_stdout, collect_stderr, tail, tee
+=======
+export OutputCollector, merge, tail, tee
+>>>>>>> 0.7 compat
 
 struct LineStream
     pipe::Pipe
@@ -56,7 +60,8 @@ function LineStream(pipe::Pipe, event::Condition)
     # This ensures that anybody that's listening to the event but gated on our
     # being alive (e.g. `tee()`) can die alongside us gracefully as well.
     @async begin
-        wait(task)
+        
+        fetch(task)
         notify(event)
     end
     return LineStream(pipe, lines, task)
@@ -107,14 +112,14 @@ independently, but with the time of each line recorded such that they can be
 stored/analyzed independently, but replayed synchronously.
 """
 function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false,
-                         tail_error::Bool=true, tee_stream::IO=STDOUT)
+                         tail_error::Bool=true, tee_stream::IO=Compat.stdout)
     # First, launch the command
     out_pipe = Pipe()
     err_pipe = Pipe()
     P = try
-        spawn(cmd, (DevNull, out_pipe, err_pipe))
+        spawn(cmd, (devnull, out_pipe, err_pipe))
     catch
-        warn("Could not spawn $(cmd)")
+        Compat.@warn("Could not spawn $(cmd)")
         rethrow()
     end
 
@@ -151,12 +156,12 @@ function wait(collector::OutputCollector)
     end
 
     wait(collector.P)
-    wait(collector.stdout_linestream.task)
-    wait(collector.stderr_linestream.task)
+    fetch(collector.stdout_linestream.task)
+    fetch(collector.stderr_linestream.task)
 
-    # Also wait on any extra tasks we've jimmied onto the end of this guy
+    # Also fetch on any extra tasks we've jimmied onto the end of this guy
     for t in collector.extra_tasks
-        wait(t)
+        fetch(t)
     end
 
     # From this point on, we are actually done!
@@ -235,7 +240,11 @@ function merge(collector::OutputCollector; colored::Bool = false)
 end
 
 """
+<<<<<<< HEAD
     collect_stdout(collector::OutputCollector)
+=======
+`BinaryProvider.stdout(collector::OutputCollector)`
+>>>>>>> 0.7 compat
 
 Returns all stdout lines collected by this collector so far.
 """
@@ -244,7 +253,11 @@ function collect_stdout(collector::OutputCollector)
 end
 
 """
+<<<<<<< HEAD
     collect_stderr(collector::OutputCollector)
+=======
+`BinaryProvider.stderr(collector::OutputCollector)`
+>>>>>>> 0.7 compat
 
 Returns all stderr lines collected by this collector so far.
 """
@@ -279,13 +292,13 @@ function tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)
 end
 
 """
-`tee(c::OutputCollector; colored::Bool = false, stream::IO = STDOUT)`
+`tee(c::OutputCollector; colored::Bool = false, stream::IO = Compat.stdout)`
 
 Spawn a background task to incrementally output lines from `collector` to the
 standard output, optionally colored.
 """
 function tee(c::OutputCollector; colored::Bool=Base.have_color,
-             stream::IO=STDOUT)
+             stream::IO=Compat.stdout)
     tee_task = @async begin
         out_idx = 1
         err_idx = 1
@@ -297,7 +310,7 @@ function tee(c::OutputCollector; colored::Bool=Base.have_color,
             timestr = Libc.strftime("[%T] ", time())
             # We know we have data, so figure out if it's for stdout or stderr
             if length(out_lines) >= out_idx
-                print_with_color(:default, stream, timestr; bold=true)
+                printstyled(stream, timestr; bold=true)
                 if length(err_lines) >= err_idx
                     # If we've got input waiting from both lines, then output
                     # the one with the lowest capture time
@@ -307,7 +320,7 @@ function tee(c::OutputCollector; colored::Bool=Base.have_color,
                         out_idx += 1
                     else
                         # Print the err line as it's older
-                        print_with_color(:red, stream, err_lines[err_idx][2])
+                        printstyled(stream, err_lines[err_idx][2]; color=:red)
                         print(stream)
                         err_idx += 1
                     end
@@ -318,8 +331,8 @@ function tee(c::OutputCollector; colored::Bool=Base.have_color,
                 end
             else length(err_lines) > err_idx
                 # Print the err line that is the only one waiting
-                print_with_color(:default, stream, timestr; bold=true)
-                print_with_color(:red, stream, err_lines[err_idx][2])
+                printstyled(stream, timestr; bold=true)
+                printstyled(stream, err_lines[err_idx][2]; color=:red)
                 print(stream)
                 err_idx += 1
             end

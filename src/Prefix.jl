@@ -209,7 +209,7 @@ function extract_platform_key(path::AbstractString)
     end
     idx = rsearch(path, '.')
     if idx == 0
-        warn("Could not extract the platform key of $(path); continuing...")
+        Compat.@warn("Could not extract the platform key of $(path); continuing...")
         return platform_key()
     end
     return platform_key(path[idx+1:end])
@@ -282,7 +282,7 @@ function install(tarball_url::AbstractString,
     end
 
     if verbose
-        info("Installing $(tarball_path) into $(prefix.path)")
+        Compat.@info("Installing $(tarball_path) into $(prefix.path)")
     end
     
     # First, get list of files that are contained within the tarball
@@ -298,7 +298,7 @@ function install(tarball_url::AbstractString,
                 error(msg)
             else
                 if verbose
-                    info("$(file) already exists, force-removing")
+                    Compat.@info("$(file) already exists, force-removing")
                 end
                 rm(file; force=true)
             end
@@ -335,7 +335,7 @@ function uninstall(manifest::AbstractString;
     prefix_path = dirname(dirname(manifest))
     if verbose
         relmanipath = relpath(manifest, prefix_path)
-        info("Removing files installed by $(relmanipath)")
+        Compat.@info("Removing files installed by $(relmanipath)")
     end
 
     # Remove every file listed within the manifest file
@@ -343,19 +343,19 @@ function uninstall(manifest::AbstractString;
         delpath = joinpath(prefix_path, path)
         if !isfile(delpath) && !islink(delpath)
             if verbose
-                info("  $delpath does not exist, but ignoring")
+                Compat.@info("  $delpath does not exist, but ignoring")
             end
         else
             if verbose
                 delrelpath = relpath(delpath, prefix_path)
-                info("  $delrelpath removed")
+                Compat.@info("  $delrelpath removed")
             end
             rm(delpath; force=true)
         end
     end
 
     if verbose
-        info("  $(relmanipath) removed")
+        Compat.@info("  $(relmanipath) removed")
     end
     rm(manifest; force=true)
     return true
@@ -565,7 +565,7 @@ function package(prefix::Prefix,
     if isfile(out_path)
         if force
             if verbose
-                info("$(out_path) already exists, force-overwriting...")
+                Compat.@info("$(out_path) already exists, force-overwriting...")
             end
             rm(out_path; force=true)
         else
@@ -598,7 +598,7 @@ function package(prefix::Prefix,
         return bytes2hex(sha256(f))
     end
     if verbose
-        info("SHA256 of $(basename(out_path)): $(hash)")
+        Compat.@info("SHA256 of $(basename(out_path)): $(hash)")
     end
 
     return out_path, hash

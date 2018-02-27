@@ -87,12 +87,12 @@ Returns `true` if the given command executes successfully, `false` otherwise.
 """
 function probe_cmd(cmd::Cmd; verbose::Bool = false)
     if verbose
-        info("Probing $(cmd.exec[1]) as a possibility...")
+        Compat.@info("Probing $(cmd.exec[1]) as a possibility...")
     end
     try
         success(cmd)
         if verbose
-            info("  Probe successful for $(cmd.exec[1])")
+            Compat.@info("  Probe successful for $(cmd.exec[1])")
         end
         return true
     catch
@@ -215,11 +215,11 @@ function probe_platform_engines!(;verbose::Bool = false)
         prepend!(compression_engines, [(`7z --help`, gen_7z("7z")...)])
 
         # On windows, we bundle 7z with Julia, so try invoking that directly
-        exe7z = joinpath(JULIA_HOME, "7z.exe")
+        exe7z = joinpath(Compat.Sys.BINDIR, "7z.exe")
         prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
 
         # And finally, we want to look for sh as busybox as well:
-        busybox = joinpath(JULIA_HOME, "busybox.exe")
+        busybox = joinpath(Compat.Sys.BINDIR, "busybox.exe")
         prepend!(sh_engines, [(`$busybox sh`)])
     end
 
@@ -232,7 +232,7 @@ function probe_platform_engines!(;verbose::Bool = false)
             warn_msg  = "Ignoring BINARYPROVIDER_DOWNLOAD_ENGINE as its value "
             warn_msg *= "of `$(engine)` doesn't match any known valid engines."
             warn_msg *= " Try one of `$(all_ngs)`."
-            warn(warn_msg)
+            Compat.@warn(warn_msg)
         else
             # If BINARYPROVIDER_DOWNLOAD_ENGINE matches one of our download engines,
             # then restrict ourselves to looking only at that engine
@@ -248,7 +248,7 @@ function probe_platform_engines!(;verbose::Bool = false)
             warn_msg  = "Ignoring BINARYPROVIDER_COMPRESSION_ENGINE as its "
             warn_msg *= "value of `$(engine)` doesn't match any known valid "
             warn_msg *= "engines. Try one of `$(all_ngs)`."
-            warn(warn_msg)
+            Compat.@warn(warn_msg)
         else
             # If BINARYPROVIDER_COMPRESSION_ENGINE matches one of our download
             # engines, then restrict ourselves to looking only at that engine
@@ -261,7 +261,7 @@ function probe_platform_engines!(;verbose::Bool = false)
     sh_found = false
 
     if verbose
-        info("Probing for download engine...")
+        Compat.@info("Probing for download engine...")
     end
 
     # Search for a download engine
@@ -272,14 +272,14 @@ function probe_platform_engines!(;verbose::Bool = false)
             download_found = true
 
             if verbose
-                info("Found download engine $(test.exec[1])")
+                Compat.@info("Found download engine $(test.exec[1])")
             end
             break
         end
     end
 
     if verbose
-        info("Probing for compression engine...")
+        Compat.@info("Probing for compression engine...")
     end
 
     # Search for a compression engine
@@ -292,7 +292,7 @@ function probe_platform_engines!(;verbose::Bool = false)
             parse_tarball_listing = parse
 
             if verbose
-                info("Found compression engine $(test.exec[1])")
+                Compat.@info("Found compression engine $(test.exec[1])")
             end
 
             compression_found = true
@@ -301,14 +301,14 @@ function probe_platform_engines!(;verbose::Bool = false)
     end
 
     if verbose
-        info("Probing for sh engine...")
+        Compat.@info("Probing for sh engine...")
     end
 
     for path in sh_engines
         if probe_cmd(`$path --help`; verbose=verbose)
             gen_sh_cmd = (cmd) -> `$path -c $cmd`
             if verbose
-                info("Found sh engine $(path.exec[1])")
+                Compat.@info("Found sh engine $(path.exec[1])")
             end
             sh_found = true
             break
@@ -416,7 +416,7 @@ function download(url::AbstractString, dest::AbstractString;
                   verbose::Bool = false)
     download_cmd = gen_download_cmd(url, dest)
     if verbose
-        info("Downloading $(url) to $(dest)...")
+        Compat.@info("Downloading $(url) to $(dest)...")
     end
     oc = OutputCollector(download_cmd; verbose=verbose)
     try
@@ -508,7 +508,7 @@ function download_verify(url::AbstractString, hash::AbstractString,
         # and start over from scratch.
         if file_existed
             if verbose
-                info("Continued download didn't work, restarting from scratch")
+                Compat.@info("Continued download didn't work, restarting from scratch")
             end
             rm(dest; force=true)
 
@@ -593,7 +593,7 @@ function download_verify_unpack(url::AbstractString,
                                      force=force, verbose=verbose)
     if should_delete
         if verbose
-            info("Removing dest directory $(dest) as source tarball changed")
+            Compat.@info("Removing dest directory $(dest) as source tarball changed")
         end
         rm(dest; recursive=true, force=true)
     end
@@ -601,14 +601,14 @@ function download_verify_unpack(url::AbstractString,
     # If the destination path already exists, don't bother to unpack
     if isdir(dest)
         if verbose
-            info("Destination directory $(dest) already exists, returning")
+            Compat.@info("Destination directory $(dest) already exists, returning")
         end
         return
     end
 
     try
         if verbose
-            info("Unpacking $(tarball_path) into $(dest)...")
+            Compat.@info("Unpacking $(tarball_path) into $(dest)...")
         end
         unpack(tarball_path, dest; verbose=verbose)
     finally

@@ -78,12 +78,20 @@ struct LibraryProduct <: Product
     """
     function LibraryProduct(prefix::Prefix, libname::AbstractString,
                             varname::Symbol)
+<<<<<<< HEAD
         return LibraryProduct(prefix, [libname], varname)
+=======
+        return new(libdir(prefix), [libname], String(varname))
+>>>>>>> 0.7 compat
     end
 
     function LibraryProduct(prefix::Prefix, libnames::Vector{S},
                             varname::Symbol) where {S <: AbstractString}
+<<<<<<< HEAD
         return new(libdir(prefix), libnames, varname, prefix)
+=======
+        return new(libdir(prefix), libnames, String(varname))
+>>>>>>> 0.7 compat
     end
 
     """
@@ -95,11 +103,16 @@ struct LibraryProduct <: Product
     """
     function LibraryProduct(dir_path::AbstractString, libname::AbstractString,
                             varname::Symbol)
+<<<<<<< HEAD
         return LibraryProduct(dir_path, [libname], varname)
+=======
+        return new(dir_path, [libname], String(varname))
+>>>>>>> 0.7 compat
     end
 
     function LibraryProduct(dir_path::AbstractString, libnames::Vector{S},
                             varname::Symbol) where {S <: AbstractString}
+<<<<<<< HEAD
        return new(dir_path, libnames, varname, nothing)
     end
 end
@@ -111,6 +124,9 @@ function repr(p::LibraryProduct)
         return "LibraryProduct($(repr(p.dir_path)), $(libnames), $(varname))"
     else
         return "LibraryProduct(prefix, $(libnames), $(varname))"
+=======
+       return new(dir_path, libnames, String(varname))
+>>>>>>> 0.7 compat
     end
 end
 
@@ -128,7 +144,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                 platform::Platform = platform_key())
     if !isdir(lp.dir_path)
         if verbose
-            info("Directory $(lp.dir_path) does not exist!")
+            Compat.@info("Directory $(lp.dir_path) does not exist!")
         end
         return nothing
     end
@@ -141,7 +157,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
         end
 
         if verbose
-            info("Found a valid dl path $(f) while looking for $(join(lp.libnames, ", "))")
+            Compat.@info("Found a valid dl path $(f) while looking for $(join(lp.libnames, ", "))")
         end
 
         # If we found something that is a dynamic library, let's check to see
@@ -150,7 +166,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
             if startswith(basename(f), libname)
                 dl_path = abspath(joinpath(lp.dir_path), f)
                 if verbose
-                    info("$(dl_path) matches our search criteria of $(libname)")
+                    Compat.@info("$(dl_path) matches our search criteria of $(libname)")
                 end
 
                 # If it does, try to `dlopen()` it if the current platform is good
@@ -158,7 +174,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                     hdl = Libdl.dlopen_e(dl_path)
                     if hdl == C_NULL
                         if verbose
-                            info("$(dl_path) cannot be dlopen'ed")
+                            Compat.@info("$(dl_path) cannot be dlopen'ed")
                         end
                     else
                         # Hey!  It worked!  Yay!
@@ -175,7 +191,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
     end
 
     if verbose
-        info("Could not locate $(join(lp.libnames, ", ")) inside $(lp.dir_path)")
+        Compat.@info("Could not locate $(join(lp.libnames, ", ")) inside $(lp.dir_path)")
     end
     return nothing
 end
@@ -249,7 +265,7 @@ function locate(ep::ExecutableProduct; platform::Platform = platform_key(),
 
     if !isfile(path)
         if verbose
-            info("$(ep.path) does not exist, reporting unsatisfied")
+            Compat.@info("$(ep.path) does not exist, reporting unsatisfied")
         end
         return nothing
     end
@@ -259,7 +275,7 @@ function locate(ep::ExecutableProduct; platform::Platform = platform_key(),
     @static if !Compat.Sys.iswindows()
         if uperm(path) & 0x1 == 0
             if verbose
-                info("$(path) is not executable, reporting unsatisfied")
+                Compat.@info("$(path) is not executable, reporting unsatisfied")
             end
             return nothing
         end
@@ -322,7 +338,7 @@ function locate(fp::FileProduct; platform::Platform = platform_key(),
                                  verbose::Bool = false)
     if isfile(fp.path)
         if verbose
-            info("FileProduct $(fp.path) does not exist")
+            Compat.@info("FileProduct $(fp.path) does not exist")
         end
         return fp.path
     end
@@ -368,7 +384,7 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
     package_name = basename(dirname(dirname(depsjl_path)))
 
     # We say this a couple of times
-    const rebuild = strip("""
+    rebuild = strip("""
     Please re-run Pkg.build(\\\"$(package_name)\\\"), and restart Julia.
     """)
 
