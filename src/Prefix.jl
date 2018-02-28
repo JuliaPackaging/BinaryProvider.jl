@@ -250,7 +250,7 @@ function install(tarball_url::AbstractString,
                 Will not install a tarball of platform $(triplet(platform)) on
                 a system of platform $(triplet(platform_key())) unless
                 `ignore_platform` is explicitly set to `true`.
-                """), "\n", " ")
+                """), "\n" => " ")
                 throw(ArgumentError(msg))
             end
         catch e
@@ -572,7 +572,7 @@ function package(prefix::Prefix,
             msg = replace(strip("""
             $(out_path) already exists, refusing to package into it without
             `force` being set to `true`.
-            """), "\n", " ")
+            """), "\n" => " ")
             error(msg)
         end
     end

@@ -362,7 +362,7 @@ asking the user to re-run `Pkg.build("package_name")`.
 function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
                          verbose::Bool=false) where {P <: Product}
     # helper function to escape paths
-    escape_path = path -> replace(path, "\\", "\\\\")
+    escape_path = path -> replace(path, "\\" => "\\\\")
 
     # Grab the package name as the name of the top-level directory of a package
     package_name = basename(dirname(dirname(depsjl_path)))

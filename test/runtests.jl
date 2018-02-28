@@ -23,12 +23,12 @@ BinaryProvider.probe_platform_engines!(;verbose=true)
 # Helper function to strip out color codes from strings to make it easier to
 # compare output within tests that has been colorized
 function strip_colorization(s)
-    return replace(s, r"(\e\[\d+m)"m, "")
+    return replace(s, r"(\e\[\d+m)"m => "")
 end
 
 # Helper function to strip out log timestamps from strings
 function strip_timestamps(s)
-    return replace(s, r"^(\[\d\d:\d\d:\d\d\] )"m, "")
+    return replace(s, r"^(\[\d\d:\d\d:\d\d\] )"m => "")
 end
 
 @testset "OutputCollector" begin
@@ -558,7 +558,7 @@ const libfoo_downloads = Dict(
 @testset "Downloading" begin
     temp_prefix() do prefix
         if !haskey(libfoo_downloads, platform)
-            warn("Platform $platform does not have a libfoo download, skipping download tests")
+            Compat.@warn("Platform $platform does not have a libfoo download, skipping download tests")
         else
             # Test a good download works
             url, hash = libfoo_downloads[platform]

@@ -197,7 +197,7 @@ function probe_platform_engines!(;verbose::Bool = false)
                 \$webclient = (New-Object System.Net.Webclient);
                 \$webclient.DownloadFile(\"$url\", \"$path\")
                 """
-                replace(webclient_code, "\n", " ")
+                replace(webclient_code, "\n" => " ")
                 return `$psh_path -NoProfile -Command "$webclient_code"`
             end
         end
