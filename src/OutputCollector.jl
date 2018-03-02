@@ -113,7 +113,11 @@ function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false,
     out_pipe = Pipe()
     err_pipe = Pipe()
     P = try
-        spawn(cmd, (devnull, out_pipe, err_pipe))
+        @static if applicable(spawn, `ls`, (devnull, stdout, stderr))
+            spawn(cmd, (devnull, out_pipe, err_pipe))
+        else
+            run(pipeline(cmd, stdin=devnull, stdout=out_pipe, stderr=err_pipe); wait=false)
+        end
     catch
         Compat.@warn("Could not spawn $(cmd)")
         rethrow()
