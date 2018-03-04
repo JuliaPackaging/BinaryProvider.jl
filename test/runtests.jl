@@ -541,7 +541,7 @@ end
     end
 end
 
-# Use `build_libfoo_tarball.jl` in the BinDeps2.jl repository to generate more of these
+# Use `build_libfoo_tarball.jl` in the BinaryBuilder.jl repository to generate more of these
 const bin_prefix = "https://github.com/staticfloat/small_bin/raw/74b7fd81e3fbc8963b14b0ebbe5421e270d8bdcf"
 const libfoo_downloads = Dict(
     Linux(:i686) =>     ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz", "1398353bcbbd88338189ece9c1d6e7c508df120bc4f93afbaed362a9f91358ff"),
@@ -652,6 +652,35 @@ end
 
         # Ensure `deps.jl` was actually created
         @test isfile("deps/deps.jl")
+    end
+
+    # Test that the generated deps.jl file gives us the important stuff
+    cd("LibFoo.jl/deps") do
+        dllist = Sys.Libdl.dllist()
+        libjulia = filter(x -> contains(x, "libjulia"), dllist)[1]
+        julia_libdir = joinpath(dirname(libjulia), "julia")
+        envvar_name = @static if Compat.Sys.isapple()
+            "DYLD_LIBRARY_PATH"
+        else Compat.Sys.islinux()
+            "LD_LIBRARY_PATH"
+        end
+
+        original_libdirs = split(get(ENV, envvar_name, ""), ":")
+        @static if !Compat.Sys.iswindows()
+            original_libdirs = filter(x -> x != julia_libdir, original_libdirs)
+            ENV[envvar_name] = join(original_libdirs, ":")
+        end
+
+        # Include deps.jl, run check_deps() and see if we get our products,
+        # and also if the julia libdir gets added to the end of *_LIBRARY_PATH
+        include("LibFoo.jl/deps/deps.jl")
+        Base.invokelatest(check_deps)
+        @test isfile(libfoo)
+        @test isfile(fooifier)
+
+        @static if !Compat.Sys.iswindows()
+            @test julia_libdir in split(ENV[envvar_name], ":")
+        end
     end
 
     cd("LibFoo.jl/test") do
