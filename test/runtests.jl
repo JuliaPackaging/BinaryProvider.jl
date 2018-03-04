@@ -1,11 +1,9 @@
 using BinaryProvider
 using Compat
 using Compat.Test
+using Compat.Libdl
+using Compat.Pkg
 using SHA
-
-if VERSION >= v"0.7.0-DEV.3382"
-    import Libdl
-end
 
 # The platform we're running on
 const platform = platform_key()
@@ -25,12 +23,12 @@ BinaryProvider.probe_platform_engines!(;verbose=true)
 # Helper function to strip out color codes from strings to make it easier to
 # compare output within tests that has been colorized
 function strip_colorization(s)
-    return replace(s, r"(\e\[\d+m)"m, "")
+    return replace(s, r"(\e\[\d+m)"m => "")
 end
 
 # Helper function to strip out log timestamps from strings
 function strip_timestamps(s)
-    return replace(s, r"^(\[\d\d:\d\d:\d\d\] )"m, "")
+    return replace(s, r"^(\[\d\d:\d\d:\d\d\] )"m => "")
 end
 
 @testset "OutputCollector" begin
@@ -122,7 +120,7 @@ end
         @test merge(oc) == simple_out
         
         seekstart(ios)
-        tee_out = readstring(ios)
+        tee_out = String(read(ios))
         tee_out = strip_colorization(tee_out)
         tee_out = strip_timestamps(tee_out)
         @test tee_out == simple_out
@@ -136,7 +134,7 @@ end
         @test !wait(oc)
         @test merge(oc) == "1\n2\n"
         seekstart(ios)
-        tee_out = readstring(ios)
+        tee_out = String(read(ios))
         tee_out = strip_colorization(tee_out)
         tee_out = strip_timestamps(tee_out)
         @test tee_out == "1\n2\n"
@@ -151,7 +149,7 @@ end
         @test merge(oc) == "1\n2\n"
         
         seekstart(ios)
-        @test readstring(ios) == ""
+        @test String(read(ios)) == ""
     end
 end
 
@@ -290,7 +288,7 @@ end
 
         # Remove it and add a `$(path).exe` version to check again, this
         # time saying it's a Windows executable
-        rm(e_path; force=true)
+        Base.rm(e_path; force=true)
         touch("$(e_path).exe")
         chmod("$(e_path).exe", 0o777)
         @test locate(e, platform=Windows(:x86_64)) == "$(e_path).exe"
@@ -374,7 +372,7 @@ end
         if !endswith(f, ".tar.gz") && !endswith(f, ".sha256")
             continue
         end
-        rm(f; force=true)
+        Base.rm(f; force=true)
     end
 
     # Gotta set this guy up beforehand
@@ -411,7 +409,7 @@ end
 
     # Test that we can inspect the contents of the tarball
     contents = list_tarball_files(tarball_path)
-    const libdir_name = Compat.Sys.iswindows() ? "bin" : "lib"
+    libdir_name = Compat.Sys.iswindows() ? "bin" : "lib"
     @test joinpath("bin", "bar.sh") in contents
     @test joinpath(libdir_name, "baz.so") in contents
 
@@ -451,7 +449,7 @@ end
         # Ensure that we don't want to install tarballs from other platforms
         cp(tarball_path, "./libfoo_juliaos64.tar.gz")
         @test_throws ArgumentError install("./libfoo_juliaos64.tar.gz", tarball_hash; prefix=prefix)
-        rm("./libfoo_juliaos64.tar.gz"; force=true)
+        Base.rm("./libfoo_juliaos64.tar.gz"; force=true)
 
         # Ensure that hash mismatches throw errors
         fake_hash = reverse(tarball_hash)
@@ -486,12 +484,12 @@ end
     end
 
     # Cleanup after ourselves
-    rm(tarball_path; force=true)
-    rm("$(tarball_path).sha256"; force=true)
-    rm(bogus_tarball_path; force=true)
-    rm("$(bogus_tarball_path).sha256"; force=true)
-    rm(new_tarball_path; force=true)
-    rm("$(new_tarball_path).sha256"; force=true)
+    Base.rm(tarball_path; force=true)
+    Base.rm("$(tarball_path).sha256"; force=true)
+    Base.rm(bogus_tarball_path; force=true)
+    Base.rm("$(bogus_tarball_path).sha256"; force=true)
+    Base.rm(new_tarball_path; force=true)
+    Base.rm("$(new_tarball_path).sha256"; force=true)
 end
 
 @testset "Verification" begin
@@ -503,7 +501,7 @@ end
         foo_hash = bytes2hex(sha256("test"))
 
         # Check that verifying with the right hash works
-        info("This should say; no hash cache found")
+        Compat.@info("This should say; no hash cache found")
         ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
         @test ret == true
         @test status == :hash_cache_missing
@@ -512,7 +510,7 @@ end
         @test isfile("$(foo_path).sha256")
 
         # Check that it verifies the second time around properly
-        info("This should say; hash cache is consistent")
+        Compat.@info("This should say; hash cache is consistent")
         ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
         @test ret == true
         @test status == :hash_cache_consistent
@@ -522,7 +520,7 @@ end
 
         # Get coverage of messing with different parts of the verification chain
         touch(foo_path)
-        info("This should say; file has been modified")
+        Compat.@info("This should say; file has been modified")
         ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
         @test ret == true
         @test status == :file_modified
@@ -536,7 +534,7 @@ end
         open("$(foo_path).sha256", "w") do file
             write(file, "this is not the right hash")
         end
-        info("This should say; hash has changed")
+        Compat.@info("This should say; hash has changed")
         ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
         @test ret == true
         @test status == :hash_cache_mismatch
@@ -560,7 +558,7 @@ const libfoo_downloads = Dict(
 @testset "Downloading" begin
     temp_prefix() do prefix
         if !haskey(libfoo_downloads, platform)
-            warn("Platform $platform does not have a libfoo download, skipping download tests")
+            Compat.@warn("Platform $platform does not have a libfoo download, skipping download tests")
         else
             # Test a good download works
             url, hash = libfoo_downloads[platform]
@@ -596,7 +594,7 @@ const libfoo_downloads = Dict(
             @test uninstall(manifest_from_url(url; prefix=prefix); verbose=true)
 
             # Test that download_verify_unpack() works
-            rm(prefix.path; recursive=true, force=true)
+            Base.rm(prefix.path; recursive=true, force=true)
             download_verify_unpack(url, hash, prefix.path)
             @test satisfied(fooifier; verbose=true)
             @test satisfied(libfoo; verbose=true)
@@ -644,10 +642,10 @@ end
 
 # Test installation and failure modes of the bundled LibFoo.jl
 @testset "LibFoo.jl" begin
-    const color="--color=$(Base.have_color ? "yes" : "no")"
+    color="--color=$(Base.have_color ? "yes" : "no")"
     cd("LibFoo.jl") do
-        rm("./deps/deps.jl"; force=true)
-        rm("./deps/usr"; force=true, recursive=true)
+        Base.rm("./deps/deps.jl"; force=true)
+        Base.rm("./deps/usr"; force=true, recursive=true)
 
         # Install `libfoo` and build the `deps.jl` file for `LibFoo.jl`
         run(`$(Base.julia_cmd()) $(color) deps/build.jl`)

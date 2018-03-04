@@ -38,7 +38,7 @@ macro write_deps_file(capture...)
     verbose = "--verbose" in ARGS
 
     return quote
-        warn("@write_deps_file is deprecated, use the function not the macro!")
+        Compat.@warn("@write_deps_file is deprecated, use the function not the macro!")
         const source = VERSION >= v"0.7.0-" ? $("$(dummy_source)") : @__FILE__
         const depsjl_path = joinpath(dirname(source), "deps.jl")
 
@@ -78,7 +78,7 @@ function LibraryProduct(dir_or_prefix, libnames)
     elseif libnames isa AbstractString
         varname = guess_varname(libnames)
     end
-    warn("LibraryProduct() now takes a variable name! auto-choosing $(varname)")
+    Compat.@warn("LibraryProduct() now takes a variable name! auto-choosing $(varname)")
     return LibraryProduct(dir_or_prefix, libnames, varname)
 end
 
@@ -87,12 +87,12 @@ function ExecutableProduct(prefix::Prefix, binname::AbstractString)
 end
 function ExecutableProduct(binpath::AbstractString)
     varname = guess_varname(binpath)
-    warn("ExecutableProduct() now takes a variable name!  auto-choosing $(varname)")
+    Compat.@warn("ExecutableProduct() now takes a variable name!  auto-choosing $(varname)")
     return ExecutableProduct(binpath, varname)
 end
 
 function FileProduct(path)
     varname = guess_varname(path)
-    warn("FileProduct() now takes a variable name!  auto-choosing $(varname)")
+    Compat.@warn("FileProduct() now takes a variable name!  auto-choosing $(varname)")
     return FileProduct(path, varname)
 end
