@@ -138,6 +138,9 @@ function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false,
         tee(self; stream = tee_stream)
     end
 
+    # Yield immediately to dodge strange scheduling problems
+    yield()
+
     return self
 end
 
