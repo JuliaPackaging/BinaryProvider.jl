@@ -153,26 +153,25 @@ not complete successfully unless the OutputCollector was created as `verbose`.
 """
 function wait(collector::OutputCollector)
     # If we've already done this song and dance before, then don't do it again
-    if collector.done
-        return success(collector.P)
-    end
+    if !collector.done
+        wait(collector.P)
+        fetch(collector.stdout_linestream.task)
+        fetch(collector.stderr_linestream.task)
 
-    wait(collector.P)
-    fetch(collector.stdout_linestream.task)
-    fetch(collector.stderr_linestream.task)
+        # Also fetch on any extra tasks we've jimmied onto the end of this guy
+        for t in collector.extra_tasks
+            fetch(t)
+        end
 
-    # Also fetch on any extra tasks we've jimmied onto the end of this guy
-    for t in collector.extra_tasks
-        fetch(t)
-    end
+        # From this point on, we are actually done!
+        collector.done = true
 
-    # From this point on, we are actually done!
-    collector.done = true
-
-    # If we failed, then print out the tail of the output, unless we've been
-    # tee()'ing it out this whole time, but only if the user said it's okay to.
-    if !success(collector.P) && !collector.verbose && collector.tail_error
-        print(collector.tee_stream, tail(collector; colored=Base.have_color))
+        # If we failed, print out the tail of the output, unless we've been
+        # tee()'ing it out this whole time, but only if the user said it's okay.
+        if !success(collector.P) && !collector.verbose && collector.tail_error
+            our_tail = tail(collector; colored=Base.have_color)
+            print(collector.tee_stream, our_tail)
+        end
     end
     
     # Shout to the world how we've done
