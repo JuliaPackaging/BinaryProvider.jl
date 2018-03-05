@@ -43,7 +43,7 @@ function LineStream(pipe::Pipe, event::Condition)
 
     lines = Tuple{Float64,String}[]
     task = @async begin
-        # Read lines in until we can't anymore
+        # Read lines in until we can't anymore.
         while !eof(pipe)
             # Push this line onto our lines, then notify() the event
             line = readuntil_many(pipe, ['\n', '\r'])
@@ -51,6 +51,10 @@ function LineStream(pipe::Pipe, event::Condition)
             notify(event)
         end
     end
+
+    # Switch to the task immediately so that we can start scooping up that
+    # sweet sweet data:
+    try yield(task) end
 
     # Create a second task that runs after the first just to notify()
     # This ensures that anybody that's listening to the event but gated on our
@@ -136,9 +140,6 @@ function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false,
     if verbose
         tee(self; stream = tee_stream)
     end
-
-    # Yield immediately to dodge strange scheduling problems
-    yield()
 
     return self
 end

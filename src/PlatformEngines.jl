@@ -350,6 +350,12 @@ by  `list_tarball_files`.
 """
 function parse_7z_list(output::AbstractString)
     lines = [chomp(l) for l in split(output, "\n")]
+
+    # If we didn't get anything, complain immediately
+    if isempty(lines)
+        return []
+    end
+
     # Remove extraneous "\r" for windows platforms
     for idx in 1:length(lines)
         if endswith(lines[idx], '\r')
