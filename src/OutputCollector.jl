@@ -56,7 +56,6 @@ function LineStream(pipe::Pipe, event::Condition)
     # This ensures that anybody that's listening to the event but gated on our
     # being alive (e.g. `tee()`) can die alongside us gracefully as well.
     @async begin
-        
         fetch(task)
         notify(event)
     end
@@ -303,9 +302,10 @@ function tee(c::OutputCollector; colored::Bool=Base.have_color,
         # Helper function to print out the next line of stdout/stderr
         function print_next_line()
             timestr = Libc.strftime("[%T] ", time())
-            # We know we have data, so figure out if it's for stdout or stderr
+            # We know we have data, so figure out if it's for stdout, stderr
+            # or both, and we need to choose which to print based on timestamp
+            printstyled(stream, timestr; bold=true)
             if length(out_lines) >= out_idx
-                printstyled(stream, timestr; bold=true)
                 if length(err_lines) >= err_idx
                     # If we've got input waiting from both lines, then output
                     # the one with the lowest capture time
@@ -320,13 +320,12 @@ function tee(c::OutputCollector; colored::Bool=Base.have_color,
                         err_idx += 1
                     end
                 else
-                    # Pring the out line that is the only one waiting
+                    # Print the out line that is the only one waiting
                     print(stream, out_lines[out_idx][2])
                     out_idx += 1
                 end
-            else length(err_lines) > err_idx
+            else
                 # Print the err line that is the only one waiting
-                printstyled(stream, timestr; bold=true)
                 printstyled(stream, err_lines[err_idx][2]; color=:red)
                 print(stream)
                 err_idx += 1
