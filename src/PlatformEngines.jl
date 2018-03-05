@@ -330,14 +330,12 @@ function probe_platform_engines!(;verbose::Bool = false)
         errmsg *= ". Install one and ensure it is available on the path.\n"
     end
 
-    if !sh_found
-        errmsg *= "No sh engines found. We looked for: "
-        errmsg *= join([b.exec[1] for b in sh_engines], ", ")
-        errmsg *= ". Install one and ensure it is available on the path.\n"
+    if !sh_found && verbose
+        Compat.@warn("No sh engines found.  Test suite will fail.")
     end
 
     # Error out if we couldn't find something
-    if !download_found || !compression_found || !sh_found
+    if !download_found || !compression_found
         error(errmsg)
     end
 end
