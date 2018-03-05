@@ -55,10 +55,6 @@ function LineStream(pipe::Pipe, event::Condition)
         end
     end
 
-    # Switch to the task immediately so that we can start scooping up that
-    # sweet sweet data:
-    try yield(task) end
-
     # Create a second task that runs after the first just to notify()
     # This ensures that anybody that's listening to the event but gated on our
     # being alive (e.g. `tee()`) can die alongside us gracefully as well.
