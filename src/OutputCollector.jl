@@ -44,9 +44,12 @@ function LineStream(pipe::Pipe, event::Condition)
     lines = Tuple{Float64,String}[]
     task = @async begin
         # Read lines in until we can't anymore.
-        while !eof(pipe)
+        while true
             # Push this line onto our lines, then notify() the event
             line = readuntil_many(pipe, ['\n', '\r'])
+            if isempty(line) && eof(pipe)
+                break
+            end
             push!(lines, (time(), line))
             notify(event)
         end
