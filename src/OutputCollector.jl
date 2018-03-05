@@ -30,7 +30,7 @@ function readuntil_many(s::IO, delims)
 end
 
 """
-`LineStream(pipe::Pipe)`
+    LineStream(pipe::Pipe)
 
 Given a `Pipe` that has been initialized by `spawn()`, create an async Task to
 read in lines as they come in and annotate the time the line was captured for
@@ -43,10 +43,13 @@ function LineStream(pipe::Pipe, event::Condition)
 
     lines = Tuple{Float64,String}[]
     task = @async begin
-        # Read lines in until we can't anymore
-        while !eof(pipe)
+        # Read lines in until we can't anymore.
+        while true
             # Push this line onto our lines, then notify() the event
             line = readuntil_many(pipe, ['\n', '\r'])
+            if isempty(line) && eof(pipe)
+                break
+            end
             push!(lines, (time(), line))
             notify(event)
         end
@@ -56,15 +59,14 @@ function LineStream(pipe::Pipe, event::Condition)
     # This ensures that anybody that's listening to the event but gated on our
     # being alive (e.g. `tee()`) can die alongside us gracefully as well.
     @async begin
-        
-        fetch(task)
+        wait(task)
         notify(event)
     end
     return LineStream(pipe, lines, task)
 end
 
 """
-`alive(s::LineStream)`
+    alive(s::LineStream)
 
 Returns `true`` if the task owned by this `LineStream` is still processing
 output from an underlying `Pipe`.
@@ -75,7 +77,7 @@ end
 
 
 """
-OutputCollector
+    OutputCollector
 
 A `run()` wrapper class that captures subprocess `stdout` and `stderr` streams
 independently, resynthesizing and colorizing the streams appropriately.
@@ -101,7 +103,7 @@ mutable struct OutputCollector
 end
 
 """
-`OutputCollector(cmd::AbstractCmd; verbose::Bool = false)`
+    OutputCollector(cmd::AbstractCmd; verbose::Bool = false)
 
 Run `cmd`, and collect the output such that `stdout` and `stderr` are captured
 independently, but with the time of each line recorded such that they can be
@@ -138,14 +140,11 @@ function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false,
         tee(self; stream = tee_stream)
     end
 
-    # Yield immediately to dodge strange scheduling problems
-    yield()
-
     return self
 end
 
 """
-`wait(collector::OutputCollector)`
+    wait(collector::OutputCollector)
 
 Wait for the command and all line streams within an `OutputCollector` to finish
 their respective tasks and be ready for full merging.  Return the success of
@@ -154,26 +153,25 @@ not complete successfully unless the OutputCollector was created as `verbose`.
 """
 function wait(collector::OutputCollector)
     # If we've already done this song and dance before, then don't do it again
-    if collector.done
-        return success(collector.P)
-    end
+    if !collector.done
+        wait(collector.P)
+        wait(collector.stdout_linestream.task)
+        wait(collector.stderr_linestream.task)
 
-    wait(collector.P)
-    fetch(collector.stdout_linestream.task)
-    fetch(collector.stderr_linestream.task)
+        # Also fetch on any extra tasks we've jimmied onto the end of this guy
+        for t in collector.extra_tasks
+            wait(t)
+        end
 
-    # Also fetch on any extra tasks we've jimmied onto the end of this guy
-    for t in collector.extra_tasks
-        fetch(t)
-    end
+        # From this point on, we are actually done!
+        collector.done = true
 
-    # From this point on, we are actually done!
-    collector.done = true
-
-    # If we failed, then print out the tail of the output, unless we've been
-    # tee()'ing it out this whole time, but only if the user said it's okay to.
-    if !success(collector.P) && !collector.verbose && collector.tail_error
-        print(collector.tee_stream, tail(collector; colored=Base.have_color))
+        # If we failed, print out the tail of the output, unless we've been
+        # tee()'ing it out this whole time, but only if the user said it's okay.
+        if !success(collector.P) && !collector.verbose && collector.tail_error
+            our_tail = tail(collector; colored=Base.have_color)
+            print(collector.tee_stream, our_tail)
+        end
     end
     
     # Shout to the world how we've done
@@ -181,7 +179,7 @@ function wait(collector::OutputCollector)
 end
 
 """
-`merge(collector::OutputCollector; colored::Bool = false)`
+    merge(collector::OutputCollector; colored::Bool = false)
 
 Merge the stdout and stderr streams of the `OutputCollector` on a per-line
 basis, returning a single string containing all collected lines, interleaved by
@@ -261,11 +259,12 @@ function collect_stderr(collector::OutputCollector)
 end
 
 """
-`tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)`
+    tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)
 
 Write out the last `len` lines, optionally writing colored lines.
 """
-function tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)
+function tail(collector::OutputCollector; len::Int = 100,
+              colored::Bool = false)
     out = merge(collector; colored=colored)
 
     idx = length(out)
@@ -273,7 +272,7 @@ function tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)
         # We can run into UnicodeError's here
         try
             idx = findprev(equalto('\n'), out, idx-1)
-            # We have to check for both `nothing` or `0`, because we support Julia 0.6
+            # We have to check for both `nothing` or `0` for Julia 0.6
             if idx === nothing || idx == 0
                 idx = 0
                 break
@@ -287,7 +286,7 @@ function tail(collector::OutputCollector; len::Int = 100, colored::Bool = false)
 end
 
 """
-`tee(c::OutputCollector; colored::Bool = false, stream::IO = Compat.stdout)`
+    tee(c::OutputCollector; colored::Bool = false, stream::IO = stdout)
 
 Spawn a background task to incrementally output lines from `collector` to the
 standard output, optionally colored.
@@ -303,9 +302,10 @@ function tee(c::OutputCollector; colored::Bool=Base.have_color,
         # Helper function to print out the next line of stdout/stderr
         function print_next_line()
             timestr = Libc.strftime("[%T] ", time())
-            # We know we have data, so figure out if it's for stdout or stderr
+            # We know we have data, so figure out if it's for stdout, stderr
+            # or both, and we need to choose which to print based on timestamp
+            printstyled(stream, timestr; bold=true)
             if length(out_lines) >= out_idx
-                printstyled(stream, timestr; bold=true)
                 if length(err_lines) >= err_idx
                     # If we've got input waiting from both lines, then output
                     # the one with the lowest capture time
@@ -320,13 +320,12 @@ function tee(c::OutputCollector; colored::Bool=Base.have_color,
                         err_idx += 1
                     end
                 else
-                    # Pring the out line that is the only one waiting
+                    # Print the out line that is the only one waiting
                     print(stream, out_lines[out_idx][2])
                     out_idx += 1
                 end
-            else length(err_lines) > err_idx
+            else
                 # Print the err line that is the only one waiting
-                printstyled(stream, timestr; bold=true)
                 printstyled(stream, err_lines[err_idx][2]; color=:red)
                 print(stream)
                 err_idx += 1
@@ -359,4 +358,3 @@ function tee(c::OutputCollector; colored::Bool=Base.have_color,
 
     return tee_task
 end
-
