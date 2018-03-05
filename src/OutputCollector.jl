@@ -59,7 +59,7 @@ function LineStream(pipe::Pipe, event::Condition)
     # This ensures that anybody that's listening to the event but gated on our
     # being alive (e.g. `tee()`) can die alongside us gracefully as well.
     @async begin
-        fetch(task)
+        wait(task)
         notify(event)
     end
     return LineStream(pipe, lines, task)
@@ -155,12 +155,12 @@ function wait(collector::OutputCollector)
     # If we've already done this song and dance before, then don't do it again
     if !collector.done
         wait(collector.P)
-        fetch(collector.stdout_linestream.task)
-        fetch(collector.stderr_linestream.task)
+        wait(collector.stdout_linestream.task)
+        wait(collector.stderr_linestream.task)
 
         # Also fetch on any extra tasks we've jimmied onto the end of this guy
         for t in collector.extra_tasks
-            fetch(t)
+            wait(t)
         end
 
         # From this point on, we are actually done!
