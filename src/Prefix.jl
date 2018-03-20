@@ -351,6 +351,17 @@ function uninstall(manifest::AbstractString;
                 Compat.@info("  $delrelpath removed")
             end
             rm(delpath; force=true)
+
+            # Last one out, turn off the lights (cull empty directories,
+            # but only if they're not our prefix)
+            deldir = abspath(dirname(delpath))
+            if isempty(readdir(deldir)) && deldir != abspath(prefix_path)
+                if verbose
+                    delrelpath = relpath(deldir, prefix_path)
+                    Compat.@info("  Culling empty directory $delrelpath")
+                end
+                rm(deldir; force=true, recursive=true)
+            end
         end
     end
 

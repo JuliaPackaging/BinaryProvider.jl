@@ -383,6 +383,7 @@ end
         # Create random files
         mkpath(bindir(prefix))
         mkpath(libdir(prefix))
+        mkpath(joinpath(prefix, "etc"))
         bar_path = joinpath(bindir(prefix), "bar.sh")
         open(bar_path, "w") do f
             write(f, "#!/bin/sh\n")
@@ -391,6 +392,11 @@ end
         baz_path = joinpath(libdir(prefix), "baz.so")
         open(baz_path, "w") do f
             write(f, "this is not an actual .so\n")
+        end
+
+        qux_path = joinpath(prefix, "etc", "qux.conf")
+        open(qux_path, "w") do f
+            write(f, "use_julia=true\n")
         end
 
         # Next, package it up as a .tar.gz file
@@ -412,6 +418,7 @@ end
     libdir_name = Compat.Sys.iswindows() ? "bin" : "lib"
     @test joinpath("bin", "bar.sh") in contents
     @test joinpath(libdir_name, "baz.so") in contents
+    @test joinpath("etc", "qux.conf") in contents
 
     # Install it within a new Prefix
     temp_prefix() do prefix
@@ -421,11 +428,18 @@ end
         # Ensure we can use it
         bar_path = joinpath(bindir(prefix), "bar.sh")
         baz_path = joinpath(libdir(prefix), "baz.so")
+        qux_path = joinpath(prefix, "etc", "qux.conf")
+
+        @test isfile(bar_path)
+        @test isfile(baz_path)
+        @test isfile(qux_path)
 
         # Ask for the manifest that contains these files to ensure it works
         manifest_path = manifest_for_file(bar_path; prefix=prefix)
         @test isfile(manifest_path)
         manifest_path = manifest_for_file(baz_path; prefix=prefix)
+        @test isfile(manifest_path)
+        manifest_path = manifest_for_file(qux_path; prefix=prefix)
         @test isfile(manifest_path)
 
         # Ensure that manifest_for_file doesn't work on nonexistant files
@@ -444,7 +458,11 @@ end
         @test uninstall(manifest_path; verbose=true)
         @test !isfile(bar_path)
         @test !isfile(baz_path)
+        @test !isfile(qux_path)
         @test !isfile(manifest_path)
+
+        # Also make sure that it removes the entire etc directory since it's now empty
+        @test !isdir(dirname(qux_path))
 
         # Ensure that we don't want to install tarballs from other platforms
         cp(tarball_path, "./libfoo_juliaos64.tar.gz")
