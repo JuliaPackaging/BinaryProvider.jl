@@ -394,10 +394,13 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
         for product in products
             # Escape the location so that e.g. Windows platforms are happy with
             # the backslashes in a string literal
-            escaped_path = escape_path(locate(product, platform=platform_key(),
-                                              verbose=verbose))
+            product_path = locate(product, platform=platform_key(),
+                                           verbose=verbose)
+            product_path = relpath(product_path, dirname(depsjl_path))
+            product_path = escape_path(product_path)
+            vp = variable_name(product)
             println(depsjl_file, strip("""
-            const $(variable_name(product)) = \"$(escaped_path)\"
+            const $(vp) = joinpath(dirname(@__FILE__), \"$(product_path)\")
             """))
         end
 
