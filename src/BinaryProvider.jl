@@ -20,9 +20,6 @@ include("Prefix.jl")
 # Abstraction of "needing" a file, that would trigger an install
 include("Products.jl")
 
-# Backwards-compatibility shims
-include("BackwardsCompat.jl")
-
 function __init__()
     global global_prefix
 
