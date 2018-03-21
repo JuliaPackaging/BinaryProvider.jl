@@ -172,18 +172,25 @@ end
     @test !valid_dl_path("libfoo.dylib", Linux(:x86_64))
     @test !valid_dl_path("libfoo.so", Windows(:x86_64))
 
-    # Make sure the platform_key() with explicit triplet works or doesn't
+    # Make sure the platform_key() with explicit triplet works
     @test platform_key("x86_64-linux-gnu") == Linux(:x86_64)
     @test platform_key("i686-unknown-linux-gnu") == Linux(:i686)
     @test platform_key("x86_64-apple-darwin14") == MacOS()
     @test platform_key("armv7l-pc-linux-gnueabihf") == Linux(:armv7l)
     @test platform_key("aarch64-unknown-linux-gnu") == Linux(:aarch64)
-    @test platform_key("powerpc64le-linux-gnu") == Linux(:ppc64le)
+    @test platform_key("powerpc64le-linux-gnu") == Linux(:powerpc64le)
+    @test platform_key("ppc64le-linux-gnu") == Linux(:powerpc64le)
     @test platform_key("x86_64-w64-mingw32") == Windows(:x86_64)
     @test platform_key("i686-w64-mingw32") == Windows(:i686)
-    @test_throws ArgumentError platform_key("invalid-triplet-yo")
-    @test_throws ArgumentError platform_key("aarch64-unknown-gnueabihf")
-    @test_throws ArgumentError platform_key("x86_64-w32-mingw64")
+    @test platform_key("x86_64-unknown-freebsd11.1") == FreeBSD(:x86_64)
+    @test platform_key("i686-unknown-freebsd11.1") == FreeBSD(:i686)
+
+    # Make sure some of these things are rejected
+    @test platform_key("totally FREEFORM text!!1!!!1!") == UnknownPlatform()
+    @test platform_key("invalid-triplet-here") == UnknownPlatform()
+    @test platform_key("aarch64-linux-gnueabihf") == UnknownPlatform()
+    @test platform_key("armv7l-linux-gnu") == UnknownPlatform()
+    @test platform_key("x86_64-w32-mingw64") == UnknownPlatform()
 
     # Test that we can indeed ask if something is linux or windows, etc...
     @test Compat.Sys.islinux(Linux(:aarch64))
@@ -191,19 +198,23 @@ end
     @test Compat.Sys.iswindows(Windows(:i686))
     @test !Compat.Sys.iswindows(Linux(:x86_64))
     @test Compat.Sys.isapple(MacOS())
-    @test !Compat.Sys.isapple(Linux(:ppc64le))
+    @test !Compat.Sys.isapple(Linux(:powerpc64le))
+    @test Compat.Sys.isbsd(MacOS())
+    @test Compat.Sys.isbsd(FreeBSD(:x86_64))
+    @test !Compat.Sys.isbsd(Linux(:powerpc64le, :musl))
 
     # Test that every supported platform is _something_
     if isdefined(Base.Sys, :isapple)
-        isbasesomething(p) = Sys.islinux(p) || Sys.iswindows(p) || Sys.isapple(p)
+        isbasesomething(p) = Sys.islinux(p) || Sys.iswindows(p) || Sys.isbsd(p)
         @test all(isbasesomething, supported_platforms())
     end
     issomething(p) = Compat.Sys.islinux(p) || Compat.Sys.iswindows(p) ||
-                     Compat.Sys.isapple(p)
+                     Compat.Sys.isbsd(p)
     @test all(issomething, supported_platforms())
 
     @test wordsize(Linux(:i686)) == wordsize(Linux(:armv7l)) == 32
     @test wordsize(MacOS()) == wordsize(Linux(:aarch64)) == 64
+    @test wordsize(FreeBSD(:x86_64)) == wordsize(Linux(:powerpc64le)) == 64
 
     @test triplet(Windows(:i686)) == "i686-w64-mingw32"
     @test triplet(Linux(:x86_64, :musl)) == "x86_64-linux-musl"
@@ -211,6 +222,8 @@ end
     @test triplet(Linux(:x86_64)) == "x86_64-linux-gnu"
     @test triplet(Linux(:armv7l)) == "arm-linux-gnueabihf"
     @test triplet(MacOS()) == "x86_64-apple-darwin14"
+    @test triplet(FreeBSD(:x86_64)) == "x86_64-unknown-freebsd11.1"
+    @test triplet(FreeBSD(:i686)) == "i686-unknown-freebsd11.1"
 end
 
 @testset "Prefix" begin
@@ -318,7 +331,7 @@ end
     # so that it doesn't try to `dlopen()` them:
     foreign_platform = @static if platform_key() == Linux(:aarch64)
         # Arbitrary architecture that is not dlopen()'able
-        Linux(:ppc64le)
+        Linux(:powerpc64le)
     else
         # If we're not Linux(:aarch64), then say the libraries are
         Linux(:aarch64)
@@ -562,14 +575,14 @@ end
 # Use `build_libfoo_tarball.jl` in the BinaryBuilder.jl repository to generate more of these
 const bin_prefix = "https://github.com/staticfloat/small_bin/raw/74b7fd81e3fbc8963b14b0ebbe5421e270d8bdcf"
 const libfoo_downloads = Dict(
-    Linux(:i686) =>     ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz", "1398353bcbbd88338189ece9c1d6e7c508df120bc4f93afbaed362a9f91358ff"),
-    Linux(:x86_64) =>   ("$bin_prefix/libfoo.x86_64-linux-gnu.tar.gz", "b9d57a6e032a56b1f8641771fa707523caa72f1a2e322ab99eeeb011f13ad9f3"),
-    Linux(:aarch64) =>  ("$bin_prefix/libfoo.aarch64-linux-gnu.tar.gz", "19d9da0e6e7fb506bf4889eb91e936fda43493a39cd4fd7bd5d65506cede6f95"),
-    Linux(:armv7l) =>   ("$bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz", "8e33c1a0e091e6e5b8fcb902e5d45329791bb57763ee9cbcde49c1ec9bd8532a"),
-    Linux(:ppc64le) =>  ("$bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz", "b48a64d48be994ec99b1a9fb60e0af7f4415a57596518cb90a340987b79fad81"),
-    MacOS() =>          ("$bin_prefix/libfoo.x86_64-apple-darwin14.tar.gz", "661b71edb433ab334b0fef70db3b5c45d35f2b3bee0d244f54875f1ec899c10f"),
-    Windows(:i686) =>   ("$bin_prefix/libfoo.i686-w64-mingw32.tar.gz", "3d4a8d4bf0169007a42d809a1d560083635b1540a1bc4a42108841dcb6d2aaea"),
-    Windows(:x86_64) => ("$bin_prefix/libfoo.x86_64-w64-mingw32.tar.gz", "2d08fbc9a534cd021f36b6bbe86ddabb2dafbedeb589581240aa4a8c5b896055"),
+    Linux(:i686) =>        ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz", "1398353bcbbd88338189ece9c1d6e7c508df120bc4f93afbaed362a9f91358ff"),
+    Linux(:x86_64) =>      ("$bin_prefix/libfoo.x86_64-linux-gnu.tar.gz", "b9d57a6e032a56b1f8641771fa707523caa72f1a2e322ab99eeeb011f13ad9f3"),
+    Linux(:aarch64) =>     ("$bin_prefix/libfoo.aarch64-linux-gnu.tar.gz", "19d9da0e6e7fb506bf4889eb91e936fda43493a39cd4fd7bd5d65506cede6f95"),
+    Linux(:armv7l) =>      ("$bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz", "8e33c1a0e091e6e5b8fcb902e5d45329791bb57763ee9cbcde49c1ec9bd8532a"),
+    Linux(:powerpc64le) => ("$bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz", "b48a64d48be994ec99b1a9fb60e0af7f4415a57596518cb90a340987b79fad81"),
+    MacOS() =>             ("$bin_prefix/libfoo.x86_64-apple-darwin14.tar.gz", "661b71edb433ab334b0fef70db3b5c45d35f2b3bee0d244f54875f1ec899c10f"),
+    Windows(:i686) =>      ("$bin_prefix/libfoo.i686-w64-mingw32.tar.gz", "3d4a8d4bf0169007a42d809a1d560083635b1540a1bc4a42108841dcb6d2aaea"),
+    Windows(:x86_64) =>    ("$bin_prefix/libfoo.x86_64-w64-mingw32.tar.gz", "2d08fbc9a534cd021f36b6bbe86ddabb2dafbedeb589581240aa4a8c5b896055"),
 )
 
 # Test manually downloading and using libfoo

@@ -1,50 +1,147 @@
 export supported_platforms, platform_key, platform_dlext, valid_dl_path,
-       arch, wordsize, triplet, Platform, Linux, MacOS, Windows
+       arch, wordsize, triplet, Platform, UnknownPlatform, Linux, MacOS,
+       Windows, FreeBSD
 
 abstract type Platform end
+
+struct UnknownPlatform <: Platform
+end
 
 struct Linux <: Platform
     arch::Symbol
     libc::Symbol
+    abi::Symbol
 
-    function Linux(arch::Symbol, libc::Symbol=:glibc)
-        if !in(arch, [:i686, :x86_64, :aarch64, :powerpc64le, :ppc64le, :armv7l])
+    function Linux(arch::Symbol, libc::Symbol=:glibc,
+                                 abi::Symbol=:default_abi)
+        if !in(arch, [:i686, :x86_64, :aarch64, :powerpc64le, :armv7l])
             throw(ArgumentError("Unsupported architecture '$arch' for Linux"))
         end
-        if libc !== :glibc && libc !== :musl
+
+        # The default libc on Linux is glibc
+        if libc === :blank_libc
+            libc = :glibc
+        end
+
+        if !in(libc, [:glibc, :musl])
             throw(ArgumentError("Unsupported libc '$libc' for Linux"))
         end
-        if arch === :ppc64le
-            arch = :powerpc64le
+
+        # The default abi on Linux is blank, so map over to that by default,
+        # except on armv7l, where we map it over to :eabihf
+        if abi === :default_abi
+            if arch != :armv7l
+                abi = :blank_abi
+            else
+                abi = :eabihf
+            end
         end
-        new(arch, libc)
+
+        if !in(abi, [:eabihf, :blank_abi])
+            throw(ArgumentError("Unsupported abi '$abi' for Linux"))
+        end
+
+        # If we're constructing for armv7l, we MUST have the eabihf abi
+        if arch == :armv7l && abi != :eabihf
+            throw(ArgumentError("armv7l Linux must use eabihf, not '$abi'"))
+        end
+        # ...and vice-versa
+        if arch != :armv7l && abi == :eabihf
+            throw(ArgumentError("eabihf Linux is only on armv7l, not '$arch'!"))
+        end
+
+        return new(arch, libc, abi)
     end
 end
 
 struct MacOS <: Platform
+    arch::Symbol
+    libc::Symbol
+    abi::Symbol
 
-    function MacOS(arch::Symbol)
+    # Provide defaults for everything because there's really only one MacOS
+    # target right now.  Maybe someday iOS.  :fingers_crossed:
+    function MacOS(arch::Symbol=:x86_64, libc::Symbol=:blank_libc,
+                                         abi=:blank_abi)
         if arch !== :x86_64
             throw(ArgumentError("Unsupported architecture '$arch' for macOS"))
         end
-        new()
+        if libc !== :blank_libc
+            throw(ArgumentError("Unsupported libc '$libc' for macOS"))
+        end
+        if abi !== :blank_abi
+            throw(ArgumentError("Unsupported abi '$abi' for macOS"))
+        end
+        return new(arch, libc, abi)
     end
-    MacOS() = new()
 end
 
 struct Windows <: Platform
     arch::Symbol
+    libc::Symbol
+    abi::Symbol
 
-    function Windows(arch::Symbol)
-        if arch !== :i686 && arch !== :x86_64
+    function Windows(arch::Symbol, libc::Symbol=:blank_libc,
+                                   abi::Symbol=:blank_abi)
+        if !in(arch, [:i686, :x86_64])
             throw(ArgumentError("Unsupported architecture '$arch' for Windows"))
         end
-        new(arch)
+        # We only support the one libc/abi on Windows, so no need to play
+        # around with "default" values.
+        if libc !== :blank_libc
+            throw(ArgumentError("Unsupported libc '$libc' for Windows"))
+        end
+        if abi !== :blank_abi
+            throw(ArgumentError("Unsupported abi '$abi' for Windows"))
+        end
+        return new(arch, libc, abi)
+    end
+end
+
+struct FreeBSD <: Platform
+    arch::Symbol
+    libc::Symbol
+    abi::Symbol
+
+    function FreeBSD(arch::Symbol, libc::Symbol=:blank_libc,
+                                   abi::Symbol=:default_abi)
+        if !in(arch, [:i686, :x86_64, :aarch64, :powerpc64le, :armv7l])
+            throw(ArgumentError("Unsupported architecture '$arch' for FreeBSD"))
+        end
+
+        # The only libc we support on FreeBSD is the blank libc
+        if libc !== :blank_libc
+            throw(ArgumentError("Unsupported libc '$libc' for FreeBSD"))
+        end
+
+        # The default abi on FreeBSD is blank, execpt on armv7l
+        if abi === :default_abi
+            if arch != :armv7l
+                abi = :blank_abi
+            else
+                abi = :eabihf
+            end
+        end
+
+        if !in(abi, [:eabihf, :blank_abi])
+            throw(ArgumentError("Unsupported abi '$abi' for FreeBSD"))
+        end
+
+        # If we're constructing for armv7l, we MUST have the eabihf abi
+        if arch == :armv7l && abi != :eabihf
+            throw(ArgumentError("armv7l FreeBSD must use eabihf, no '$abi'"))
+        end
+        # ...and vice-versa
+        if arch != :armv7l && abi == :eabihf
+            throw(ArgumentError("eabihf FreeBSD is only on armv7l, not '$arch'!"))
+        end
+
+        return new(arch, libc, abi)
     end
 end
 
 """
-    arch(platform)
+    arch(p::Platform)
 
 Get the architecture for the given `Platform` object as a `Symbol`.
 
@@ -58,7 +155,41 @@ julia> arch(MacOS())
 ```
 """
 arch(p::Platform) = p.arch
-arch(m::MacOS) = :x86_64
+arch(u::UnknownPlatform) = :unknown
+
+"""
+    libc(p::Platform)
+
+Get the libc for the given `Platform` object as a `Symbol`.
+
+# Examples
+```jldoctest
+julia> libc(Linux(:aarch64))
+:glibc
+
+julia> libc(FreeBSD(:x86_64))
+:default_libc
+```
+"""
+libc(p::Platform) = p.libc
+libc(u::UnknownPlatform) = :unknown
+
+"""
+    abi(p::Platform)
+
+Get the ABI for the given `Platform` object as a `Symbol`.
+
+# Examples
+```jldoctest
+julia> abi(Linux(:x86_64))
+:blank_abi
+
+julia> abi(FreeBSD(:armv7l))
+:eabihf
+```
+"""
+abi(p::Platform) = p.abi
+abi(u::UnknownPlatform) = :unknown
 
 """
     wordsize(platform)
@@ -74,9 +205,8 @@ julia> wordsize(MacOS())
 64
 ```
 """
-wordsize(l::Linux) = arch(l) === :i686 || arch(l) === :armv7l ? 32 : 64
-wordsize(w::Windows) = arch(w) === :i686 ? 32 : 64
-wordsize(m::MacOS) = 64
+wordsize(p::Platform) = (arch(p) === :i686 || arch(p) === :armv7l) ? 32 : 64
+wordsize(u::UnknownPlatform) = 0
 
 """
     triplet(platform)
@@ -95,16 +225,24 @@ julia> triplet(Linux(:armv7l))
 "arm-linux-gnueabihf"
 ```
 """
-function triplet(l::Linux)
-    c = l.libc === :glibc ? "gnu" : "musl" # Currently only glibc and musl are recognized
-    if arch(l) === :armv7l
-        string("arm-linux-", c, "eabihf")
+triplet(w::Windows) = string(arch_str(w), "-w64-mingw32")
+triplet(m::MacOS) = string(arch_str(m), "-apple-darwin14")
+triplet(l::Linux) = string(arch_str(l), "-linux", libc_str(l), abi_str(l))
+triplet(f::FreeBSD) = string(arch_str(f), "-unknown-freebsd11.1", libc_str(f), abi_str(f))
+triplet(u::UnknownPlatform) = "unknown-unknown-unknown"
+
+# Helper functions for Linux and FreeBSD libc/abi mishmashes
+arch_str(p::Platform) = (arch(p) == :armv7l) ? "arm" : "$(arch(p))"
+function libc_str(p::Platform)
+    if libc(p) == :blank_libc
+        return ""
+    elseif libc(p) == :glibc
+        return "-gnu"
     else
-        string(arch(l), "-linux-", c)
+        return "-$(libc(p))"
     end
 end
-triplet(w::Windows) = string(arch(w), "-w64-mingw32")
-triplet(m::MacOS) = "x86_64-apple-darwin14"
+abi_str(p::Platform) = (abi(p) == :blank_abi) ? "" : "$(abi(p))"
 
 """
     supported_platforms()
@@ -128,6 +266,7 @@ end
 Compat.Sys.isapple(p::Platform) = p isa MacOS
 Compat.Sys.islinux(p::Platform) = p isa Linux
 Compat.Sys.iswindows(p::Platform) = p isa Windows
+Compat.Sys.isbsd(p::Platform) = (p isa FreeBSD) || (p isa MacOS)
 
 """
     platform_key(machine::AbstractString = Sys.MACHINE)
@@ -136,37 +275,79 @@ Returns the platform key for the current platform, or any other though the
 the use of the `machine` parameter.
 """
 function platform_key(machine::AbstractString = Sys.MACHINE)
-    # First, off, if `machine` is literally one of the values of our mapping
-    # above, just return the relevant key
-    for key in supported_platforms()
-        if machine == triplet(key)
-            return key
+    # We're going to build a mondo regex here to parse everything:
+    arch_mapping = Dict(
+        :x86_64 => "x86_64",
+        :i686 => "i\\d86",
+        :aarch64 => "aarch64",
+        :armv7l => "armv7l",
+        :powerpc64le => "p(ower)?pc64le",
+    )
+    platform_mapping = Dict(
+        :darwin => "-apple-darwin\\d*",
+        :freebsd => "-(.*-)?freebsd[\\d\\.]*",
+        :mingw32 => "-w64-mingw32",
+        :linux => "-(.*-)?linux",
+    )
+    libc_mapping = Dict(
+        :blank_libc => "",
+        :glibc => "-gnu",
+        :musl => "-musl",
+    )
+    abi_mapping = Dict(
+        :blank_abi => "",
+        :eabihf => "eabihf",
+    )
+
+    # Helper function to collapse dictionary of mappings down into a regex of
+    # named capture groups joined by "|" operators
+    c(mapping) = string("(",join(["(?<$k>$v)" for (k, v) in mapping], "|"), ")")
+
+    triplet_regex = Regex(string(
+        c(arch_mapping),
+        c(platform_mapping),
+        c(libc_mapping),
+        c(abi_mapping),
+    ))
+
+    m = match(triplet_regex, machine)
+    if m != nothing
+        # Helper function to find the single named field within the giant regex
+        # that is not `nothing` for each mapping we give it.
+        get_field(m, mapping) = begin
+            for k in keys(mapping)
+                if m[k] != nothing
+                   return k
+                end
+            end
+        end
+
+        # Extract the information we're interested in:
+        arch = get_field(m, arch_mapping)
+        platform = get_field(m, platform_mapping)
+        libc = get_field(m, libc_mapping)
+        abi = get_field(m, abi_mapping)
+
+        # First, figure out what platform we're dealing with, then sub that off
+        # to the appropriate constructor.  All constructors take in (arch, libc,
+        # abi)  but they will throw errors on trouble, so we catch those and
+        # return the value UnknownPlatform() here to be nicer to client code.
+        try
+            if platform == :darwin
+                return MacOS(arch, libc, abi)
+            elseif platform == :mingw32
+                return Windows(arch, libc, abi)
+            elseif platform == :freebsd
+                return FreeBSD(arch, libc, abi)
+            elseif platform == :linux
+                return Linux(arch, libc, abi)
+            end
         end
     end
 
-    # Otherwise, try to parse the machine into one of our keys
-    if startswith(machine, "x86_64-apple-darwin")
-        return MacOS()
-    end
-    if contains(machine, r"x86_64-.*-linux(-gnu)?")
-        return Linux(:x86_64)
-    end
-    if contains(machine, r"i\d86-.*-linux(-gnu)?")
-        return Linux(:i686)
-    end
-    if contains(machine, r"aarch64-.*-linux(-gnu)?")
-        return Linux(:aarch64)
-    end
-    if contains(machine, r"armv7l-.*-linux(-gnu)?eabihf")
-        return Linux(:armv7l)
-    end
-    if contains(machine, r"powerpc64le-.*-linux(-gnu)?")
-        return Linux(:powerpc64le)
-    end
-
-    throw(ArgumentError("Platform `$(machine)` is not an officially supported platform"))
+    warn("Platform `$(machine)` is not an officially supported platform")
+    return UnknownPlatform()
 end
-
 
 """
     platform_dlext(platform::Platform = platform_key())
@@ -176,8 +357,10 @@ currently running platform.  E.g. returns "so" for a Linux-based platform,
 "dll" for a Windows-based platform, etc...
 """
 platform_dlext(l::Linux) = "so"
+platform_dlext(f::FreeBSD) = "so"
 platform_dlext(m::MacOS) = "dylib"
 platform_dlext(w::Windows) = "dll"
+platform_dlext(u::UnknownPlatform) = "unknown"
 platform_dlext() = platform_dlext(platform_key())
 
 """
