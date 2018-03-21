@@ -156,14 +156,34 @@ end
 @testset "PlatformNames" begin
     # Ensure the platform type constructors are well behaved
     @test_throws ArgumentError Linux(:not_a_platform)
-    @test_throws ArgumentError MacOS(:i686)
-    @test_throws ArgumentError Windows(:armv7l)
     @test_throws ArgumentError Linux(:x86_64, :crazy_libc)
+    @test_throws ArgumentError Linux(:x86_64, :glibc, :crazy_abi)
+    @test_throws ArgumentError Linux(:x86_64, :glibc, :eabihf)
+    @test_throws ArgumentError Linux(:armv7l, :glibc, :blank_abi)
+    @test_throws ArgumentError MacOS(:i686)
+    @test_throws ArgumentError MacOS(:x86_64, :glibc)
+    @test_throws ArgumentError MacOS(:x86_64, :blank_libc, :eabihf)
+    @test_throws ArgumentError Windows(:armv7l)
+    @test_throws ArgumentError Windows(:x86_64, :glibc)
+    @test_throws ArgumentError Windows(:x86_64, :blank_libc, :eabihf)
+    @test_throws ArgumentError FreeBSD(:not_a_platform)
+    @test_throws ArgumentError FreeBSD(:x86_64, :crazy_libc)
+    @test_throws ArgumentError FreeBSD(:x86_64, :blank_libc, :crazy_abi)
+    @test_throws ArgumentError FreeBSD(:x86_64, :blank_libc, :eabihf)
+    @test_throws ArgumentError FreeBSD(:armv7l, :blank_libc, :blank_abi)
 
+    # Test that we can get that arch of various platforms
+    @test arch(Linux(:aarch64, :musl)) == :aarch64
+    @test arch(Windows(:i686)) == :i686
+    @test arch(UnknownPlatform()) == :unknown
+ 
     # Test that our platform_dlext stuff works
     @test platform_dlext(Linux(:x86_64)) == platform_dlext(Linux(:i686))
     @test platform_dlext(Windows(:x86_64)) == platform_dlext(Windows(:i686))
     @test platform_dlext(MacOS()) != platform_dlext(Linux(:armv7l))
+    @test platform_dlext(FreeBSD(:x86_64)) == platform_dlext(Linux(:x86_64))
+    @test platform_dlext(UnknownPlatform()) == "unknown"
+    @test platform_dlext() == platform_dlext(platform_key())
 
     # Test some valid dynamic library paths
     @test valid_dl_path("libfoo.so.1.2.3", Linux(:x86_64))
@@ -215,6 +235,7 @@ end
     @test wordsize(Linux(:i686)) == wordsize(Linux(:armv7l)) == 32
     @test wordsize(MacOS()) == wordsize(Linux(:aarch64)) == 64
     @test wordsize(FreeBSD(:x86_64)) == wordsize(Linux(:powerpc64le)) == 64
+    @test wordsize(UnknownPlatform()) == 0
 
     @test triplet(Windows(:i686)) == "i686-w64-mingw32"
     @test triplet(Linux(:x86_64, :musl)) == "x86_64-linux-musl"
@@ -224,6 +245,7 @@ end
     @test triplet(MacOS()) == "x86_64-apple-darwin14"
     @test triplet(FreeBSD(:x86_64)) == "x86_64-unknown-freebsd11.1"
     @test triplet(FreeBSD(:i686)) == "i686-unknown-freebsd11.1"
+    @test triplet(UnknownPlatform()) == "unknown-unknown-unknown"
 end
 
 @testset "Prefix" begin
