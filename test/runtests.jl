@@ -666,7 +666,12 @@ end
         Base.rm("./deps/usr"; force=true, recursive=true)
 
         # Install `libfoo` and build the `deps.jl` file for `LibFoo.jl`
-        run(`$(Base.julia_cmd()) $(color) deps/build.jl`)
+        coverage = ""
+        if Base.JLOptions().code_coverage != 0
+            coverage = "--code-coverage=user"
+        end
+
+        run(`$(Base.julia_cmd()) $(coverage) $(color) deps/build.jl`)
 
         # Ensure `deps.jl` was actually created
         @test isfile("deps/deps.jl")
@@ -710,47 +715,3 @@ end
     end
 end
 
-# Test that our deprecations are working
-@testset "Backwards-compatibility" begin
-    temp_prefix() do prefix
-        src_depsjl = Pkg.dir("BinaryProvider", "test", "deps.jl")
-        dest_depsjl = joinpath(prefix.path, "deps.jl")
-
-        let
-            e_path = joinpath(bindir(prefix), "fooifier")
-            l_path = joinpath(libdir(prefix), "libfoo.$(Libdl.dlext)")
-
-            # Create the executable (if we're on windows, append .exe)
-            mkpath(bindir(prefix))
-            if platform_key() isa Windows
-                e_path = "$(e_path).exe"
-            end
-            touch(e_path)
-            chmod(e_path, 0o777)
-
-            ep = ExecutableProduct(prefix, "fooifier")
-            efp = FileProduct(e_path)
-            lp = LibraryProduct(prefix, "libfoo")
-
-            @test variable_name(ep) == "fooifier"
-            @test variable_name(efp) == "fooifier"
-            @test variable_name(lp) == "libfoo"
-
-            # Don't try to write a deps file for `lp`, it's not satisfied
-            # Also, since @write_deps_file will place `deps.jl` into
-            # Pkg.dir("BinaryProvider", "test"), move it to our prefix.
-            @write_deps_file ep efp
-            @test isfile(src_depsjl)
-            mv(src_depsjl, dest_depsjl)
-        end
-
-        # Within a second scope (where we don't have `e` or `ef` defined)
-        let
-            # Include deps.jl, check_deps() and see if `e` and `ef` exist!
-            include(dest_depsjl)
-            Base.invokelatest(check_deps)
-            @test isfile(ep)
-            @test isfile(efp)
-        end
-    end
-end
