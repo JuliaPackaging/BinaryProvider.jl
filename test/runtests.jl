@@ -702,11 +702,7 @@ end
         Base.rm("./deps/usr"; force=true, recursive=true)
 
         # Install `libfoo` and build the `deps.jl` file for `LibFoo.jl`
-        coverage = ""
-        if Base.JLOptions().code_coverage != 0
-            coverage = "--code-coverage=user"
-        end
-
+        coverage = "--code-coverage=$(Base.JLOptions().code_coverage != 0 ? "user" : "none")"
         run(`$(Base.julia_cmd()) $(coverage) $(color) deps/build.jl`)
 
         # Ensure `deps.jl` was actually created
