@@ -280,7 +280,7 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
         :x86_64 => "x86_64",
         :i686 => "i\\d86",
         :aarch64 => "aarch64",
-        :armv7l => "armv7l",
+        :armv7l => "arm(v7l)?",
         :powerpc64le => "p(ower)?pc64le",
     )
     platform_mapping = Dict(

@@ -197,6 +197,7 @@ end
     @test platform_key("i686-unknown-linux-gnu") == Linux(:i686)
     @test platform_key("x86_64-apple-darwin14") == MacOS()
     @test platform_key("armv7l-pc-linux-gnueabihf") == Linux(:armv7l)
+    @test platform_key("arm-linux-gnueabihf") == Linux(:armv7l)
     @test platform_key("aarch64-unknown-linux-gnu") == Linux(:aarch64)
     @test platform_key("powerpc64le-linux-gnu") == Linux(:powerpc64le)
     @test platform_key("ppc64le-linux-gnu") == Linux(:powerpc64le)
