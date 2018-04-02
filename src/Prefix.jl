@@ -588,21 +588,8 @@ function package(prefix::Prefix,
         end
     end
 
-    withenv("GZIP" => "-9") do
-        package_cmd = gen_package_cmd(prefix.path, out_path)
-        oc = OutputCollector(package_cmd; verbose=verbose)
-
-        # Actually run the `tar` command
-        try
-            if !wait(oc)
-                error()
-            end
-        catch
-            # If we made a boo-boo, fess up.  Remember that the `oc` will auto-
-            # `tail()` failing commands.
-            error("Packaging of $(prefix.path) did not complete successfully")
-        end
-    end
+    # Package `prefix.path` into the tarball contained at to `out_path`
+    package(prefix.path, out_path; verbose=verbose)
 
     # Also spit out the hash of the archive file
     hash = open(out_path, "r") do f
