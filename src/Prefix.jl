@@ -8,6 +8,19 @@ export Prefix, bindir, libdir, includedir, logdir, activate, deactivate,
        extract_platform_key, install, uninstall, manifest_from_url,
        manifest_for_file, list_tarball_files, verify, temp_prefix, package
 
+
+# Temporary hack around https://github.com/JuliaLang/julia/issues/26685
+function safe_isfile(path)
+    try
+        return isfile(path)
+    catch e
+        if typeof(e) <: Base.UVError && e.code == Base.UV_EINVAL
+            return false
+        end
+        rethrow(e)
+    end
+end
+
 """
     temp_prefix(func::Function)
 
@@ -270,7 +283,7 @@ function install(tarball_url::AbstractString,
     try mkpath(dirname(tarball_path)) end
 
     # Check to see if we're "installing" from a file
-    if isfile(tarball_url)
+    if safe_isfile(tarball_url)
         # If we are, just verify it's already downloaded properly
         tarball_path = tarball_url
 
