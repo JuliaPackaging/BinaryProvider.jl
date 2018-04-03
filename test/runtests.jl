@@ -611,6 +611,12 @@ const libfoo_downloads = Dict(
 # Test manually downloading and using libfoo
 @testset "Downloading" begin
     temp_prefix() do prefix
+        foo_path = joinpath(prefix,"foo") 
+        touch(foo_path)
+        # Quick one-off tests for `safe_isfile()`:
+        @test BinaryProvider.safe_isfile(foo_path)
+        @test !BinaryProvider.safe_isfile("http://google.com")
+
         if !haskey(libfoo_downloads, platform)
             Compat.@warn("Platform $platform does not have a libfoo download, skipping download tests")
         else
