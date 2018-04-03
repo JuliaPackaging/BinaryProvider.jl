@@ -7,7 +7,7 @@ export gen_download_cmd, gen_unpack_cmd, gen_package_cmd, gen_list_tarball_cmd,
        download_verify_unpack, download_verify, unpack
 
 """
-`gen_download_cmd(url::AbstractString, out_path::AbstractString)`
+    gen_download_cmd(url::AbstractString, out_path::AbstractString)
 
 Return a `Cmd` that will download resource located at `url` and store it at
 the location given by `out_path`.
@@ -19,7 +19,7 @@ gen_download_cmd = (url::AbstractString, out_path::AbstractString) ->
     error("Call `probe_platform_engines()` before `gen_download_cmd()`")
 
 """
-`gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString)`
+    gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString)
 
 Return a `Cmd` that will unpack the given `tarball_path` into the given
 `out_path`.  If `out_path` is not already a directory, it will be created.
@@ -31,7 +31,7 @@ gen_unpack_cmd = (tarball_path::AbstractString, out_path::AbstractString) ->
     error("Call `probe_platform_engines()` before `gen_unpack_cmd()`")
 
 """
-`gen_package_cmd(in_path::AbstractString, tarball_path::AbstractString)`
+    gen_package_cmd(in_path::AbstractString, tarball_path::AbstractString)
 
 Return a `Cmd` that will package up the given `in_path` directory into a
 tarball located at `tarball_path`.
@@ -43,7 +43,7 @@ gen_package_cmd = (in_path::AbstractString, tarball_path::AbstractString) ->
     error("Call `probe_platform_engines()` before `gen_package_cmd()`")
 
 """
-`gen_list_tarball_cmd(tarball_path::AbstractString)`
+    gen_list_tarball_cmd(tarball_path::AbstractString)
 
 Return a `Cmd` that will list the files contained within the tarball located at
 `tarball_path`.  The list will not include directories contained within the
@@ -56,7 +56,7 @@ gen_list_tarball_cmd = (tarball_path::AbstractString) ->
     error("Call `probe_platform_engines()` before `gen_list_tarball_cmd()`")
 
 """
-`parse_tarball_listing(output::AbstractString)`
+    parse_tarball_listing(output::AbstractString)
 
 Parses the result of `gen_list_tarball_cmd()` into something useful.
 
@@ -67,7 +67,7 @@ parse_tarball_listing = (output::AbstractString) ->
     error("Call `probe_platform_engines()` before `parse_tarball_listing()`")
 
 """
-`gen_sh_cmd(cmd::Cmd)`
+    gen_sh_cmd(cmd::Cmd)
 
 Runs a command using `sh`.  On Unices, this will default to the first `sh`
 found on the `PATH`, however on Windows if that is not found it will fall back
@@ -81,7 +81,7 @@ gen_sh_cmd = (cmd::Cmd) ->
 
 
 """
-`probe_cmd(cmd::Cmd; verbose::Bool = false)`
+    probe_cmd(cmd::Cmd; verbose::Bool = false)
 
 Returns `true` if the given command executes successfully, `false` otherwise.
 """
@@ -101,7 +101,7 @@ function probe_cmd(cmd::Cmd; verbose::Bool = false)
 end
 
 """
-`probe_platform_engines!(;verbose::Bool = false)`
+    probe_platform_engines!(;verbose::Bool = false)
 
 Searches the environment for various tools needed to download, unpack, and
 package up binaries.  Searches for a download engine to be used by
@@ -341,7 +341,7 @@ function probe_platform_engines!(;verbose::Bool = false)
 end
 
 """
-`parse_7z_list(output::AbstractString)`
+    parse_7z_list(output::AbstractString)
 
 Given the output of `7z l`, parse out the listed filenames.  This funciton used
 by  `list_tarball_files`.
@@ -388,7 +388,7 @@ function parse_7z_list(output::AbstractString)
 end
 
 """
-`parse_7z_list(output::AbstractString)`
+    parse_7z_list(output::AbstractString)
 
 Given the output of `tar -t`, parse out the listed filenames.  This funciton
 used by `list_tarball_files`.
@@ -533,8 +533,34 @@ function download_verify(url::AbstractString, hash::AbstractString,
 end
 
 """
-`unpack(tarball_path::AbstractString, dest::AbstractString;
-        verbose::Bool = false)`
+    package(src_dir::AbstractString, tarball_path::AbstractString;
+            verbose::Bool = false)
+
+Compress `src_dir` into a tarball located at `tarball_path`.
+"""
+function package(src_dir::AbstractString, tarball_path::AbstractString;
+                  verbose::Bool = false)
+    # For now, use environment variables to set the gzip compression factor to
+    # level 9, eventually there will be new enough versions of tar everywhere
+    # to use -I 'gzip -9', or even to switch over to .xz files.
+    withenv("GZIP" => "-9") do
+        oc = OutputCollector(gen_package_cmd(src_dir, tarball_path); verbose=verbose)
+        try
+            if !wait(oc)
+                error()
+            end
+        catch e
+            if isa(e, InterruptException)
+                rethrow()
+            end
+            error("Could not package $(src_dir) into $(tarball_path)")
+        end
+    end
+end
+
+"""
+    unpack(tarball_path::AbstractString, dest::AbstractString;
+           verbose::Bool = false)
 
 Unpack tarball located at file `tarball_path` into directory `dest`.
 """
@@ -557,9 +583,9 @@ end
 
 
 """
-`download_verify_unpack(url::AbstractString, hash::AbstractString,
-                        dest::AbstractString; verbose::Bool = false,
-                        force::Bool = false)`
+    download_verify_unpack(url::AbstractString, hash::AbstractString,
+                           dest::AbstractString; verbose::Bool = false,
+                           force::Bool = false)
 
 Helper method to download tarball located at `url`, verify it matches the
 given `hash`, then unpack it into folder `dest`.  In general, the method
