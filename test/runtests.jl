@@ -491,7 +491,7 @@ end
         @test_throws ErrorException install(tarball_path, tarball_hash; prefix=prefix)
 
         # Ensure we can uninstall this tarball
-        @test isinstalled(tarball_path, tarball_hash; prefix=prefix, verbose=true)
+        @test isinstalled(tarball_path, tarball_hash; prefix=prefix)
         Base.rm(bar_path)
         @test !isinstalled(tarball_path, tarball_hash; prefix=prefix)
         @test uninstall(manifest_path; verbose=true)

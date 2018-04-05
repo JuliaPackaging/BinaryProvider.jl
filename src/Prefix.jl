@@ -231,8 +231,7 @@ end
 """
     isinstalled(tarball_url::AbstractString,
                 hash::AbstractString;
-                prefix::Prefix = global_prefix,
-                verbose::Bool = false)
+                prefix::Prefix = global_prefix)
 
 Given a `prefix`, a `tarball_url` and a `hash`, check whether the
 tarball with that hash has been installed into `prefix`.
@@ -242,56 +241,29 @@ installed by `install`, and checks that the files listed in the manifest
 are installed and are not older than the tarball.
 """
 function isinstalled(tarball_url::AbstractString, hash::AbstractString;
-                     prefix::Prefix = global_prefix, verbose::Bool = false)
+                     prefix::Prefix = global_prefix)
     # check that the hash file and tarball exist and match hash
     tarball_path = joinpath(prefix, "downloads", basename(tarball_url))
     hash_path = "$(tarball_path).sha256"
     if safe_isfile(tarball_url)
         tarball_path = tarball_url
     end
-    if !isfile(tarball_path)
-        verbose && Compat.@info("$tarball_path not found")
-        return false
-    end
-    if !isfile(hash_path)
-        verbose && Compat.@info("$hash_path not found")
-        return false
-    end
-    if read(hash_path, String) != hash
-        verbose && Compat.@info("$hash_path contains the wrong hash")
-        return false
-    end
+    isfile(tarball_path) || return false
+    isfile(hash_path) || return false
+    read(hash_path, String) == hash || return false
     tarball_time = stat(tarball_path).mtime
-    if stat(hash_path).mtime < tarball_time
-        verbose && Compat.@info("$hash_path too old")
-        return false
-    end
-    # verify(tarball_path) doesn't re-hash if the hashfile matches, so we won't
-    # if bytes2hex(open(sha256, tarball_path)) != hash
-    #     verbose && Compat.@info("hash mismatch for $tarball_path")
-    #     return false
-    # end
+    stat(hash_path).mtime >= tarball_time || return false
+    # verify(...) doesn't re-hash if the hashfile matches, so we won't either
+    # bytes2hex(open(sha256, tarball_path)) == hash || return false
 
     # check that manifest and the files listed within it exist
     # and are at least as new as the tarball.
     manifest_path = manifest_from_url(tarball_url, prefix=prefix)
-    if !isfile(manifest_path)
-        verbose && Compat.@info("$manifest_path not found")
-        return false
-    end
-    if stat(manifest_path).mtime < tarball_time
-        verbose && Compat.@info("$manifest_path too old")
-        return false
-    end
+    isfile(manifest_path) || return false
+    stat(manifest_path).mtime >= tarball_time || return false
     for installed_file in joinpath.(prefix, chomp.(readlines(manifest_path)))
-        if !isfile(installed_file) && !islink(installed_file)
-            verbose && Compat.@info("$installed_file not found")
-            return false
-        end
-        if stat(installed_file).ctime < tarball_time
-            verbose && Compat.@info("$installed_file too old")
-            return false
-        end
+        ((isfile(installed_file) || islink(installed_file)) &&
+         stat(installed_file).ctime >= tarball_time) || return false
     end
 
     return true
