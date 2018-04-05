@@ -284,7 +284,7 @@ function isinstalled(tarball_url::AbstractString, hash::AbstractString;
         return false
     end
     for installed_file in joinpath.(prefix, chomp.(readlines(manifest_path)))
-        if !isfile(installed_file) || stat(installed_file).ctime < tarball_time
+        if !isfile(installed_file) && !islink(installed_file)
             verbose && Compat.@info("$installed_file not found")
             return false
         end
