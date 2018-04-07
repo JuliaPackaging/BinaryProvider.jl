@@ -274,7 +274,6 @@ end
             hash::AbstractString;
             prefix::Prefix = global_prefix,
             force::Bool = false,
-            clean::Bool = false,
             ignore_platform::Bool = false,
             verbose::Bool = false)
 
@@ -283,9 +282,9 @@ prefix, verify its integrity with the `hash`, and install it into the `prefix`.
 Also save a manifest of the files into the prefix for uninstallation later.
 
 This will not overwrite any files within `prefix` unless `force=true` is set.
-If `clean=true` is set, then any files previously installed for `tarball_url`
-(as listed in an pre-existing manifest), if any, are deleted before installing
-files from the downloaded tarball.
+If `force=true` is set, installation will overwrite files as needed, and it
+will also delete any files previously installed for `tarball_url`
+as listed in a pre-existing manifest (if any).
 
 By default, this will not install a tarball that does not match the platform of
 the current host system, this can be overridden by setting `ignore_platform`.
@@ -294,7 +293,6 @@ function install(tarball_url::AbstractString,
                  hash::AbstractString;
                  prefix::Prefix = global_prefix,
                  force::Bool = false,
-                 clean::Bool = false,
                  ignore_platform::Bool = false,
                  verbose::Bool = false)
     # If we're not ignoring the platform, get the platform key from the tarball
@@ -345,9 +343,9 @@ function install(tarball_url::AbstractString,
         Compat.@info("Installing $(tarball_path) into $(prefix.path)")
     end
 
-    # remove old files if clean=true
+    # remove old files if force=true
     manifest_path = manifest_from_url(tarball_url, prefix=prefix)
-    clean && isfile(manifest_path) && uninstall(manifest_path, verbose=verbose)
+    force && isfile(manifest_path) && uninstall(manifest_path, verbose=verbose)
 
     # First, get list of files that are contained within the tarball
     file_list = list_tarball_files(tarball_path)
