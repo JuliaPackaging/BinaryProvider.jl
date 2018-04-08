@@ -105,11 +105,19 @@ struct FreeBSD <: Platform
 
     function FreeBSD(arch::Symbol, libc::Symbol=:blank_libc,
                                    abi::Symbol=:default_abi)
-        if !in(arch, [:i686, :x86_64, :aarch64, :powerpc64le, :armv7l])
+        # `uname` on FreeBSD reports its architecture as amd64 and i386 instead of x86_64
+        # and i686, respectively. In the off chance that Julia hasn't done the mapping for
+        # us, we'll do it here just in case.
+        if arch === :amd64
+            arch = :x86_64
+        elseif arch === :i386
+            arch = :i686
+        elseif !in(arch, [:i686, :x86_64, :aarch64, :powerpc64le, :armv7l])
             throw(ArgumentError("Unsupported architecture '$arch' for FreeBSD"))
         end
 
-        # The only libc we support on FreeBSD is the blank libc
+        # The only libc we support on FreeBSD is the blank libc, which corresponds to
+        # FreeBSD's default libc
         if libc !== :blank_libc
             throw(ArgumentError("Unsupported libc '$libc' for FreeBSD"))
         end
