@@ -353,7 +353,7 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
         end
     end
 
-    warn("Platform `$(machine)` is not an officially supported platform")
+    Compat.@warn("Platform `$(machine)` is not an officially supported platform")
     return UnknownPlatform()
 end
 
