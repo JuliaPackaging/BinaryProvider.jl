@@ -176,6 +176,8 @@ end
     @test arch(Linux(:aarch64, :musl)) == :aarch64
     @test arch(Windows(:i686)) == :i686
     @test arch(UnknownPlatform()) == :unknown
+    @test arch(FreeBSD(:amd64)) == :x86_64
+    @test arch(FreeBSD(:i386)) == :i686
 
     # Test that our platform_dlext stuff works
     @test platform_dlext(Linux(:x86_64)) == platform_dlext(Linux(:i686))
@@ -205,6 +207,8 @@ end
     @test platform_key("i686-w64-mingw32") == Windows(:i686)
     @test platform_key("x86_64-unknown-freebsd11.1") == FreeBSD(:x86_64)
     @test platform_key("i686-unknown-freebsd11.1") == FreeBSD(:i686)
+    @test platform_key("amd64-unknown-freebsd12.0") == FreeBSD(:x86_64)
+    @test platform_key("i386-unknown-freebsd10.3") == FreeBSD(:i686)
 
     # Make sure some of these things are rejected
     @test platform_key("totally FREEFORM text!!1!!!1!") == UnknownPlatform()
