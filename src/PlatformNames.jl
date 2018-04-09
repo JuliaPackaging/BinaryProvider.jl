@@ -285,7 +285,7 @@ the use of the `machine` parameter.
 function platform_key(machine::AbstractString = Sys.MACHINE)
     # We're going to build a mondo regex here to parse everything:
     arch_mapping = Dict(
-        :x86_64 => "x86_64",
+        :x86_64 => "(x86_|amd)64",
         :i686 => "i\\d86",
         :aarch64 => "aarch64",
         :armv7l => "arm(v7l)?",
