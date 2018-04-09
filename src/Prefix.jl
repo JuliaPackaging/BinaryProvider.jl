@@ -248,13 +248,12 @@ function isinstalled(tarball_url::AbstractString, hash::AbstractString;
     if safe_isfile(tarball_url)
         tarball_path = tarball_url
     end
-    isfile(tarball_path) || return false
-    isfile(hash_path) || return false
-    read(hash_path, String) == hash || return false
+    try
+        verify(tarball_path, hash; verbose=false, hash_path=hash_path)
+    catch
+        return false
+    end
     tarball_time = stat(tarball_path).mtime
-    stat(hash_path).mtime >= tarball_time || return false
-    # verify(...) doesn't re-hash if the hashfile matches, so we won't either
-    # bytes2hex(open(sha256, tarball_path)) == hash || return false
 
     # check that manifest and the files listed within it exist
     # and are at least as new as the tarball.
