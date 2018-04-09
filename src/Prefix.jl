@@ -5,7 +5,7 @@ import Base: convert, joinpath, show
 using SHA
 
 export Prefix, bindir, libdir, includedir, logdir, activate, deactivate,
-       extract_platform_key, install, uninstall, manifest_from_url,
+       extract_platform_key, isinstalled, install, uninstall, manifest_from_url,
        manifest_for_file, list_tarball_files, verify, temp_prefix, package
 
 
@@ -229,6 +229,46 @@ function extract_platform_key(path::AbstractString)
 end
 
 """
+    isinstalled(tarball_url::AbstractString,
+                hash::AbstractString;
+                prefix::Prefix = global_prefix)
+
+Given a `prefix`, a `tarball_url` and a `hash`, check whether the
+tarball with that hash has been installed into `prefix`.
+
+In particular, it checks for the tarball, matching hash file, and manifest
+installed by `install`, and checks that the files listed in the manifest
+are installed and are not older than the tarball.
+"""
+function isinstalled(tarball_url::AbstractString, hash::AbstractString;
+                     prefix::Prefix = global_prefix)
+    # check that the hash file and tarball exist and match hash
+    tarball_path = joinpath(prefix, "downloads", basename(tarball_url))
+    hash_path = "$(tarball_path).sha256"
+    if safe_isfile(tarball_url)
+        tarball_path = tarball_url
+    end
+    try
+        verify(tarball_path, hash; verbose=false, hash_path=hash_path)
+    catch
+        return false
+    end
+    tarball_time = stat(tarball_path).mtime
+
+    # check that manifest and the files listed within it exist
+    # and are at least as new as the tarball.
+    manifest_path = manifest_from_url(tarball_url, prefix=prefix)
+    isfile(manifest_path) || return false
+    stat(manifest_path).mtime >= tarball_time || return false
+    for installed_file in joinpath.(prefix, chomp.(readlines(manifest_path)))
+        ((isfile(installed_file) || islink(installed_file)) &&
+         stat(installed_file).ctime >= tarball_time) || return false
+    end
+
+    return true
+end
+
+"""
     install(tarball_url::AbstractString,
             hash::AbstractString;
             prefix::Prefix = global_prefix,
@@ -240,7 +280,10 @@ Given a `prefix`, a `tarball_url` and a `hash`, download that tarball into the
 prefix, verify its integrity with the `hash`, and install it into the `prefix`.
 Also save a manifest of the files into the prefix for uninstallation later.
 
-This will not overwrite any files within `prefix` unless `force` is set.
+This will not overwrite any files within `prefix` unless `force=true` is set.
+If `force=true` is set, installation will overwrite files as needed, and it
+will also delete any files previously installed for `tarball_url`
+as listed in a pre-existing manifest (if any).
 
 By default, this will not install a tarball that does not match the platform of
 the current host system, this can be overridden by setting `ignore_platform`.
@@ -277,7 +320,7 @@ function install(tarball_url::AbstractString,
             end
         end
     end
-    
+
     # Create the downloads directory if it does not already exist
     tarball_path = joinpath(prefix, "downloads", basename(tarball_url))
     try mkpath(dirname(tarball_path)) end
@@ -285,9 +328,10 @@ function install(tarball_url::AbstractString,
     # Check to see if we're "installing" from a file
     if safe_isfile(tarball_url)
         # If we are, just verify it's already downloaded properly
+        hash_path = "$(tarball_path).sha256"
         tarball_path = tarball_url
 
-        verify(tarball_path, hash; verbose=verbose)
+        verify(tarball_path, hash; verbose=verbose, hash_path=hash_path)
     else
         # If not, actually download it
         download_verify(tarball_url, hash, tarball_path;
@@ -297,7 +341,11 @@ function install(tarball_url::AbstractString,
     if verbose
         Compat.@info("Installing $(tarball_path) into $(prefix.path)")
     end
-    
+
+    # remove old files if force=true
+    manifest_path = manifest_from_url(tarball_url, prefix=prefix)
+    force && isfile(manifest_path) && uninstall(manifest_path, verbose=verbose)
+
     # First, get list of files that are contained within the tarball
     file_list = list_tarball_files(tarball_path)
 
@@ -322,7 +370,6 @@ function install(tarball_url::AbstractString,
     unpack(tarball_path, prefix.path; verbose=verbose)
 
     # Save installation manifest
-    manifest_path = manifest_from_url(tarball_path, prefix=prefix)
     mkpath(dirname(manifest_path))
     open(manifest_path, "w") do f
         write(f, join(file_list, "\n"))
@@ -467,15 +514,14 @@ addition to the `true`/`false` signifying whether verification completed
 successfully.
 """
 function verify(path::AbstractString, hash::AbstractString; verbose::Bool = false,
-                report_cache_status::Bool = false)
+                report_cache_status::Bool = false, hash_path::AbstractString="$(path).sha256")
     if length(hash) != 64
         msg  = "Hash must be 256 bits (64 characters) long, "
         msg *= "given hash is $(length(hash)) characters long"
         error(msg)
     end
 
-    # Fist, check to see if the hash cache is consistent
-    hash_path = "$(path).sha256"
+    # First, check to see if the hash cache is consistent
     status = :hash_consistent
 
     # First, it must exist
@@ -530,7 +576,7 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
         end
         status = :hash_cache_missing
     end
-    
+
     open(path) do file
         calc_hash = bytes2hex(sha256(file))
         if verbose
