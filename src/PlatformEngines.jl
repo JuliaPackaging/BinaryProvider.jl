@@ -447,7 +447,7 @@ match the given `hash`.
 
 This method returns `true` if the file was downloaded successfully, `false`
 if an existing file was removed due to the use of `force`, and throws an error
-if `force` is not set and the already-existant file fails verification, or if
+if `force` is not set and the already-existent file fails verification, or if
 `force` is set, verification fails, and then verification fails again after
 redownloading the file.
 
@@ -569,7 +569,7 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
     # unpack into dest
     mkpath(dest)
     oc = OutputCollector(gen_unpack_cmd(tarball_path, dest); verbose=verbose)
-    try 
+    try
         if !wait(oc)
             error()
         end

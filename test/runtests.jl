@@ -482,8 +482,8 @@ end
         manifest_path = manifest_for_file(qux_path; prefix=prefix)
         @test isfile(manifest_path)
 
-        # Ensure that manifest_for_file doesn't work on nonexistant files
-        @test_throws ErrorException manifest_for_file("nonexistant"; prefix=prefix)
+        # Ensure that manifest_for_file doesn't work on nonexistent files
+        @test_throws ErrorException manifest_for_file("nonexistent"; prefix=prefix)
 
         # Ensure that manifest_for_file doesn't work on orphan files
         orphan_path = joinpath(bindir(prefix), "orphan_file")
@@ -492,10 +492,14 @@ end
         @test_throws ErrorException manifest_for_file(orphan_path; prefix=prefix)
 
         # Ensure that trying to install again over our existing files is an error
-        @test_throws ErrorException install(tarball_path, tarball_path; prefix=prefix)
+        @test_throws ErrorException install(tarball_path, tarball_hash; prefix=prefix)
 
         # Ensure we can uninstall this tarball
+        @test isinstalled(tarball_path, tarball_hash; prefix=prefix)
+        Base.rm(bar_path)
+        @test !isinstalled(tarball_path, tarball_hash; prefix=prefix)
         @test uninstall(manifest_path; verbose=true)
+        @test !isinstalled(tarball_path, tarball_hash; prefix=prefix)
         @test !isfile(bar_path)
         @test !isfile(baz_path)
         @test !isfile(qux_path)
@@ -521,13 +525,10 @@ end
     end
     new_tarball_path = "libfoo.$(triplet(other_platform)).tar.gz"
     cp(tarball_path, new_tarball_path)
-    cp("$(tarball_path).sha256", "$(new_tarball_path).sha256")
 
     # Also generate a totally bogus tarball pathname
     bogus_tarball_path = "libfoo.not-a-triplet.tar.gz"
     cp(tarball_path, bogus_tarball_path)
-    cp("$(tarball_path).sha256", "$(bogus_tarball_path).sha256")
-
 
     # Check that installation fails with a valid but "incorrect" platform, but can be forced
     temp_prefix() do prefix
@@ -693,6 +694,7 @@ const libfoo_downloads = Dict(
 
             @test_throws ErrorException install(url, hash; prefix=prefix, verbose=true)
             @test install(url, hash; prefix=prefix, verbose=true, force=true)
+            @test isinstalled(url, hash; prefix=prefix)
             @test satisfied(fooifier; verbose=true)
             @test satisfied(libfoo; verbose=true)
         end
@@ -756,4 +758,3 @@ end
         end
     end
 end
-
