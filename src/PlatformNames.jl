@@ -1,6 +1,5 @@
-export supported_platforms, platform_key, platform_dlext, valid_dl_path,
-       arch, wordsize, triplet, Platform, UnknownPlatform, Linux, MacOS,
-       Windows, FreeBSD
+export platform_key, platform_dlext, valid_dl_path, arch, wordsize, triplet,
+       Platform, UnknownPlatform, Linux, MacOS, Windows, FreeBSD
 
 abstract type Platform end
 
@@ -251,24 +250,6 @@ function libc_str(p::Platform)
     end
 end
 abi_str(p::Platform) = (abi(p) == :blank_abi) ? "" : "$(abi(p))"
-
-"""
-    supported_platforms()
-
-Return the list of supported platforms as an array of `Platform`s.
-"""
-function supported_platforms()
-    return [
-        Linux(:i686),
-        Linux(:x86_64),
-        Linux(:aarch64),
-        Linux(:armv7l),
-        Linux(:powerpc64le),
-        MacOS(),
-        Windows(:i686),
-        Windows(:x86_64),
-    ]
-end
 
 # Override Compat definitions as well
 Compat.Sys.isapple(p::Platform) = p isa MacOS
