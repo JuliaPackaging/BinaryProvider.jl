@@ -228,15 +228,6 @@ end
     @test Compat.Sys.isbsd(FreeBSD(:x86_64))
     @test !Compat.Sys.isbsd(Linux(:powerpc64le, :musl))
 
-    # Test that every supported platform is _something_
-    if isdefined(Base.Sys, :isapple)
-        isbasesomething(p) = Sys.islinux(p) || Sys.iswindows(p) || Sys.isbsd(p)
-        @test all(isbasesomething, supported_platforms())
-    end
-    issomething(p) = Compat.Sys.islinux(p) || Compat.Sys.iswindows(p) ||
-                     Compat.Sys.isbsd(p)
-    @test all(issomething, supported_platforms())
-
     @test wordsize(Linux(:i686)) == wordsize(Linux(:armv7l)) == 32
     @test wordsize(MacOS()) == wordsize(Linux(:aarch64)) == 64
     @test wordsize(FreeBSD(:x86_64)) == wordsize(Linux(:powerpc64le)) == 64
