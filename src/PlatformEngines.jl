@@ -205,10 +205,10 @@ function probe_platform_engines!(;verbose::Bool = false)
         # We want to search both the `PATH`, and the direct path for powershell
         psh_path = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell"
         prepend!(download_engines, [
-            (`$psh_path -Help`, psh_download(psh_path))
+            (`$psh_path -Command ""`, psh_download(psh_path))
         ])
         prepend!(download_engines, [
-            (`powershell -Help`, psh_download(`powershell`))
+            (`powershell -Command ""`, psh_download(`powershell`))
         ])
 
         # We greatly prefer `7z` as a compression engine on Windows
