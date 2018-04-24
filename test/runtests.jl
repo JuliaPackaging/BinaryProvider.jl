@@ -242,6 +242,11 @@ end
     @test triplet(FreeBSD(:x86_64)) == "x86_64-unknown-freebsd11.1"
     @test triplet(FreeBSD(:i686)) == "i686-unknown-freebsd11.1"
     @test triplet(UnknownPlatform()) == "unknown-unknown-unknown"
+
+    for p in [Windows(:i686), Linux(:armv7l, :musl), FreeBSD(:x86_64), MacOS()]
+        fakepath = "/path/to/nowhere/thingo." * triplet(p) * ".tar.gz"
+        @test extract_platform_key(fakepath) == p
+    end
 end
 
 @testset "Prefix" begin
