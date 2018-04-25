@@ -242,6 +242,10 @@ end
     @test triplet(FreeBSD(:x86_64)) == "x86_64-unknown-freebsd11.1"
     @test triplet(FreeBSD(:i686)) == "i686-unknown-freebsd11.1"
     @test triplet(UnknownPlatform()) == "unknown-unknown-unknown"
+
+    @test repr(Windows(:x86_64)) == "Windows(:x86_64)"
+    @test repr(Linux(:x86_64, :glibc, :blank_abi)) == "Linux(:x86_64, :glibc)"
+    @test repr(MacOS()) == "MacOS(:x86_64)"
 end
 
 @testset "Prefix" begin
