@@ -500,9 +500,10 @@ end
         @test !isdir(dirname(qux_path))
 
         # Ensure that we don't want to install tarballs from other platforms
-        cp(tarball_path, "./libfoo_juliaos64.tar.gz")
-        @test_throws ArgumentError install("./libfoo_juliaos64.tar.gz", tarball_hash; prefix=prefix)
-        Base.rm("./libfoo_juliaos64.tar.gz"; force=true)
+        other_path = "./libfoo.x86_64-juliaos-chartreuse.tar.gz"
+        cp(tarball_path, other_path)
+        @test_throws ArgumentError install(other_path, tarball_hash; prefix=prefix)
+        Base.rm(other_path; force=true)
 
         # Ensure that hash mismatches throw errors
         fake_hash = reverse(tarball_hash)
