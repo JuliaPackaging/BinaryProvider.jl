@@ -1,5 +1,6 @@
 export platform_key, platform_dlext, valid_dl_path, arch, wordsize, triplet,
        Platform, UnknownPlatform, Linux, MacOS, Windows, FreeBSD
+import Base: show
 
 abstract type Platform end
 
@@ -146,6 +147,18 @@ struct FreeBSD <: Platform
         return new(arch, libc, abi)
     end
 end
+
+"""
+    platform_name(p::Platform)
+
+Get the "platform name" of the given platform.  E.g. returns "Linux" for a
+`Linux` object, or "Windows" for a `Windows` object.
+"""
+platform_name(p::Linux) = "Linux"
+platform_name(p::MacOS) = "MacOS"
+platform_name(p::Windows) = "Windows"
+platform_name(p::FreeBSD) = "FreeBSD"
+platforn_name(p::UnknownPlatform) = "UnknownPlatform"
 
 """
     arch(p::Platform)
@@ -374,4 +387,23 @@ function valid_dl_path(path::AbstractString, platform::Platform)
 
     # Return whether or not that regex matches the basename of the given path
     return ismatch(dlregex, basename(path))
+end
+
+
+# Define show() for these objects for two reasons:
+#  - I don't like the `BinaryProvider.` at the beginning of the types;
+#    it's unnecessary as these are exported
+#  - I don't like the :blank_* arguments, they're unnecessary
+function show(io::IO, p::Platform)
+    write(io, "$(platform_name(p))($(repr(arch(p)))")
+    omit_libc = libc(p) == :blank_libc
+    omit_abi = abi(p) == :blank_abi
+
+    if !omit_libc || !omit_abi
+        write(io, ", $(repr(libc(p)))")
+    end
+    if !omit_abi
+        write(io, ", $(repr(abi(p)))")
+    end
+    write(io, ")")
 end
