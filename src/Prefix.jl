@@ -220,12 +220,22 @@ function extract_platform_key(path::AbstractString)
     if endswith(path, ".tar.gz")
         path = path[1:end-7]
     end
-    idx = rsearch(path, '.')
-    if idx == 0
+    # Locate the last - in the path, which will be part of the platform key
+    idx_dash = coalesce(findlast(isequal('-'), path), 0)
+    if idx_dash == 0
         Compat.@warn("Could not extract the platform key of $(path); continuing...")
         return platform_key()
     end
-    return platform_key(path[idx+1:end])
+    # Find the . that separates the the library's name from the platform key, searching
+    # backwards from where we found the -. Note that we can't just go looking directly
+    # for the ., since there may be a version at the end of the platform key that would
+    # get picked up instead, e.g. x86_64-unknown-freebsd11.1.
+    idx_dot = coalesce(findlast(isequal('.'), path[1:idx_dash-1]), 0)
+    if idx_dot == 0
+        Compat.@warn("Could not extract the platform key of $(path); continuing...")
+        return platform_key()
+    end
+    return platform_key(path[idx_dot+1:end])
 end
 
 """
