@@ -698,6 +698,22 @@ const libfoo_downloads = Dict(
             @test isinstalled(url, hash; prefix=prefix)
             @test satisfied(fooifier; verbose=true)
             @test satisfied(libfoo; verbose=true)
+
+            # Test that installing with a custom tarball_path works:
+            tarball_path = joinpath(prefix, "downloads2", "tarball.tar.gz")
+            @test install(url, hash; prefix=prefix, tarball_path=tarball_path, verbose=true, force=true)
+
+            # Check that the tarball exists and hashes properly
+            @test isfile(tarball_path)
+            hash_check = open(tarball_path, "r") do f
+                bytes2hex(sha256(f))
+            end
+            @test hash_check == hash
+
+            # Check that we're still satisfied
+            @test isinstalled(url, hash; prefix=prefix)
+            @test satisfied(fooifier; verbose=true)
+            @test satisfied(libfoo; verbose=true)
         end
 
         # Test a bad download fails properly

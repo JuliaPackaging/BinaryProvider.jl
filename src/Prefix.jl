@@ -301,6 +301,8 @@ the current host system, this can be overridden by setting `ignore_platform`.
 function install(tarball_url::AbstractString,
                  hash::AbstractString;
                  prefix::Prefix = global_prefix,
+                 tarball_path::AbstractString =
+                     joinpath(prefix, "downloads", basename(tarball_url)),
                  force::Bool = false,
                  ignore_platform::Bool = false,
                  verbose::Bool = false)
@@ -332,7 +334,6 @@ function install(tarball_url::AbstractString,
     end
 
     # Create the downloads directory if it does not already exist
-    tarball_path = joinpath(prefix, "downloads", basename(tarball_url))
     try mkpath(dirname(tarball_path)) end
 
     # Check to see if we're "installing" from a file
