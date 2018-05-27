@@ -1,9 +1,6 @@
 __precompile__()
 module LibFoo
-
-if VERSION >= v"0.7.0-DEV.3382"
-    import Libdl
-end
+using Compat.Libdl
 
 # Load in `deps.jl`, complaining if it does not exist
 const depsjl_path = joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")

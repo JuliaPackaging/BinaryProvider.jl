@@ -1,11 +1,8 @@
 __precompile__()
 module BinaryProvider
 
-if VERSION >= v"0.7.0-DEV.3382"
-    import Libdl
-end
-
 using Compat
+using Compat.Libdl
 
 # Utilities for controlling verbosity
 include("LoggingUtils.jl")

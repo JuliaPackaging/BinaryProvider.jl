@@ -443,8 +443,8 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
         # library directory onto the end of {DYLD,LD}_LIBRARY_PATH
         @static if !Compat.Sys.iswindows()
             if any(p isa ExecutableProduct for p in products)
-                dllist = Sys.Libdl.dllist()
-                libjulia = filter(x -> contains(x, "libjulia"), dllist)[1]
+                dllist = Libdl.dllist()
+                libjulia = filter(x -> occursin("libjulia", x), dllist)[1]
                 julia_libdir = repr(joinpath(dirname(libjulia), "julia"))
                 envvar_name = @static if Compat.Sys.isapple()
                     "DYLD_LIBRARY_PATH"

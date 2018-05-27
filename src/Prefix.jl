@@ -270,7 +270,7 @@ function isinstalled(tarball_url::AbstractString, hash::AbstractString;
     manifest_path = manifest_from_url(tarball_url, prefix=prefix)
     isfile(manifest_path) || return false
     stat(manifest_path).mtime >= tarball_time || return false
-    for installed_file in joinpath.(prefix, chomp.(readlines(manifest_path)))
+    for installed_file in (joinpath(prefix, f) for f in chomp.(readlines(manifest_path)))
         ((isfile(installed_file) || islink(installed_file)) &&
          stat(installed_file).ctime >= tarball_time) || return false
     end
