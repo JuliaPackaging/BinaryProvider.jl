@@ -753,8 +753,8 @@ end
 
     # Test that the generated deps.jl file gives us the important stuff
     cd("LibFoo.jl/deps") do
-        dllist = Sys.Libdl.dllist()
-        libjulia = filter(x -> contains(x, "libjulia"), dllist)[1]
+        dllist = Libdl.dllist()
+        libjulia = filter(x -> occursin("libjulia", x), dllist)[1]
         julia_libdir = joinpath(dirname(libjulia), "julia")
         envvar_name = @static if Compat.Sys.isapple()
             "DYLD_LIBRARY_PATH"
@@ -780,11 +780,16 @@ end
         end
     end
 
-    cd("LibFoo.jl/test") do
-        # Now, run `LibFoo.jl`'s tests, adding `LibFoo.jl` to the LOAD_PATH
-        # so that the tests can pick up the `LibFoo` module
-        withenv("JULIA_LOAD_PATH"=>joinpath(pwd(),"..","src")) do
-            run(`$(Base.julia_cmd()) $(color) runtests.jl`)
+    cd("LibFoo.jl") do
+        if VERSION < v"0.7-"
+            # Now, run `LibFoo.jl`'s tests, adding `LibFoo.jl` to the LOAD_PATH
+            # so that the tests can pick up the `LibFoo` module
+            withenv("JULIA_LOAD_PATH"=>joinpath(pwd(),"src")) do
+                run(`$(Base.julia_cmd()) $(color) test/runtests.jl`)
+            end
+        else
+            # On julia 0.7, we can now rely on Project.toml to set the load path
+            run(`$(Base.julia_cmd()) $(color) test/runtests.jl`)
         end
     end
 end

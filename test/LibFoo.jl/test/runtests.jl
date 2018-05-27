@@ -1,4 +1,4 @@
-using Base.Test
+using Compat.Test
 using LibFoo
 
 @test call_fooifier(2.2, 1.1) ≈ 2*2.2^2 - 1.1

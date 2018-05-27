@@ -271,7 +271,7 @@ function tail(collector::OutputCollector; len::Int = 100,
     for line_idx in 1:len
         # We can run into UnicodeError's here
         try
-            idx = findprev(equalto('\n'), out, idx-1)
+            idx = findprev(isequal('\n'), out, idx-1)
             # We have to check for both `nothing` or `0` for Julia 0.6
             if idx === nothing || idx == 0
                 idx = 0
