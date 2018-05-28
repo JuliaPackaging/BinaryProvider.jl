@@ -1,6 +1,6 @@
 authors = ["staticfloat@gmail.com <staticfloat@gmail.com>"]
 name = "BinaryProvider"
-uuid = "979e3c96-6127-11e8-2fd0-b31cc1f2d98f"
+uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
 version = "0.3.0"
 
 [deps]
