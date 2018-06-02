@@ -23,14 +23,17 @@ functionality:
 abstract type Product end
 
 """
-    satisfied(p::Product; platform::Platform = platform_key(), verbose = false)
+    satisfied(p::Product; platform::Platform = platform_key(),
+              verbose::Bool = false, isolate::Bool = false)
 
 Given a `Product`, return `true` if that `Product` is satisfied, e.g. whether
-a file exists that matches all criteria setup for that `Product`.
+a file exists that matches all criteria setup for that `Product`.  If `isolate`
+is set to `true`, will isolate all checks from the main Julia process in the
+event that `dlopen()`'ing a library might cause issues.
 """
 function satisfied(p::Product; platform::Platform = platform_key(),
-                               verbose::Bool = false)
-    return locate(p; platform=platform, verbose=verbose) != nothing
+                               verbose::Bool = false, isolate::Bool = false)
+    return locate(p; platform=platform, verbose=verbose, isolate=isolate) != nothing
 end
 
 
@@ -125,7 +128,7 @@ that the `dlopen()` test is only run if the current platform matches the given
 on foreign platforms.
 """
 function locate(lp::LibraryProduct; verbose::Bool = false,
-                platform::Platform = platform_key())
+                platform::Platform = platform_key(), isolate::Bool = false)
     if !isdir(lp.dir_path)
         if verbose
             Compat.@info("Directory $(lp.dir_path) does not exist!")
@@ -155,15 +158,21 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
 
                 # If it does, try to `dlopen()` it if the current platform is good
                 if platform == platform_key()
-                    hdl = Libdl.dlopen_e(dl_path)
-                    if hdl == C_NULL
-                        if verbose
-                            Compat.@info("$(dl_path) cannot be dlopen'ed")
+                    if isolate
+                        # Isolated dlopen is a lot slower, but safer
+                        if success(`$(Base.julia_cmd()) -e "Libdl.dlopen(\"$f\")"`)
+                            return dl_path
                         end
                     else
-                        # Hey!  It worked!  Yay!
+                        hdl = Libdl.dlopen_e(dl_path)
+                        if hdl != C_NULL
+                            return dl_path
+                        end
                         Libdl.dlclose(hdl)
-                        return dl_path
+                    end
+
+                    if verbose
+                        Compat.@info("$(dl_path) cannot be dlopen'ed")
                     end
                 else
                     # If the current platform doesn't match, then just trust in our
@@ -228,7 +237,7 @@ end
 
 """
 `locate(fp::ExecutableProduct; platform::Platform = platform_key(),
-                               verbose::Bool = false)`
+                               verbose::Bool = false, isolate::Bool = false)`
 
 If the given executable file exists and is executable, return its path.
 
@@ -238,7 +247,7 @@ Windows platforms, it will check that the file ends with ".exe", (adding it on
 automatically, if it is not already present).
 """
 function locate(ep::ExecutableProduct; platform::Platform = platform_key(),
-                verbose::Bool = false)
+                verbose::Bool = false, isolate::Bool = false)
     # On windows, we always slap an .exe onto the end if it doesn't already
     # exist, as Windows won't execute files that don't have a .exe at the end.
     path = if platform isa Windows && !endswith(ep.path, ".exe")
@@ -313,13 +322,13 @@ end
 
 """
 locate(fp::FileProduct; platform::Platform = platform_key(),
-                        verbose::Bool = false)
+                        verbose::Bool = false, isolate::Bool = false)
 
 If the given file exists, return its path.  The platform argument is ignored
 here, but included for uniformity.
 """
 function locate(fp::FileProduct; platform::Platform = platform_key(),
-                                 verbose::Bool = false)
+                                 verbose::Bool = false, isolate::Bool = false)
     if isfile(fp.path)
         if verbose
             Compat.@info("FileProduct $(fp.path) does not exist")
