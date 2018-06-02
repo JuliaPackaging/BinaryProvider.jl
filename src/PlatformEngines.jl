@@ -141,6 +141,7 @@ function probe_platform_engines!(;verbose::Bool = false)
         (`curl --help`, (url, path) -> `curl -C - -\# -f -o $path -L $url`),
         (`wget --help`, (url, path) -> `wget -c -O $path $url`),
         (`fetch --help`, (url, path) -> `fetch -f $path $url`),
+        (`busybox wget --help`, (url, path) -> `busybox wget -c -O $path $url`),
     ]
 
     # 7z is rather intensely verbose.  We also want to try running not only
@@ -164,24 +165,32 @@ function probe_platform_engines!(;verbose::Bool = false)
 
     # Tar is rather less verbose, and we don't need to search multiple places
     # for it, so just rely on PATH to have `tar` available for us:
-    unpack_tar = (tarball_path, out_path) ->
-        `tar xf $(tarball_path) --directory=$(out_path)`
-    package_tar = (in_path, tarball_path) ->
-        `tar -czvf $tarball_path -C $(in_path) .`
-    list_tar = (in_path) -> `tar tf $in_path`
 
     # compression_engines is a list of (test_cmd, unpack_opts_functor,
     # package_opts_functor, list_opts_functor, parse_functor).  The probulator
     # will check each of them by attempting to run `$test_cmd`, and if that
     # works, will set the global compression functions appropriately.
     gen_7z = (p) -> (unpack_7z(p), package_7z(p), list_7z(p), parse_7z_list)
-    compression_engines = Tuple[
-        (`tar --help`, unpack_tar, package_tar, list_tar, parse_tar_list),
-    ]
+    compression_engines = Tuple[]
+
+    for tar_cmd in [`tar`, `busybox tar`]
+        unpack_tar = (tarball_path, out_path) ->
+            `$tar_cmd xf $(tarball_path) --directory=$(out_path)`
+        package_tar = (in_path, tarball_path) ->
+            `$tar_cmd -czvf $tarball_path -C $(in_path) .`
+        list_tar = (in_path) -> `$tar_cmd tf $in_path`
+        push!(compression_engines, (
+            `$tar_cmd --help`,
+            unpack_tar,
+            package_tar,
+            list_tar,
+            parse_tar_list,
+        ))
+    end
 
     # sh_engines is just a list of Cmds-as-paths
     sh_engines = [
-        `sh`
+        `sh`,
     ]
 
     # For windows, we need to tweak a few things, as the tools available differ
@@ -226,7 +235,8 @@ function probe_platform_engines!(;verbose::Bool = false)
     # Allow environment override
     if haskey(ENV, "BINARYPROVIDER_DOWNLOAD_ENGINE")
         engine = ENV["BINARYPROVIDER_DOWNLOAD_ENGINE"]
-        dl_ngs = filter(e -> e[1].exec[1] == engine, download_engines)
+        es = split(engine)
+        dl_ngs = filter(e -> e[1].exec[1:length(es)] == es, download_engines)
         if isempty(dl_ngs)
             all_ngs = join([d[1].exec[1] for d in download_engines], ", ")
             warn_msg  = "Ignoring BINARYPROVIDER_DOWNLOAD_ENGINE as its value "
@@ -242,7 +252,8 @@ function probe_platform_engines!(;verbose::Bool = false)
 
     if haskey(ENV, "BINARYPROVIDER_COMPRESSION_ENGINE")
         engine = ENV["BINARYPROVIDER_COMPRESSION_ENGINE"]
-        comp_ngs = filter(e -> e[1].exec[1] == engine, compression_engines)
+        es = split(engine)
+        comp_ngs = filter(e -> e[1].exec[1:length(es)] == es, compression_engines)
         if isempty(comp_ngs)
             all_ngs = join([c[1].exec[1] for c in compression_engines], ", ")
             warn_msg  = "Ignoring BINARYPROVIDER_COMPRESSION_ENGINE as its "
