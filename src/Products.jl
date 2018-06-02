@@ -160,7 +160,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                 if platform == platform_key()
                     if isolate
                         # Isolated dlopen is a lot slower, but safer
-                        if success(`$(Base.julia_cmd()) -e "Libdl.dlopen(\"$f\")"`)
+                        if success(`$(Base.julia_cmd()) -e "Libdl.dlopen(\"$dl_path\")"`)
                             return dl_path
                         end
                     else
