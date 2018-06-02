@@ -15,6 +15,10 @@ matrix:
     - julia: 0.6
       os: linux
       env: BINARYPROVIDER_DOWNLOAD_ENGINE="wget"
+    # Test with `busybox` tools
+    - julia: 0.6
+      os: linux
+      env: BINARYPROVIDER_DOWNLOAD_ENGINE="busybox wget" BINARYPROVIDER_COMPRESSION_ENGINE="busybox tar"
 
 # Ironic.  He could provide binaries for others but not himself...
 addons:
@@ -24,6 +28,7 @@ addons:
       - wget
       - tar
       - gzip
+      - busybox
 
 after_success:
   # push coverage results to Codecov
