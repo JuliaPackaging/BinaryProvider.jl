@@ -309,6 +309,7 @@ end
         @test !satisfied(e; verbose=true)
         @test !satisfied(ef; verbose=true)
         @test !satisfied(l, verbose=true)
+        @test !satisfied(l, verbose=true, isolate=true)
         @test !satisfied(lf, verbose=true)
 
         # Test that simply creating a file that is not executable doesn't
@@ -340,6 +341,8 @@ end
         touch(l_path)
         @test satisfied(lf, verbose=true)
         @test !satisfied(l, verbose=true)
+        @test satisfied(lf, verbose=true, isolate=true)
+        @test !satisfied(l, verbose=true, isolate=true)
 
         # But if it is from a different platform, simple existence will be
         # enough to satisfy a LibraryProduct
@@ -347,10 +350,12 @@ end
             l_path = joinpath(libdir(prefix), "libfoo.so")
             touch(l_path)
             @test satisfied(l, verbose=true, platform=Linux(:x86_64))
+            @test satisfied(l, verbose=true, platform=Linux(:x86_64), isolate=true)
         else
             l_path = joinpath(libdir(prefix), "libfoo.dll")
             touch(l_path)
             @test satisfied(l, verbose=true, platform=Windows(:x86_64))
+            @test satisfied(l, verbose=true, platform=Windows(:x86_64), isolate=true)
         end
     end
 
