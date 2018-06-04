@@ -175,10 +175,10 @@ function probe_platform_engines!(;verbose::Bool = false)
 
     for tar_cmd in [`tar`, `busybox tar`]
         unpack_tar = (tarball_path, out_path) ->
-            `$tar_cmd xf $(tarball_path) --directory=$(out_path)`
+            `$tar_cmd -xzf $(tarball_path) --directory=$(out_path)`
         package_tar = (in_path, tarball_path) ->
             `$tar_cmd -czvf $tarball_path -C $(in_path) .`
-        list_tar = (in_path) -> `$tar_cmd tf $in_path`
+        list_tar = (in_path) -> `$tar_cmd -tzf $in_path`
         push!(compression_engines, (
             `$tar_cmd --help`,
             unpack_tar,
