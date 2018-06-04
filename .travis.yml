@@ -15,10 +15,13 @@ matrix:
     - julia: 0.6
       os: linux
       env: BINARYPROVIDER_DOWNLOAD_ENGINE="wget"
+
     # Test with `busybox` tools
-    - julia: 0.6
-      os: linux
-      env: BINARYPROVIDER_DOWNLOAD_ENGINE="busybox wget" BINARYPROVIDER_COMPRESSION_ENGINE="busybox tar"
+    # NOTE: This disabled for now, as Ubuntu's busybox doesn't support HTTPS.
+    # Tested locally to be working on alpine linux, so good enough for now.
+    #- julia: 0.6
+    #  os: linux
+    #  env: BINARYPROVIDER_DOWNLOAD_ENGINE="busybox wget" BINARYPROVIDER_COMPRESSION_ENGINE="busybox tar"
 
 # Ironic.  He could provide binaries for others but not himself...
 addons:
