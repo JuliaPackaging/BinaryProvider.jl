@@ -347,16 +347,20 @@ end
         # But if it is from a different platform, simple existence will be
         # enough to satisfy a LibraryProduct
         @static if Compat.Sys.iswindows()
-            l_path = joinpath(libdir(prefix), "libfoo.so")
+            l_path = joinpath(libdir(prefix, Linux(:x86_64)), "libfoo.so")
             touch(l_path)
             @test satisfied(l, verbose=true, platform=Linux(:x86_64))
             @test satisfied(l, verbose=true, platform=Linux(:x86_64), isolate=true)
         else
-            l_path = joinpath(libdir(prefix), "libfoo.dll")
+            l_path = joinpath(libdir(prefix, Windows(:x86_64)), "libfoo.dll")
             touch(l_path)
             @test satisfied(l, verbose=true, platform=Windows(:x86_64))
             @test satisfied(l, verbose=true, platform=Windows(:x86_64), isolate=true)
         end
+
+        # Test that we can control libdir() via platform arguments
+        @test libdir(prefix, Linux(:x86_64)) == joinpath(prefix, "lib")
+        @test libdir(prefix, Windows(:x86_64)) == joinpath(prefix, "bin")
     end
 
     # Ensure that the test suite thinks that these libraries are foreign
