@@ -18,7 +18,7 @@ Given a collection of delimiter characters, read from `s` until one of those
 delimiters is reached, or we reach the end of `s`.
 """
 function readuntil_many(s::IO, delims)
-	out = IOBuffer()
+    out = IOBuffer()
     while !eof(s)
         c = read(s, Char)
         write(out, c)
