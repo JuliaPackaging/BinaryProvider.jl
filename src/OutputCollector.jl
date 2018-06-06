@@ -18,7 +18,7 @@ Given a collection of delimiter characters, read from `s` until one of those
 delimiters is reached, or we reach the end of `s`.
 """
 function readuntil_many(s::IO, delims)
-	out = IOBuffer()
+    out = IOBuffer()
     while !eof(s)
         c = read(s, Char)
         write(out, c)
@@ -59,7 +59,7 @@ function LineStream(pipe::Pipe, event::Condition)
     # This ensures that anybody that's listening to the event but gated on our
     # being alive (e.g. `tee()`) can die alongside us gracefully as well.
     @async begin
-        wait(task)
+        fetch(task)
         notify(event)
     end
     return LineStream(pipe, lines, task)
@@ -155,12 +155,12 @@ function wait(collector::OutputCollector)
     # If we've already done this song and dance before, then don't do it again
     if !collector.done
         wait(collector.P)
-        wait(collector.stdout_linestream.task)
-        wait(collector.stderr_linestream.task)
+        fetch(collector.stdout_linestream.task)
+        fetch(collector.stderr_linestream.task)
 
         # Also fetch on any extra tasks we've jimmied onto the end of this guy
         for t in collector.extra_tasks
-            wait(t)
+            fetch(t)
         end
 
         # From this point on, we are actually done!
@@ -271,7 +271,7 @@ function tail(collector::OutputCollector; len::Int = 100,
     for line_idx in 1:len
         # We can run into UnicodeError's here
         try
-            idx = findprev(equalto('\n'), out, idx-1)
+            idx = findprev(isequal('\n'), out, idx-1)
             # We have to check for both `nothing` or `0` for Julia 0.6
             if idx === nothing || idx == 0
                 idx = 0
