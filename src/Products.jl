@@ -166,9 +166,9 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                     else
                         hdl = Libdl.dlopen_e(dl_path)
                         if hdl != C_NULL
+                            Libdl.dlclose(hdl)
                             return dl_path
                         end
-                        Libdl.dlclose(hdl)
                     end
 
                     if verbose
