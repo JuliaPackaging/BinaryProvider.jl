@@ -221,7 +221,7 @@ function extract_platform_key(path::AbstractString)
         path = path[1:end-7]
     end
     # Locate the last - in the path, which will be part of the platform key
-    idx_dash = coalesce(findlast(isequal('-'), path), 0)
+    idx_dash = something(findlast(isequal('-'), path), 0)
     if idx_dash == 0
         Compat.@warn("Could not extract the platform key of $(path); continuing...")
         return platform_key()
@@ -230,7 +230,7 @@ function extract_platform_key(path::AbstractString)
     # backwards from where we found the -. Note that we can't just go looking directly
     # for the ., since there may be a version at the end of the platform key that would
     # get picked up instead, e.g. x86_64-unknown-freebsd11.1.
-    idx_dot = coalesce(findlast(isequal('.'), path[1:idx_dash-1]), 0)
+    idx_dot = something(findlast(isequal('.'), path[1:idx_dash-1]), 0)
     if idx_dot == 0
         Compat.@warn("Could not extract the platform key of $(path); continuing...")
         return platform_key()
