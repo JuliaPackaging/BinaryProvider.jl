@@ -33,6 +33,15 @@ addons:
       - gzip
       - busybox
 
+script:
+  - if [ -a .git/shallow ]; then
+      git fetch --unshallow;
+    fi
+  - julia --color=yes -e "if VERSION < v\"0.7.0-DEV.5183\" || (!isfile(\"Project.toml\") && !isfile(\"JuliaProject.toml\")); Pkg.clone(pwd()); end"
+  - julia --color=yes -e "if VERSION >= v\"0.7.0-\"; Pkg.instantiate(); end"
+  - julia --color=yes -e "Pkg.build(\"BinaryProvider\")"
+  - julia --check-bounds=yes --color=yes -e "Pkg.test(\"BinaryProvider\", coverage=true)"
+
 after_success:
   # push coverage results to Codecov
   - julia -e 'cd(Pkg.dir("BinaryProvider")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
