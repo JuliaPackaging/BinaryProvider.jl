@@ -129,13 +129,13 @@ function bindir(prefix::Prefix)
 end
 
 """
-    libdir(prefix::Prefix)
+    libdir(prefix::Prefix, platform = platform_key())
 
-Returns the library directory for the given `prefix` (not ethat this differs
+Returns the library directory for the given `prefix` (note that this differs
 between unix systems and windows systems).
 """
-function libdir(prefix::Prefix)
-    @static if Compat.Sys.iswindows()
+function libdir(prefix::Prefix, platform = platform_key())
+    if Compat.Sys.iswindows(platform)
         return joinpath(prefix, "bin")
     else
         return joinpath(prefix, "lib")
