@@ -57,7 +57,7 @@ multiple libnames, as some software projects change the libname based on the
 build configuration.
 """
 struct LibraryProduct <: Product
-    dir_path::String
+    dir_path::Union{String, Nothing}
     libnames::Vector{String}
     variable_name::Symbol
     prefix::Union{Prefix, Nothing}
@@ -86,7 +86,7 @@ struct LibraryProduct <: Product
 
     function LibraryProduct(prefix::Prefix, libnames::Vector{S},
                             varname::Symbol) where {S <: AbstractString}
-        return new(libdir(prefix), libnames, varname, prefix)
+        return new(nothing, libnames, varname, prefix)
     end
 
     """
@@ -129,13 +129,15 @@ on foreign platforms.
 """
 function locate(lp::LibraryProduct; verbose::Bool = false,
                 platform::Platform = platform_key(), isolate::Bool = false)
-    if !isdir(lp.dir_path)
+    dir_path = coalesce(lp.dir_path, libdir(lp.prefix, platform))
+
+    if !isdir(dir_path)
         if verbose
-            Compat.@info("Directory $(lp.dir_path) does not exist!")
+            Compat.@info("Directory $(dir_path) does not exist!")
         end
         return nothing
     end
-    for f in readdir(lp.dir_path)
+    for f in readdir(dir_path)
         # Skip any names that aren't a valid dynamic library for the given
         # platform (note this will cause problems if something compiles a `.so`
         # on OSX, for instance)
@@ -151,7 +153,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
         # if it matches our libname:
         for libname in lp.libnames
             if startswith(basename(f), libname)
-                dl_path = abspath(joinpath(lp.dir_path), f)
+                dl_path = abspath(joinpath(dir_path), f)
                 if verbose
                     Compat.@info("$(dl_path) matches our search criteria of $(libname)")
                 end
@@ -184,7 +186,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
     end
 
     if verbose
-        Compat.@info("Could not locate $(join(lp.libnames, ", ")) inside $(lp.dir_path)")
+        Compat.@info("Could not locate $(join(lp.libnames, ", ")) inside $(dir_path)")
     end
     return nothing
 end
