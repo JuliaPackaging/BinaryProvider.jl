@@ -380,7 +380,7 @@ end
     # Test for valid library name permutations
     for ext in ["1.so", "so", "so.1", "so.1.2", "so.1.2.3"]
         temp_prefix() do prefix
-            l_path = joinpath(libdir(prefix), "libfoo.$ext")
+            l_path = joinpath(libdir(prefix, foreign_platform), "libfoo.$ext")
             l = LibraryProduct(prefix, "libfoo", :libfoo)
             mkdir(dirname(l_path))
             touch(l_path)
@@ -391,7 +391,7 @@ end
     # Test for invalid library name permutations
     for ext in ["so.1.2.3a", "so.1.a"]
         temp_prefix() do prefix
-            l_path = joinpath(libdir(prefix), "libfoo.$ext")
+            l_path = joinpath(libdir(prefix, foreign_platform), "libfoo.$ext")
             l = LibraryProduct(prefix, "libfoo", :libfoo)
             mkdir(dirname(l_path))
             touch(l_path)
