@@ -293,6 +293,10 @@ end
         deactivate(prefix)
         @test BinaryProvider.split_PATH()[1] != bindir(prefix)
         @test Libdl.DL_LOAD_PATH[1] != libdir(prefix)
+        
+        # Test that we can control libdir() via platform arguments
+        @test libdir(prefix, Linux(:x86_64)) == joinpath(prefix, "lib")
+        @test libdir(prefix, Windows(:x86_64)) == joinpath(prefix, "bin")
     end
 end
 
@@ -347,20 +351,20 @@ end
         # But if it is from a different platform, simple existence will be
         # enough to satisfy a LibraryProduct
         @static if Compat.Sys.iswindows()
-            l_path = joinpath(libdir(prefix, Linux(:x86_64)), "libfoo.so")
+            p = Linux(:x86_64)
+            mkpath(libdir(prefix, p))
+            l_path = joinpath(libdir(prefix, p), "libfoo.so")
             touch(l_path)
-            @test satisfied(l, verbose=true, platform=Linux(:x86_64))
-            @test satisfied(l, verbose=true, platform=Linux(:x86_64), isolate=true)
+            @test satisfied(l, verbose=true, platform=p)
+            @test satisfied(l, verbose=true, platform=p, isolate=true)
         else
-            l_path = joinpath(libdir(prefix, Windows(:x86_64)), "libfoo.dll")
+            p = Windows(:x86_64)
+            mkpath(libdir(prefix, p))
+            l_path = joinpath(libdir(prefix, p), "libfoo.dll")
             touch(l_path)
-            @test satisfied(l, verbose=true, platform=Windows(:x86_64))
-            @test satisfied(l, verbose=true, platform=Windows(:x86_64), isolate=true)
+            @test satisfied(l, verbose=true, platform=p)
+            @test satisfied(l, verbose=true, platform=p, isolate=true)
         end
-
-        # Test that we can control libdir() via platform arguments
-        @test libdir(prefix, Linux(:x86_64)) == joinpath(prefix, "lib")
-        @test libdir(prefix, Windows(:x86_64)) == joinpath(prefix, "bin")
     end
 
     # Ensure that the test suite thinks that these libraries are foreign
