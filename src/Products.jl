@@ -129,7 +129,7 @@ on foreign platforms.
 """
 function locate(lp::LibraryProduct; verbose::Bool = false,
                 platform::Platform = platform_key(), isolate::Bool = false)
-    dir_path = coalesce(lp.dir_path, libdir(lp.prefix, platform))
+    dir_path = something(lp.dir_path, libdir(lp.prefix, platform))
 
     if !isdir(dir_path)
         if verbose
