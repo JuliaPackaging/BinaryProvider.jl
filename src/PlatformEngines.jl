@@ -633,7 +633,32 @@ function download_verify_unpack(url::AbstractString,
     remove_tarball = false
     if tarball_path === nothing
         remove_tarball = true
-        tarball_path = "$(tempname())-download.tar.gz"
+
+        function url_ext(url)
+            url = basename(url)
+
+            # Chop off urlparams
+            qidx = search(url, '?')
+            if qidx != 0
+                url = url[1:qidx]
+            end
+
+            # Try to detect extension
+            dot_idx = rsearch(url, '.')
+            if dot_idx == 0
+                return nothing
+            end
+
+            return url[dot_idx+1:end]
+        end
+
+        # If extension of url contains a recognized extension, use it, otherwise use ".gz"
+        ext = url_ext(url)
+        if !(ext in ["tar", "gz", "tgz", "bz2", "xz"])
+            ext = "gz"
+        end
+
+        tarball_path = "$(tempname())-download.$(ext)"
     end
 
     # Download the tarball; if it already existed and we needed to remove it
