@@ -174,8 +174,16 @@ function probe_platform_engines!(;verbose::Bool = false)
     compression_engines = Tuple[]
 
     for tar_cmd in [`tar`, `busybox tar`]
-        unpack_tar = (tarball_path, out_path) ->
-            `$tar_cmd -xzf $(tarball_path) --directory=$(out_path)`
+        # Some tar's aren't smart enough to auto-guess decompression method. :(
+        unpack_tar = (tarball_path, out_path) -> begin
+            Jjz = "z"
+            if endswith(tarball_path, ".xz")
+                Jjz = "J"
+            elseif endswith(tarball_path, ".bz2")
+                Jjz = "j"
+            end
+            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path)`
+        end
         package_tar = (in_path, tarball_path) ->
             `$tar_cmd -czvf $tarball_path -C $(in_path) .`
         list_tar = (in_path) -> `$tar_cmd -tzf $in_path`
