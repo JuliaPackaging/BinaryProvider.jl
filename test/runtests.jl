@@ -614,6 +614,26 @@ end
     end
 end
 
+const socrates_urls = [
+    "https://github.com/staticfloat/small_bin/raw/master/socrates.tar.gz" => "e65d2f13f2085f2c279830e863292312a72930fee5ba3c792b14c33ce5c5cc58",
+    "https://github.com/staticfloat/small_bin/raw/master/socrates.tar.bz2" => "13fc17b97be41763b02cbb80e9d048302cec3bd3d446c2ed6e8210bddcd3ac76",
+    "https://github.com/staticfloat/small_bin/raw/master/socrates.tar.xz" => "61bcf109fcb749ee7b6a570a6057602c08c836b6f81091eab7aa5f5870ec6475",
+]
+const socrates_hash = "adcbcf15674eafe8905093183d9ab997cbfba9056fc7dde8bfa5a22dfcfb4967"
+
+@testset "Downloading" begin
+    for url, hash in socrates_urls
+        temp_prefix() do prefix
+            @test download_verify_unpack(url, hash, prefix; verbose=true)
+            socrates_path = joinpath(prefix, "bin", "socrates")
+            unpacked_hash = open(socrates_path) do f
+                bytes2hex(sha256(f))
+            end
+            @test unpacked_hash == socrates_hash
+        end
+    end
+end
+
 # Use `build_libfoo_tarball.jl` in the BinaryBuilder.jl repository to generate more of these
 const bin_prefix = "https://github.com/staticfloat/small_bin/raw/51b13b44feb2a262e2e04690bfa54d03167533f2/libfoo"
 const libfoo_downloads = Dict(
@@ -636,7 +656,7 @@ const libfoo_downloads = Dict(
 )
 
 # Test manually downloading and using libfoo
-@testset "Downloading" begin
+@testset "Libfoo Downloading" begin
     temp_prefix() do prefix
         foo_path = joinpath(prefix,"foo")
         touch(foo_path)
