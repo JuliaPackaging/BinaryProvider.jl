@@ -357,6 +357,11 @@ end
             touch(l_path)
             @test satisfied(l, verbose=true, platform=p)
             @test satisfied(l, verbose=true, platform=p, isolate=true)
+
+            # Check LibraryProduct objects with explicit directory paths
+            ld = LibraryProduct(libdir(prefix, p), "libfoo", :libfoo)
+            @test satisfied(ld, verbose=true, platform=p)
+            @test satisfied(ld, verbose=true, platform=p, isolate=true)
         else
             p = Windows(:x86_64)
             mkpath(libdir(prefix, p))
@@ -364,6 +369,11 @@ end
             touch(l_path)
             @test satisfied(l, verbose=true, platform=p)
             @test satisfied(l, verbose=true, platform=p, isolate=true)
+            
+            # Check LibraryProduct objects with explicit directory paths
+            ld = LibraryProduct(libdir(prefix, p), "libfoo", :libfoo)
+            @test satisfied(ld, verbose=true, platform=p)
+            @test satisfied(ld, verbose=true, platform=p, isolate=true)
         end
     end
 
