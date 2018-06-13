@@ -38,8 +38,10 @@ install:
 build_script:
 # Need to convert from shallow to complete for Pkg.clone to work
   - IF EXIST .git\shallow (git fetch --unshallow)
-  - C:\projects\julia\bin\julia -e "versioninfo();
-      Pkg.clone(pwd(), \"BinaryProvider\"); Pkg.build(\"BinaryProvider\")"
+  - C:\projects\julia\bin\julia -e "versioninfo();"
+  - C:\projects\julia\bin\julia -e "if VERSION < v\"0.7.0-DEV.5183\" || (!isfile(\"Project.toml\") && !isfile(\"JuliaProject.toml\")); Pkg.clone(pwd(), \"BinaryProvider\"); end"
+
+  - C:\projects\julia\bin\julia -e "Pkg.build(\"BinaryProvider\")"
 
 test_script:
   - C:\projects\julia\bin\julia -e "Pkg.test(\"BinaryProvider\", coverage=true)"
