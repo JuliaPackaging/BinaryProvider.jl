@@ -3,3 +3,6 @@
 *.jl.mem
 
 global_prefix
+
+# We don't use Manifest.toml files in packages
+Manifest.toml
