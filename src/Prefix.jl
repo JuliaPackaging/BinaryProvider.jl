@@ -141,6 +141,7 @@ function libdir(prefix::Prefix, platform = platform_key())
         return joinpath(prefix, "lib")
     end
 end
+libdir(::Nothing, platform = platform_key()) = nothing
 
 """
     includedir(prefix::Prefix)
