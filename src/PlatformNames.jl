@@ -344,6 +344,7 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
             elseif platform == :linux
                 return Linux(arch, libc, abi)
             end
+        catch
         end
     end
 

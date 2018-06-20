@@ -334,7 +334,7 @@ function install(tarball_url::AbstractString,
     end
 
     # Create the downloads directory if it does not already exist
-    try mkpath(dirname(tarball_path)) end
+    try mkpath(dirname(tarball_path)) catch; end
 
     # Check to see if we're "installing" from a file
     if safe_isfile(tarball_url)
