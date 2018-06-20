@@ -745,7 +745,7 @@ const libfoo_downloads = Dict(
             # Now let's test that install() works the same way; freaking out if
             # the local path has been messed with, unless `force` has been given:
             tarball_path = joinpath(prefix, "downloads", basename(url))
-            try mkpath(dirname(tarball_path)) end
+            try mkpath(dirname(tarball_path)) catch; end
             open(tarball_path, "w") do f
                 write(f, "not the correct contents")
             end
