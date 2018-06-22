@@ -619,29 +619,27 @@ function verify(path::AbstractString, hash::AbstractString; verbose::Bool = fals
 end
 
 """
-    package(prefix::Prefix, tarball_base::AbstractString,
-            platform::Platform = platform_key(), verbose::Bool = false)
+    package(prefix::Prefix, output_base::AbstractString,
+            version::VersionNumber;
+            platform::Platform = platform_key(),
+            verbose::Bool = false, force::Bool = false)
 
-Build a tarball of the `prefix`, storing the tarball at `tarball_base` plus a
-platform-dependent suffix and a file extension (defaults to the current
-platform, but overridable through the `platform` argument.  Runs an `audit()`
-on the `prefix`, to ensure that libraries can be `dlopen()`'ed, that all
-dependencies are located within the prefix, etc... See the `audit()`
-documentation for a full list of the audit steps.
-
-Returns the full path to and the hash of the generated tarball.
+Build a tarball of the `prefix`, storing the tarball at `output_base`,
+appending a version number, a platform-dependent suffix and a file extension.
+If no platform is given, defaults to current platform. Runs an `audit()` on the
+`prefix`, to ensure that libraries can be `dlopen()`'ed, that all dependencies
+are located within the prefix, etc... See the `audit()` documentation for a
+full list of the audit steps.  Returns the full path to and hash of the
+generated tarball.
 """
 function package(prefix::Prefix,
-                 tarball_base::AbstractString;
+                 output_base::AbstractString,
+                 version::VersionNumber;
                  platform::Platform = platform_key(),
                  verbose::Bool = false,
                  force::Bool = false)
-    # First calculate the output path given our tarball_base and platform
-    out_path = try
-        "$(tarball_base).$(triplet(platform)).tar.gz"
-    catch
-        error("Platform key `$(platform)` not recognized")
-    end
+    # Calculate output path
+    out_path = "$(output_base).v$(version).$(triplet(platform)).tar.gz"
 
     if isfile(out_path)
         if force
@@ -658,7 +656,7 @@ function package(prefix::Prefix,
         end
     end
 
-    # Package `prefix.path` into the tarball contained at to `out_path`
+    # Package `prefix.path` into the tarball contained at `out_path`
     package(prefix.path, out_path; verbose=verbose)
 
     # Also spit out the hash of the archive file

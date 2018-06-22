@@ -463,7 +463,7 @@ end
         end
 
         # Next, package it up as a .tar.gz file
-        tarball_path, tarball_hash = package(prefix, "./libfoo"; verbose=true)
+        tarball_path, tarball_hash = package(prefix, "./libfoo", v"1.0.0"; verbose=true)
         @test isfile(tarball_path)
 
         # Check that we are calculating the hash properly
@@ -473,7 +473,7 @@ end
         @test tarball_hash_check == tarball_hash
 
         # Test that packaging into a file that already exists fails
-        @test_throws ErrorException package(prefix, "./libfoo")
+        @test_throws ErrorException package(prefix, "./libfoo", v"1.0.0")
     end
 
     # Test that we can inspect the contents of the tarball
