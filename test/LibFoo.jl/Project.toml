@@ -1,6 +1,6 @@
-authors = ["staticfloat@gmail.com <staticfloat@gmail.com>"]
 name = "LibFoo"
 uuid = "52b2fb38-6158-11e8-204a-efdebe8f749a"
+authors = ["staticfloat@gmail.com <staticfloat@gmail.com>"]
 version = "0.1.0"
 
 [deps]

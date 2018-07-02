@@ -833,7 +833,7 @@ end
             end
         else
             # On julia 0.7, we can now rely on Project.toml to set the load path
-            run(`$(Base.julia_cmd()) $(color) test/runtests.jl`)
+            run(`$(Base.julia_cmd()) --project=$(pwd()) $(color) -e 'using Pkg; Pkg.test("LibFoo")'`)
         end
     end
 end
