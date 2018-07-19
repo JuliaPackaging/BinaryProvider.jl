@@ -165,7 +165,8 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                 if platform == platform_key()
                     if isolate
                         # Isolated dlopen is a lot slower, but safer
-                        if success(`$(Base.julia_cmd()) -e "Libdl.dlopen(\"$dl_path\")"`)
+                        import_libdl = VERSION >= v"0.7.0-DEV.3382" ? "import Libdl" : ""
+                        if success(`$(Base.julia_cmd()) -e "$import_libdl; Libdl.dlopen(\"$dl_path\")"`)
                             return dl_path
                         end
                     else
@@ -437,7 +438,7 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
             # For Library products, check that we can dlopen it:
             if typeof(product) <: LibraryProduct
                 println(depsjl_file, """
-                    if Libdl.dlopen_e($(varname)) == C_NULL
+                    if BinaryProvider.Libdl.dlopen_e($(varname)) == C_NULL
                         error("\$($(varname)) cannot be opened, $(rebuild)")
                     end
                 """)
