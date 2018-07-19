@@ -133,15 +133,15 @@ If `verbose` is `true`, print out the various engines as they are searched.
 function probe_platform_engines!(;verbose::Bool = false)
     global gen_download_cmd, gen_list_tarball_cmd, gen_package_cmd
     global gen_unpack_cmd, parse_tarball_listing, gen_sh_cmd
-
+    agent = "BinaryProvider.jl (https://github.com/JuliaPackaging/BinaryProvider.jl)"
     # download_engines is a list of (test_cmd, download_opts_functor)
     # The probulator will check each of them by attempting to run `$test_cmd`,
     # and if that works, will set the global download functions appropriately.
     download_engines = [
-        (`curl --help`, (url, path) -> `curl -C - -\# -f -o $path -L $url`),
-        (`wget --help`, (url, path) -> `wget -c -O $path $url`),
-        (`fetch --help`, (url, path) -> `fetch -f $path $url`),
-        (`busybox wget --help`, (url, path) -> `busybox wget -c -O $path $url`),
+        (`curl --help`, (url, path) -> `curl -H "User-Agent: $agent" -C - -\# -f -o $path -L $url`),
+        (`wget --help`, (url, path) -> `wget -U $agent -c -O $path $url`),
+        (`fetch --help`, (url, path) -> `fetch --user-agent=$agent -f $path $url`),
+        (`busybox wget --help`, (url, path) -> `busybox wget -U $agent -c -O $path $url`),
     ]
 
     # 7z is rather intensely verbose.  We also want to try running not only
@@ -212,7 +212,8 @@ function probe_platform_engines!(;verbose::Bool = false)
                 [System.Net.ServicePointManager]::SecurityProtocol =
                     [System.Net.SecurityProtocolType]::Tls12;
                 \$webclient = (New-Object System.Net.Webclient);
-                \$webclient.DownloadFile(\"$url\", \"$path\")
+                \$webclient.Headers.Add("user-agent", "$agent");
+                \$webclient.DownloadFile("$url", "$path")
                 """
                 replace(webclient_code, "\n" => " ")
                 return `$psh_path -NoProfile -Command "$webclient_code"`
