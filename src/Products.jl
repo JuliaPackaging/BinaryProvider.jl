@@ -403,6 +403,12 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
         ##
         ## Include this file within your main top-level source, and call
         ## `check_deps()` from within your module's `__init__()` method
+
+        if isdefined((@static VERSION < v"0.7.0-DEV.484" ? current_module() : @__MODULE__), :Compat)
+            import Compat.Libdl
+        elseif VERSION >= v"0.7.0-DEV.3382"
+            import Libdl
+        end
         """))
 
         # Next, spit out the paths of all our products
@@ -438,7 +444,7 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
             # For Library products, check that we can dlopen it:
             if typeof(product) <: LibraryProduct
                 println(depsjl_file, """
-                    if BinaryProvider.Libdl.dlopen_e($(varname)) == C_NULL
+                    if Libdl.dlopen_e($(varname)) == C_NULL
                         error("\$($(varname)) cannot be opened, $(rebuild)")
                     end
                 """)
