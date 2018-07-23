@@ -652,7 +652,6 @@ end
 
 @testset "Download GitHub API #88" begin
     mktempdir() do tmp
-
         BinaryProvider.download("https://api.github.com/repos/JuliaPackaging/BinaryProvider.jl/tarball/c2a4fc38f29eb81d66e3322e585d0199722e5d71", joinpath(tmp, "BinaryProvider"))
         @test isfile(joinpath(tmp, "BinaryProvider"))
     end
