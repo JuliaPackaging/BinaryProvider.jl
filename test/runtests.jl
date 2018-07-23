@@ -650,6 +650,13 @@ const socrates_hash = "adcbcf15674eafe8905093183d9ab997cbfba9056fc7dde8bfa5a22df
     end
 end
 
+@testset "Download GitHub API #88" begin
+    mktempdir() do tmp
+        BinaryProvider.download("https://api.github.com/repos/JuliaPackaging/BinaryProvider.jl/tarball/c2a4fc38f29eb81d66e3322e585d0199722e5d71", joinpath(tmp, "BinaryProvider"))
+        @test isfile(joinpath(tmp, "BinaryProvider"))
+    end
+end
+
 # Use `build_libfoo_tarball.jl` in the BinaryBuilder.jl repository to generate more of these
 const bin_prefix = "https://github.com/staticfloat/small_bin/raw/51b13b44feb2a262e2e04690bfa54d03167533f2/libfoo"
 const libfoo_downloads = Dict(
