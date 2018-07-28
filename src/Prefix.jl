@@ -669,3 +669,39 @@ function package(prefix::Prefix,
 
     return out_path, hash
 end
+
+"""
+Download build scripts and install them. Returns the list of products of all the
+build scripts. scripts should be a dictionary mapping a url to a SHA256 hash, or
+an array of tuples of (url, hash)
+"""
+function download_and_install_build_scripts(scripts, prefix::AbstractString;
+                                            verbose::Bool = false)
+    downloads_dir = joinpath(prefix, "downloads")
+    all_products = LibraryProduct[]
+    args = [prefix]
+    if verbose
+        append!(args, ["--verbose"])
+    end
+
+    for (url, hash) in scripts
+        if (basename(url) == "build.jl")
+            tmp_file_name = "build_$hash.jl"
+        else
+            tmp_file_name = basename(url)
+        end
+        tmp_file = joinpath(downloads_dir, tmp_file_name)
+        download_verify(url, hash, tmp_file, force=true, verbose=verbose)
+        contents = read(tmp_file, String)
+        m = Module(:__anon__)
+        products = eval(m, quote
+            using BinaryProvider
+            function write_deps_file(path, products) end
+            ARGS = $args
+            include_string($(contents))
+            products
+        end)
+        append!(all_products, products)
+    end
+    all_products
+end
