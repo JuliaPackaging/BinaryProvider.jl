@@ -383,7 +383,7 @@ function parse_7z_list(output::AbstractString)
 
     # Find index of " Name".  Have to `collect()` as `findfirst()` doesn't work with
     # generators: https://github.com/JuliaLang/julia/issues/16884
-    header_row = findfirst(collect(contains(l, " Name") && contains(l, " Attr") for l in lines))
+    header_row = findfirst(collect(occursin(" Name", l) && occursin(" Attr", l) for l in lines))
     name_idx = findfirst(isequal("Name"), lines[header_row])
     attr_idx = findfirst(isequal("Attr"), lines[header_row])
 
