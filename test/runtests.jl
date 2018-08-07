@@ -637,9 +637,9 @@ const socrates_hash = "adcbcf15674eafe8905093183d9ab997cbfba9056fc7dde8bfa5a22df
 @testset "Downloading" begin
     for (url, hash) in socrates_urls
         temp_prefix() do prefix
-            Base.rm(prefix.path; recursive=true, force=true)
-            download_verify_unpack(url, hash, prefix.path; verbose=true)
-            socrates_path = joinpath(prefix, "bin", "socrates")
+            target_dir = joinpath(prefix.path, "target")
+            download_verify_unpack(url, hash, target_dir; verbose=true)
+            socrates_path = joinpath(target_dir, "bin", "socrates")
             @test isfile(socrates_path)
 
             unpacked_hash = open(socrates_path) do f

@@ -14,7 +14,7 @@ function safe_isfile(path)
     try
         return isfile(path)
     catch e
-        if typeof(e) <: Base.UVError && e.code == Base.UV_EINVAL
+        if typeof(e) <: Base.IOError && e.code == Base.UV_EINVAL
             return false
         end
         rethrow(e)
