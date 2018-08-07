@@ -384,8 +384,8 @@ function parse_7z_list(output::AbstractString)
     # Find index of " Name".  Have to `collect()` as `findfirst()` doesn't work with
     # generators: https://github.com/JuliaLang/julia/issues/16884
     header_row = findfirst(collect(contains(l, " Name") && contains(l, " Attr") for l in lines))
-    name_idx = search(lines[header_row], "Name")[1]
-    attr_idx = search(lines[header_row], "Attr")[1] - 1
+    name_idx = findfirst(isequal("Name"), lines[header_row])
+    attr_idx = findfirst(isequal("Attr"), lines[header_row])
 
     # Filter out only the names of files, ignoring directories
     lines = [l[name_idx:end] for l in lines if length(l) > name_idx && l[attr_idx] != 'D']
@@ -639,14 +639,14 @@ function download_verify_unpack(url::AbstractString,
             url = basename(url)
 
             # Chop off urlparams
-            qidx = search(url, '?')
-            if qidx != 0
+            qidx = findfirst(isequal('?'), url)
+            if qidx !== nothing
                 url = url[1:qidx]
             end
 
             # Try to detect extension
-            dot_idx = rsearch(url, '.')
-            if dot_idx == 0
+            dot_idx = findlast(isequal('.'), url)
+            if dot_idx === nothing
                 return nothing
             end
 
