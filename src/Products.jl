@@ -165,7 +165,8 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                 if platform == platform_key()
                     if isolate
                         # Isolated dlopen is a lot slower, but safer
-                        if success(`$(Base.julia_cmd()) -e "Libdl.dlopen(\"$dl_path\")"`)
+                        import_libdl = VERSION >= v"0.7.0-DEV.3382" ? "import Libdl" : ""
+                        if success(`$(Base.julia_cmd()) -e "$import_libdl; Libdl.dlopen(\"$dl_path\")"`)
                             return dl_path
                         end
                     else
@@ -402,6 +403,12 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
         ##
         ## Include this file within your main top-level source, and call
         ## `check_deps()` from within your module's `__init__()` method
+
+        if isdefined((@static VERSION < v"0.7.0-DEV.484" ? current_module() : @__MODULE__), :Compat)
+            import Compat.Libdl
+        elseif VERSION >= v"0.7.0-DEV.3382"
+            import Libdl
+        end
         """))
 
         # Next, spit out the paths of all our products
