@@ -1,8 +1,7 @@
 using BinaryProvider
-using Compat
-using Compat.Test
-using Compat.Libdl
-using Compat.Pkg
+using Test
+using Libdl
+using Pkg
 using SHA
 
 # The platform we're running on
@@ -88,7 +87,7 @@ end
     end
 
     # Next, test a command that kills itself (NOTE: This doesn't work on windows.  sigh.)
-    @static if !Compat.Sys.iswindows()
+    @static if !Sys.iswindows()
         cd("output_tests") do
             oc = OutputCollector(sh(`./kill.sh`))
 
@@ -218,15 +217,15 @@ end
     @test platform_key("x86_64-w32-mingw64") == UnknownPlatform()
 
     # Test that we can indeed ask if something is linux or windows, etc...
-    @test Compat.Sys.islinux(Linux(:aarch64))
-    @test !Compat.Sys.islinux(Windows(:x86_64))
-    @test Compat.Sys.iswindows(Windows(:i686))
-    @test !Compat.Sys.iswindows(Linux(:x86_64))
-    @test Compat.Sys.isapple(MacOS())
-    @test !Compat.Sys.isapple(Linux(:powerpc64le))
-    @test Compat.Sys.isbsd(MacOS())
-    @test Compat.Sys.isbsd(FreeBSD(:x86_64))
-    @test !Compat.Sys.isbsd(Linux(:powerpc64le, :musl))
+    @test Sys.islinux(Linux(:aarch64))
+    @test !Sys.islinux(Windows(:x86_64))
+    @test Sys.iswindows(Windows(:i686))
+    @test !Sys.iswindows(Linux(:x86_64))
+    @test Sys.isapple(MacOS())
+    @test !Sys.isapple(Linux(:powerpc64le))
+    @test Sys.isbsd(MacOS())
+    @test Sys.isbsd(FreeBSD(:x86_64))
+    @test !Sys.isbsd(Linux(:powerpc64le, :musl))
 
     @test wordsize(Linux(:i686)) == wordsize(Linux(:armv7l)) == 32
     @test wordsize(MacOS()) == wordsize(Linux(:aarch64)) == 64
@@ -284,7 +283,7 @@ end
         # Test we can run the script we dropped within this prefix.  Once again,
         # something about Windows | busybox | Julia won't pick this up even though
         # the path clearly points to the file.  :(
-        @static if !Compat.Sys.iswindows()
+        @static if !Sys.iswindows()
             @test success(sh(`$(ppt_path)`))
             @test success(sh(`prefix_path_test.sh`))
         end
@@ -322,7 +321,7 @@ end
         mkpath(bindir(prefix))
         touch(e_path)
         @test satisfied(ef, verbose=true)
-        @static if !Compat.Sys.iswindows()
+        @static if !Sys.iswindows()
             # Windows doesn't care about executable bit, grumble grumble
             @test !satisfied(e, verbose=true, platform=Linux(:x86_64))
         end
@@ -350,7 +349,7 @@ end
 
         # But if it is from a different platform, simple existence will be
         # enough to satisfy a LibraryProduct
-        @static if Compat.Sys.iswindows()
+        @static if Sys.iswindows()
             p = Linux(:x86_64)
             mkpath(libdir(prefix, p))
             l_path = joinpath(libdir(prefix, p), "libfoo.so")
@@ -478,7 +477,7 @@ end
 
     # Test that we can inspect the contents of the tarball
     contents = list_tarball_files(tarball_path)
-    libdir_name = Compat.Sys.iswindows() ? "bin" : "lib"
+    libdir_name = Sys.iswindows() ? "bin" : "lib"
     @test joinpath("bin", "bar.sh") in contents
     @test joinpath(libdir_name, "baz.so") in contents
     @test joinpath("etc", "qux.conf") in contents
@@ -584,7 +583,7 @@ end
         foo_hash = bytes2hex(sha256("test"))
 
         # Check that verifying with the right hash works
-        Compat.@info("This should say; no hash cache found")
+        @info("This should say; no hash cache found")
         ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
         @test ret == true
         @test status == :hash_cache_missing
@@ -593,7 +592,7 @@ end
         @test isfile("$(foo_path).sha256")
 
         # Check that it verifies the second time around properly
-        Compat.@info("This should say; hash cache is consistent")
+        @info("This should say; hash cache is consistent")
         ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
         @test ret == true
         @test status == :hash_cache_consistent
@@ -603,7 +602,7 @@ end
 
         # Get coverage of messing with different parts of the verification chain
         touch(foo_path)
-        Compat.@info("This should say; file has been modified")
+        @info("This should say; file has been modified")
         ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
         @test ret == true
         @test status == :file_modified
@@ -617,7 +616,7 @@ end
         open("$(foo_path).sha256", "w") do file
             write(file, "this is not the right hash")
         end
-        Compat.@info("This should say; hash has changed")
+        @info("This should say; hash has changed")
         ret, status = verify(foo_path, foo_hash; verbose=true, report_cache_status=true)
         @test ret == true
         @test status == :hash_cache_mismatch
@@ -637,9 +636,9 @@ const socrates_hash = "adcbcf15674eafe8905093183d9ab997cbfba9056fc7dde8bfa5a22df
 @testset "Downloading" begin
     for (url, hash) in socrates_urls
         temp_prefix() do prefix
-            Base.rm(prefix.path; recursive=true, force=true)
-            download_verify_unpack(url, hash, prefix.path; verbose=true)
-            socrates_path = joinpath(prefix, "bin", "socrates")
+            target_dir = joinpath(prefix.path, "target")
+            download_verify_unpack(url, hash, target_dir; verbose=true)
+            socrates_path = joinpath(target_dir, "bin", "socrates")
             @test isfile(socrates_path)
 
             unpacked_hash = open(socrates_path) do f
@@ -688,7 +687,7 @@ const libfoo_downloads = Dict(
         @test !BinaryProvider.safe_isfile("http://google.com")
 
         if !haskey(libfoo_downloads, platform)
-            Compat.@warn("Platform $platform does not have a libfoo download, skipping download tests")
+            @warn("Platform $platform does not have a libfoo download, skipping download tests")
         else
             # Test a good download works
             url, hash = libfoo_downloads[platform]
@@ -807,14 +806,14 @@ end
         dllist = Libdl.dllist()
         libjulia = filter(x -> occursin("libjulia", x), dllist)[1]
         julia_libdir = joinpath(dirname(libjulia), "julia")
-        envvar_name = @static if Compat.Sys.isapple()
+        envvar_name = @static if Sys.isapple()
             "DYLD_LIBRARY_PATH"
-        else Compat.Sys.islinux()
+        else Sys.islinux()
             "LD_LIBRARY_PATH"
         end
 
         original_libdirs = split(get(ENV, envvar_name, ""), ":")
-        @static if !Compat.Sys.iswindows()
+        @static if !Sys.iswindows()
             original_libdirs = filter(x -> x != julia_libdir, original_libdirs)
             ENV[envvar_name] = join(original_libdirs, ":")
         end
@@ -826,7 +825,7 @@ end
         @test isfile(libfoo)
         @test isfile(fooifier)
 
-        @static if !Compat.Sys.iswindows()
+        @static if !Sys.iswindows()
             @test julia_libdir in split(ENV[envvar_name], ":")
         end
     end

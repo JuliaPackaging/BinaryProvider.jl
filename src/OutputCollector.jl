@@ -59,7 +59,7 @@ function LineStream(pipe::Pipe, event::Condition)
     # This ensures that anybody that's listening to the event but gated on our
     # being alive (e.g. `tee()`) can die alongside us gracefully as well.
     @async begin
-        wait(task)
+        fetch(task)
         notify(event)
     end
     return LineStream(pipe, lines, task)
@@ -110,20 +110,14 @@ independently, but with the time of each line recorded such that they can be
 stored/analyzed independently, but replayed synchronously.
 """
 function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false,
-                         tail_error::Bool=true, tee_stream::IO=Compat.stdout)
+                         tail_error::Bool=true, tee_stream::IO=stdout)
     # First, launch the command
     out_pipe = Pipe()
     err_pipe = Pipe()
     P = try
-        # run() on 0.6 does not have `wait=false`, and Compat doesn't give it to us, so
-        # we use `applicable()` until then.
-        @static if applicable(spawn, `ls`, (devnull, stdout, stderr))
-            spawn(cmd, (devnull, out_pipe, err_pipe))
-        else
-            run(pipeline(cmd, stdin=devnull, stdout=out_pipe, stderr=err_pipe); wait=false)
-        end
+        run(pipeline(cmd, stdin=devnull, stdout=out_pipe, stderr=err_pipe); wait=false)
     catch
-        Compat.@warn("Could not spawn $(cmd)")
+        @warn("Could not spawn $(cmd)")
         rethrow()
     end
 
@@ -157,12 +151,12 @@ function wait(collector::OutputCollector)
     # If we've already done this song and dance before, then don't do it again
     if !collector.done
         wait(collector.P)
-        wait(collector.stdout_linestream.task)
-        wait(collector.stderr_linestream.task)
+        fetch(collector.stdout_linestream.task)
+        fetch(collector.stderr_linestream.task)
 
         # Also fetch on any extra tasks we've jimmied onto the end of this guy
         for t in collector.extra_tasks
-            wait(t)
+            fetch(t)
         end
 
         # From this point on, we are actually done!
@@ -294,7 +288,7 @@ Spawn a background task to incrementally output lines from `collector` to the
 standard output, optionally colored.
 """
 function tee(c::OutputCollector; colored::Bool=Base.have_color,
-             stream::IO=Compat.stdout)
+             stream::IO=stdout)
     tee_task = @async begin
         out_idx = 1
         err_idx = 1

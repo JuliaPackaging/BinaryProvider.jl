@@ -87,12 +87,12 @@ Returns `true` if the given command executes successfully, `false` otherwise.
 """
 function probe_cmd(cmd::Cmd; verbose::Bool = false)
     if verbose
-        Compat.@info("Probing $(cmd.exec[1]) as a possibility...")
+        @info("Probing $(cmd.exec[1]) as a possibility...")
     end
     try
         success(cmd)
         if verbose
-            Compat.@info("  Probe successful for $(cmd.exec[1])")
+            @info("  Probe successful for $(cmd.exec[1])")
         end
         return true
     catch
@@ -202,7 +202,7 @@ function probe_platform_engines!(;verbose::Bool = false)
     ]
 
     # For windows, we need to tweak a few things, as the tools available differ
-    @static if Compat.Sys.iswindows()
+    @static if Sys.iswindows()
         # For download engines, we will most likely want to use powershell.
         # Let's generate a functor to return the necessary powershell magics
         # to download a file, given a path to the powershell executable
@@ -233,11 +233,11 @@ function probe_platform_engines!(;verbose::Bool = false)
         prepend!(compression_engines, [(`7z --help`, gen_7z("7z")...)])
 
         # On windows, we bundle 7z with Julia, so try invoking that directly
-        exe7z = joinpath(Compat.Sys.BINDIR, "7z.exe")
+        exe7z = joinpath(Sys.BINDIR, "7z.exe")
         prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
 
         # And finally, we want to look for sh as busybox as well:
-        busybox = joinpath(Compat.Sys.BINDIR, "busybox.exe")
+        busybox = joinpath(Sys.BINDIR, "busybox.exe")
         prepend!(sh_engines, [(`$busybox sh`)])
     end
 
@@ -251,7 +251,7 @@ function probe_platform_engines!(;verbose::Bool = false)
             warn_msg  = "Ignoring BINARYPROVIDER_DOWNLOAD_ENGINE as its value "
             warn_msg *= "of `$(engine)` doesn't match any known valid engines."
             warn_msg *= " Try one of `$(all_ngs)`."
-            Compat.@warn(warn_msg)
+            @warn(warn_msg)
         else
             # If BINARYPROVIDER_DOWNLOAD_ENGINE matches one of our download engines,
             # then restrict ourselves to looking only at that engine
@@ -268,7 +268,7 @@ function probe_platform_engines!(;verbose::Bool = false)
             warn_msg  = "Ignoring BINARYPROVIDER_COMPRESSION_ENGINE as its "
             warn_msg *= "value of `$(engine)` doesn't match any known valid "
             warn_msg *= "engines. Try one of `$(all_ngs)`."
-            Compat.@warn(warn_msg)
+            @warn(warn_msg)
         else
             # If BINARYPROVIDER_COMPRESSION_ENGINE matches one of our download
             # engines, then restrict ourselves to looking only at that engine
@@ -281,7 +281,7 @@ function probe_platform_engines!(;verbose::Bool = false)
     sh_found = false
 
     if verbose
-        Compat.@info("Probing for download engine...")
+        @info("Probing for download engine...")
     end
 
     # Search for a download engine
@@ -292,14 +292,14 @@ function probe_platform_engines!(;verbose::Bool = false)
             download_found = true
 
             if verbose
-                Compat.@info("Found download engine $(test.exec[1])")
+                @info("Found download engine $(test.exec[1])")
             end
             break
         end
     end
 
     if verbose
-        Compat.@info("Probing for compression engine...")
+        @info("Probing for compression engine...")
     end
 
     # Search for a compression engine
@@ -312,7 +312,7 @@ function probe_platform_engines!(;verbose::Bool = false)
             parse_tarball_listing = parse
 
             if verbose
-                Compat.@info("Found compression engine $(test.exec[1])")
+                @info("Found compression engine $(test.exec[1])")
             end
 
             compression_found = true
@@ -321,14 +321,14 @@ function probe_platform_engines!(;verbose::Bool = false)
     end
 
     if verbose
-        Compat.@info("Probing for sh engine...")
+        @info("Probing for sh engine...")
     end
 
     for path in sh_engines
         if probe_cmd(`$path --help`; verbose=verbose)
             gen_sh_cmd = (cmd) -> `$path -c $cmd`
             if verbose
-                Compat.@info("Found sh engine $(path.exec[1])")
+                @info("Found sh engine $(path.exec[1])")
             end
             sh_found = true
             break
@@ -351,7 +351,7 @@ function probe_platform_engines!(;verbose::Bool = false)
     end
 
     if !sh_found && verbose
-        Compat.@warn("No sh engines found.  Test suite will fail.")
+        @warn("No sh engines found.  Test suite will fail.")
     end
 
     # Error out if we couldn't find something
@@ -383,9 +383,9 @@ function parse_7z_list(output::AbstractString)
 
     # Find index of " Name".  Have to `collect()` as `findfirst()` doesn't work with
     # generators: https://github.com/JuliaLang/julia/issues/16884
-    header_row = findfirst(collect(contains(l, " Name") && contains(l, " Attr") for l in lines))
-    name_idx = search(lines[header_row], "Name")[1]
-    attr_idx = search(lines[header_row], "Attr")[1] - 1
+    header_row = findfirst(collect(occursin(" Name", l) && occursin(" Attr", l) for l in lines))
+    name_idx = findfirst("Name", lines[header_row])[1]
+    attr_idx = findfirst("Attr", lines[header_row])[1] - 1
 
     # Filter out only the names of files, ignoring directories
     lines = [l[name_idx:end] for l in lines if length(l) > name_idx && l[attr_idx] != 'D']
@@ -440,7 +440,7 @@ function download(url::AbstractString, dest::AbstractString;
                   verbose::Bool = false)
     download_cmd = gen_download_cmd(url, dest)
     if verbose
-        Compat.@info("Downloading $(url) to $(dest)...")
+        @info("Downloading $(url) to $(dest)...")
     end
     oc = OutputCollector(download_cmd; verbose=verbose)
     try
@@ -532,7 +532,7 @@ function download_verify(url::AbstractString, hash::AbstractString,
         # and start over from scratch.
         if file_existed
             if verbose
-                Compat.@info("Continued download didn't work, restarting from scratch")
+                @info("Continued download didn't work, restarting from scratch")
             end
             rm(dest; force=true)
 
@@ -639,14 +639,14 @@ function download_verify_unpack(url::AbstractString,
             url = basename(url)
 
             # Chop off urlparams
-            qidx = search(url, '?')
-            if qidx != 0
+            qidx = findfirst(isequal('?'), url)
+            if qidx !== nothing
                 url = url[1:qidx]
             end
 
             # Try to detect extension
-            dot_idx = rsearch(url, '.')
-            if dot_idx == 0
+            dot_idx = findlast(isequal('.'), url)
+            if dot_idx === nothing
                 return nothing
             end
 
@@ -668,7 +668,7 @@ function download_verify_unpack(url::AbstractString,
                                      force=force, verbose=verbose)
     if should_delete
         if verbose
-            Compat.@info("Removing dest directory $(dest) as source tarball changed")
+            @info("Removing dest directory $(dest) as source tarball changed")
         end
         rm(dest; recursive=true, force=true)
     end
@@ -676,14 +676,14 @@ function download_verify_unpack(url::AbstractString,
     # If the destination path already exists, don't bother to unpack
     if isdir(dest)
         if verbose
-            Compat.@info("Destination directory $(dest) already exists, returning")
+            @info("Destination directory $(dest) already exists, returning")
         end
         return
     end
 
     try
         if verbose
-            Compat.@info("Unpacking $(tarball_path) into $(dest)...")
+            @info("Unpacking $(tarball_path) into $(dest)...")
         end
         unpack(tarball_path, dest; verbose=verbose)
     finally
