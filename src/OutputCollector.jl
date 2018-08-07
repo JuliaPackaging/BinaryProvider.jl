@@ -115,13 +115,7 @@ function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false,
     out_pipe = Pipe()
     err_pipe = Pipe()
     P = try
-        # run() on 0.6 does not have `wait=false`, and Compat doesn't give it to us, so
-        # we use `applicable()` until then.
-        @static if applicable(spawn, `ls`, (devnull, stdout, stderr))
-            spawn(cmd, (devnull, out_pipe, err_pipe))
-        else
-            run(pipeline(cmd, stdin=devnull, stdout=out_pipe, stderr=err_pipe); wait=false)
-        end
+        run(pipeline(cmd, stdin=devnull, stdout=out_pipe, stderr=err_pipe); wait=false)
     catch
         Compat.@warn("Could not spawn $(cmd)")
         rethrow()
