@@ -451,7 +451,9 @@ function download(url::AbstractString, dest::AbstractString;
         if isa(e, InterruptException)
             rethrow()
         end
-        error("Could not download $(url) to $(dest)")
+        st = stacktrace(catch_backtrace())
+        @error "Could not download $(url) to $(dest)" exception=(e, st)
+        rethrow(e)
     end
 end
 
@@ -639,14 +641,14 @@ function download_verify_unpack(url::AbstractString,
             url = basename(url)
 
             # Chop off urlparams
-            qidx = search(url, '?')
-            if qidx != 0
+            qidx = findfirst(isequal('?'), url)
+            if qidx !== nothing
                 url = url[1:qidx]
             end
 
             # Try to detect extension
-            dot_idx = rsearch(url, '.')
-            if dot_idx == 0
+            dot_idx = findlast(isequal('.'), url)
+            if dot_idx === nothing
                 return nothing
             end
 
