@@ -1,7 +1,6 @@
 module BinaryProvider
 
-using Compat
-using Compat.Libdl
+using Libdl
 
 # Utilities for controlling verbosity
 include("LoggingUtils.jl")

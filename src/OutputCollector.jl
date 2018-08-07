@@ -110,14 +110,14 @@ independently, but with the time of each line recorded such that they can be
 stored/analyzed independently, but replayed synchronously.
 """
 function OutputCollector(cmd::Base.AbstractCmd; verbose::Bool=false,
-                         tail_error::Bool=true, tee_stream::IO=Compat.stdout)
+                         tail_error::Bool=true, tee_stream::IO=stdout)
     # First, launch the command
     out_pipe = Pipe()
     err_pipe = Pipe()
     P = try
         run(pipeline(cmd, stdin=devnull, stdout=out_pipe, stderr=err_pipe); wait=false)
     catch
-        Compat.@warn("Could not spawn $(cmd)")
+        @warn("Could not spawn $(cmd)")
         rethrow()
     end
 
@@ -288,7 +288,7 @@ Spawn a background task to incrementally output lines from `collector` to the
 standard output, optionally colored.
 """
 function tee(c::OutputCollector; colored::Bool=Base.have_color,
-             stream::IO=Compat.stdout)
+             stream::IO=stdout)
     tee_task = @async begin
         out_idx = 1
         err_idx = 1

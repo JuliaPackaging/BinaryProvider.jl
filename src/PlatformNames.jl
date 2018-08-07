@@ -264,11 +264,10 @@ function libc_str(p::Platform)
 end
 abi_str(p::Platform) = (abi(p) == :blank_abi) ? "" : "$(abi(p))"
 
-# Override Compat definitions as well
-Compat.Sys.isapple(p::Platform) = p isa MacOS
-Compat.Sys.islinux(p::Platform) = p isa Linux
-Compat.Sys.iswindows(p::Platform) = p isa Windows
-Compat.Sys.isbsd(p::Platform) = (p isa FreeBSD) || (p isa MacOS)
+Sys.isapple(p::Platform) = p isa MacOS
+Sys.islinux(p::Platform) = p isa Linux
+Sys.iswindows(p::Platform) = p isa Windows
+Sys.isbsd(p::Platform) = (p isa FreeBSD) || (p isa MacOS)
 
 """
     platform_key(machine::AbstractString = Sys.MACHINE)
@@ -348,7 +347,7 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
         end
     end
 
-    Compat.@warn("Platform `$(machine)` is not an officially supported platform")
+    @warn("Platform `$(machine)` is not an officially supported platform")
     return UnknownPlatform()
 end
 

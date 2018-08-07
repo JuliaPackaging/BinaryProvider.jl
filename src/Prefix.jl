@@ -42,7 +42,7 @@ Usage example:
 function temp_prefix(func::Function)
     # Helper function to create a docker-mountable temporary directory
     function _tempdir()
-        @static if Compat.Sys.isapple()
+        @static if Sys.isapple()
             # Docker, on OSX at least, can only mount from certain locations by
             # default, so we ensure all our temporary directories live within
             # those locations so that they are accessible by Docker.
@@ -98,7 +98,7 @@ Splits a string such as the  `PATH` environment variable into a list of strings
 according to the path separation rules for the current platform.
 """
 function split_PATH(PATH::AbstractString = ENV["PATH"])
-    @static if Compat.Sys.iswindows()
+    @static if Sys.iswindows()
         return split(PATH, ";")
     else
         return split(PATH, ":")
@@ -112,7 +112,7 @@ Given a list of strings, return a joined string suitable for the `PATH`
 environment variable appropriate for the current platform.
 """
 function join_PATH(paths::Vector{S}) where S<:AbstractString
-    @static if Compat.Sys.iswindows()
+    @static if Sys.iswindows()
         return join(paths, ";")
     else
         return join(paths, ":")
@@ -135,7 +135,7 @@ Returns the library directory for the given `prefix` (note that this differs
 between unix systems and windows systems).
 """
 function libdir(prefix::Prefix, platform = platform_key())
-    if Compat.Sys.iswindows(platform)
+    if Sys.iswindows(platform)
         return joinpath(prefix, "bin")
     else
         return joinpath(prefix, "lib")
@@ -223,7 +223,7 @@ function extract_platform_key(path::AbstractString)
     # Locate the last - in the path, which will be part of the platform key
     idx_dash = something(findlast(isequal('-'), path), 0)
     if idx_dash == 0
-        Compat.@warn("Could not extract the platform key of $(path); continuing...")
+        @warn("Could not extract the platform key of $(path); continuing...")
         return platform_key()
     end
     # Find the . that separates the the library's name from the platform key, searching
@@ -232,7 +232,7 @@ function extract_platform_key(path::AbstractString)
     # get picked up instead, e.g. x86_64-unknown-freebsd11.1.
     idx_dot = something(findlast(isequal('.'), path[1:idx_dash-1]), 0)
     if idx_dot == 0
-        Compat.@warn("Could not extract the platform key of $(path); continuing...")
+        @warn("Could not extract the platform key of $(path); continuing...")
         return platform_key()
     end
     return platform_key(path[idx_dot+1:end])
@@ -350,7 +350,7 @@ function install(tarball_url::AbstractString,
     end
 
     if verbose
-        Compat.@info("Installing $(tarball_path) into $(prefix.path)")
+        @info("Installing $(tarball_path) into $(prefix.path)")
     end
 
     # remove old files if force=true
@@ -370,7 +370,7 @@ function install(tarball_url::AbstractString,
                 error(msg)
             else
                 if verbose
-                    Compat.@info("$(file) already exists, force-removing")
+                    @info("$(file) already exists, force-removing")
                 end
                 rm(file; force=true)
             end
@@ -406,7 +406,7 @@ function uninstall(manifest::AbstractString;
     prefix_path = dirname(dirname(manifest))
     if verbose
         relmanipath = relpath(manifest, prefix_path)
-        Compat.@info("Removing files installed by $(relmanipath)")
+        @info("Removing files installed by $(relmanipath)")
     end
 
     # Remove every file listed within the manifest file
@@ -414,12 +414,12 @@ function uninstall(manifest::AbstractString;
         delpath = joinpath(prefix_path, path)
         if !isfile(delpath) && !islink(delpath)
             if verbose
-                Compat.@info("  $delpath does not exist, but ignoring")
+                @info("  $delpath does not exist, but ignoring")
             end
         else
             if verbose
                 delrelpath = relpath(delpath, prefix_path)
-                Compat.@info("  $delrelpath removed")
+                @info("  $delrelpath removed")
             end
             rm(delpath; force=true)
 
@@ -429,7 +429,7 @@ function uninstall(manifest::AbstractString;
             if isempty(readdir(deldir)) && deldir != abspath(prefix_path)
                 if verbose
                     delrelpath = relpath(deldir, prefix_path)
-                    Compat.@info("  Culling empty directory $delrelpath")
+                    @info("  Culling empty directory $delrelpath")
                 end
                 rm(deldir; force=true, recursive=true)
             end
@@ -437,7 +437,7 @@ function uninstall(manifest::AbstractString;
     end
 
     if verbose
-        Compat.@info("  $(relmanipath) removed")
+        @info("  $(relmanipath) removed")
     end
     rm(manifest; force=true)
     return true
@@ -644,7 +644,7 @@ function package(prefix::Prefix,
     if isfile(out_path)
         if force
             if verbose
-                Compat.@info("$(out_path) already exists, force-overwriting...")
+                @info("$(out_path) already exists, force-overwriting...")
             end
             rm(out_path; force=true)
         else
@@ -664,7 +664,7 @@ function package(prefix::Prefix,
         return bytes2hex(sha256(f))
     end
     if verbose
-        Compat.@info("SHA256 of $(basename(out_path)): $(hash)")
+        @info("SHA256 of $(basename(out_path)): $(hash)")
     end
 
     return out_path, hash

@@ -136,7 +136,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
 
     if !isdir(dir_path)
         if verbose
-            Compat.@info("Directory $(dir_path) does not exist!")
+            @info("Directory $(dir_path) does not exist!")
         end
         return nothing
     end
@@ -149,7 +149,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
         end
 
         if verbose
-            Compat.@info("Found a valid dl path $(f) while looking for $(join(lp.libnames, ", "))")
+            @info("Found a valid dl path $(f) while looking for $(join(lp.libnames, ", "))")
         end
 
         # If we found something that is a dynamic library, let's check to see
@@ -158,7 +158,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
             if startswith(basename(f), libname)
                 dl_path = abspath(joinpath(dir_path), f)
                 if verbose
-                    Compat.@info("$(dl_path) matches our search criteria of $(libname)")
+                    @info("$(dl_path) matches our search criteria of $(libname)")
                 end
 
                 # If it does, try to `dlopen()` it if the current platform is good
@@ -177,7 +177,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                     end
 
                     if verbose
-                        Compat.@info("$(dl_path) cannot be dlopen'ed")
+                        @info("$(dl_path) cannot be dlopen'ed")
                     end
                 else
                     # If the current platform doesn't match, then just trust in our
@@ -189,7 +189,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
     end
 
     if verbose
-        Compat.@info("Could not locate $(join(lp.libnames, ", ")) inside $(dir_path)")
+        @info("Could not locate $(join(lp.libnames, ", ")) inside $(dir_path)")
     end
     return nothing
 end
@@ -263,17 +263,17 @@ function locate(ep::ExecutableProduct; platform::Platform = platform_key(),
 
     if !isfile(path)
         if verbose
-            Compat.@info("$(ep.path) does not exist, reporting unsatisfied")
+            @info("$(ep.path) does not exist, reporting unsatisfied")
         end
         return nothing
     end
 
     # If the file is not executable, fail out (unless we're on windows since
     # windows doesn't honor these permissions on its filesystems)
-    @static if !Compat.Sys.iswindows()
+    @static if !Sys.iswindows()
         if uperm(path) & 0x1 == 0
             if verbose
-                Compat.@info("$(path) is not executable, reporting unsatisfied")
+                @info("$(path) is not executable, reporting unsatisfied")
             end
             return nothing
         end
@@ -336,7 +336,7 @@ function locate(fp::FileProduct; platform::Platform = platform_key(),
                                  verbose::Bool = false, isolate::Bool = false)
     if isfile(fp.path)
         if verbose
-            Compat.@info("FileProduct $(fp.path) does not exist")
+            @info("FileProduct $(fp.path) does not exist")
         end
         return fp.path
     end
@@ -446,14 +446,14 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
 
         # If any of the products are `ExecutableProduct`s, we need to add Julia's
         # library directory onto the end of {DYLD,LD}_LIBRARY_PATH
-        @static if !Compat.Sys.iswindows()
+        @static if !Sys.iswindows()
             if any(p isa ExecutableProduct for p in products)
                 dllist = Libdl.dllist()
                 libjulia = filter(x -> occursin("libjulia", x), dllist)[1]
                 julia_libdir = repr(joinpath(dirname(libjulia), "julia"))
-                envvar_name = @static if Compat.Sys.isapple()
+                envvar_name = @static if Sys.isapple()
                     "DYLD_LIBRARY_PATH"
-                else Compat.Sys.islinux()
+                else Sys.islinux()
                     "LD_LIBRARY_PATH"
                 end
                 envvar_name = repr(envvar_name)
