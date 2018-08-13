@@ -139,7 +139,7 @@ function probe_platform_engines!(;verbose::Bool = false)
     # and if that works, will set the global download functions appropriately.
     download_engines = [
         (`curl --help`, (url, path) -> `curl -H "User-Agent: $agent" -C - -\# -f -o $path -L $url`),
-        (`wget --help`, (url, path) -> `wget -U $agent -c -O $path $url`),
+        (`wget --help`, (url, path) -> `wget --tries=5 -U $agent -c -O $path $url`),
         (`fetch --help`, (url, path) -> `fetch --user-agent=$agent -f $path $url`),
         (`busybox wget --help`, (url, path) -> `busybox wget -U $agent -c -O $path $url`),
     ]
@@ -408,7 +408,7 @@ function parse_7z_list(output::AbstractString)
 end
 
 """
-    parse_7z_list(output::AbstractString)
+    parse_tar_list(output::AbstractString)
 
 Given the output of `tar -t`, parse out the listed filenames.  This funciton
 used by `list_tarball_files`.
@@ -451,7 +451,7 @@ function download(url::AbstractString, dest::AbstractString;
         if isa(e, InterruptException)
             rethrow()
         end
-        error("Could not download $(url) to $(dest)")
+        error("Could not download $(url) to $(dest):\n$(e)")
     end
 end
 

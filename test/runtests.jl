@@ -247,8 +247,9 @@ end
     @test repr(MacOS()) == "MacOS(:x86_64)"
 
     for p in [Windows(:i686), Linux(:armv7l, :musl), FreeBSD(:x86_64), MacOS()]
-        fakepath = "/path/to/nowhere/thingo." * triplet(p) * ".tar.gz"
+        fakepath = "/path/to/nowhere/Thingo.v1.2.3." * triplet(p) * ".tar.gz"
         @test extract_platform_key(fakepath) == p
+        @test extract_name_version_platform_key(fakepath) == ("Thingo", v"1.2.3", p)
     end
 end
 
@@ -297,6 +298,34 @@ end
         @test libdir(prefix, Linux(:x86_64)) == joinpath(prefix, "lib")
         @test libdir(prefix, Windows(:x86_64)) == joinpath(prefix, "bin")
     end
+end
+
+@testset "Tarball listing parsing" begin
+    fake_7z_output = """
+	7-Zip [64] 9.20  Copyright (c) 1999-2010 Igor Pavlov  2010-11-18
+	p7zip Version 9.20 (locale=en_US.UTF-8,Utf16=on,HugeFiles=on,4 CPUs)
+
+	Listing archive:
+
+	--
+	Path =
+	Type = tar
+
+	   Date      Time    Attr         Size   Compressed  Name
+	------------------- ----- ------------ ------------  ------------------------
+	2017-04-10 14:45:00 D....            0            0  bin
+	2017-04-10 14:44:59 .....          211          512  bin/socrates
+	------------------- ----- ------------ ------------  ------------------------
+									   211          512  1 files, 1 folders
+	"""
+	@test parse_7z_list(fake_7z_output) == ["bin/socrates"]
+
+	fake_tar_output = """
+	bin/
+	bin/socrates
+	"""
+	@test parse_tar_list(fake_tar_output) == ["bin/socrates"]
+
 end
 
 @testset "Products" begin
@@ -531,9 +560,9 @@ end
         @test !isdir(dirname(qux_path))
 
         # Ensure that we don't want to install tarballs from other platforms
-        other_path = "./libfoo.x86_64-juliaos-chartreuse.tar.gz"
+        other_path = "./libfoo.v1.0.0.x86_64-juliaos-chartreuse.tar.gz"
         cp(tarball_path, other_path)
-        @test_throws ArgumentError install(other_path, tarball_hash; prefix=prefix)
+        @test_throws ArgumentError install(other_path, tarball_hash; prefix=prefix, ignore_platform=false)
         Base.rm(other_path; force=true)
 
         # Ensure that hash mismatches throw errors
@@ -546,11 +575,11 @@ end
     if platform == Linux(:x86_64)
         other_platform = MacOS()
     end
-    new_tarball_path = "libfoo.$(triplet(other_platform)).tar.gz"
+    new_tarball_path = "libfoo.v1.0.0.$(triplet(other_platform)).tar.gz"
     cp(tarball_path, new_tarball_path)
 
     # Also generate a totally bogus tarball pathname
-    bogus_tarball_path = "libfoo.not-a-triplet.tar.gz"
+    bogus_tarball_path = "libfoo.v1.0.0.not-a-triplet.tar.gz"
     cp(tarball_path, bogus_tarball_path)
 
     # Check that installation fails with a valid but "incorrect" platform, but can be forced
