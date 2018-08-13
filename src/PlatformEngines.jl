@@ -408,7 +408,7 @@ function parse_7z_list(output::AbstractString)
 end
 
 """
-    parse_7z_list(output::AbstractString)
+    parse_tar_list(output::AbstractString)
 
 Given the output of `tar -t`, parse out the listed filenames.  This funciton
 used by `list_tarball_files`.
