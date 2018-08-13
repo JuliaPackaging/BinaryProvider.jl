@@ -335,11 +335,22 @@ here, but included for uniformity.
 """
 function locate(fp::FileProduct; platform::Platform = platform_key(),
                                  verbose::Bool = false, isolate::Bool = false)
-    if isfile(fp.path)
+    # Limited variable expansion capabilities
+    mappings = Dict(
+        "\$target" => triplet(platform),
+        "\${target}" => triplet(platform),
+    )
+    
+    expanded = fp.path
+    for (old, new) in mappings
+        expanded = replace(expanded, old => new)
+    end
+
+    if isfile(expanded)
         if verbose
-            @info("FileProduct $(fp.path) does not exist")
+            @info("FileProduct $(expanded) does not exist")
         end
-        return fp.path
+        return expanded
     end
     return nothing
 end
