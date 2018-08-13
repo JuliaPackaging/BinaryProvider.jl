@@ -300,6 +300,34 @@ end
     end
 end
 
+@testset "Tarball listing parsing" begin
+    fake_7z_output = """
+	7-Zip [64] 9.20  Copyright (c) 1999-2010 Igor Pavlov  2010-11-18
+	p7zip Version 9.20 (locale=en_US.UTF-8,Utf16=on,HugeFiles=on,4 CPUs)
+
+	Listing archive:
+
+	--
+	Path =
+	Type = tar
+
+	   Date      Time    Attr         Size   Compressed  Name
+	------------------- ----- ------------ ------------  ------------------------
+	2017-04-10 14:45:00 D....            0            0  bin
+	2017-04-10 14:44:59 .....          211          512  bin/socrates
+	------------------- ----- ------------ ------------  ------------------------
+									   211          512  1 files, 1 folders
+	"""
+	@test parse_7z_list(fake_7z_output) == ["bin/socrates"]
+
+	fake_tar_output = """
+	bin/
+	bin/socrates
+	"""
+	@test parse_tar_list(fake_tar_output) == ["bin/socrates"]
+
+end
+
 @testset "Products" begin
     temp_prefix() do prefix
         # Test that basic satisfication is not guaranteed
