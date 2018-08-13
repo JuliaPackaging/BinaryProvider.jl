@@ -458,6 +458,18 @@ end
         f = FileProduct(joinpath(prefix, "etc", "foo.conf"), :foo_conf)
         @test repr(f) == "FileProduct($(repr(joinpath(prefix, "etc", "foo.conf"))), :foo_conf)"
     end
+
+    # Test that FileProduct's can have `${target}` within their paths:
+    temp_prefix() do prefix
+        multilib_dir = joinpath(prefix, "foo", triplet(platform_key()))
+        mkpath(multilib_dir)
+        touch(joinpath(multilib_dir, "bar"))
+
+        for path in ("foo/\$target/bar", "foo/\${target}/bar")
+            f = FileProduct(prefix, path, :bar)
+            @test satisfied(f; verbose=true, platform=platform_key())
+        end
+    end
 end
 
 @testset "Packaging" begin
