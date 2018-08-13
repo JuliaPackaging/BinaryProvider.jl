@@ -394,7 +394,7 @@ function parse_7z_list(output::AbstractString)
     end
 
     # Extract within the bounding lines of ------------
-    bounds = [i for i in 1:length(lines) if all([c for c in lines[i]] .== '-')]
+    bounds = [i for i in 1:length(lines) if all([c for c in lines[i]] .== Ref('-'))]
     lines = lines[bounds[1]+1:bounds[2]-1]
 
     # Eliminate `./` prefix, if it exists
