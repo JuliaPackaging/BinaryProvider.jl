@@ -532,9 +532,9 @@ end
         @test !isdir(dirname(qux_path))
 
         # Ensure that we don't want to install tarballs from other platforms
-        other_path = "./libfoo.x86_64-juliaos-chartreuse.tar.gz"
+        other_path = "./libfoo.v1.0.0.x86_64-juliaos-chartreuse.tar.gz"
         cp(tarball_path, other_path)
-        @test_throws ArgumentError install(other_path, tarball_hash; prefix=prefix)
+        @test_throws ArgumentError install(other_path, tarball_hash; prefix=prefix, ignore_platform=false)
         Base.rm(other_path; force=true)
 
         # Ensure that hash mismatches throw errors
@@ -547,11 +547,11 @@ end
     if platform == Linux(:x86_64)
         other_platform = MacOS()
     end
-    new_tarball_path = "libfoo.$(triplet(other_platform)).tar.gz"
+    new_tarball_path = "libfoo.v1.0.0.$(triplet(other_platform)).tar.gz"
     cp(tarball_path, new_tarball_path)
 
     # Also generate a totally bogus tarball pathname
-    bogus_tarball_path = "libfoo.not-a-triplet.tar.gz"
+    bogus_tarball_path = "libfoo.v1.0.0.not-a-triplet.tar.gz"
     cp(tarball_path, bogus_tarball_path)
 
     # Check that installation fails with a valid but "incorrect" platform, but can be forced
