@@ -4,7 +4,7 @@ os:
   - linux
   - osx
 julia:
-  - 0.7
+  - 1.0
   - nightly
 notifications:
   email: false
@@ -12,14 +12,14 @@ notifications:
 matrix:
   include:
     # Make sure to override to "wget" at least once
-    - julia: 0.7
+    - julia: 1.0
       os: linux
       env: BINARYPROVIDER_DOWNLOAD_ENGINE="wget"
 
     # Test with `busybox` tools
     # NOTE: This disabled for now, as Ubuntu's busybox doesn't support HTTPS.
     # Tested locally to be working on alpine linux, so good enough for now.
-    #- julia: 0.7
+    #- julia: 1.0
     #  os: linux
     #  env: BINARYPROVIDER_DOWNLOAD_ENGINE="busybox wget" BINARYPROVIDER_COMPRESSION_ENGINE="busybox tar"
 
