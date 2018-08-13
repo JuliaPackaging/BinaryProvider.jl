@@ -5,8 +5,9 @@ import Base: convert, joinpath, show
 using SHA
 
 export Prefix, bindir, libdir, includedir, logdir, activate, deactivate,
-       extract_platform_key, isinstalled, install, uninstall, manifest_from_url,
-       manifest_for_file, list_tarball_files, verify, temp_prefix, package
+       extract_name_version_platform_key, extract_platform_key, isinstalled,
+       install, uninstall, manifest_from_url, manifest_for_file,
+       list_tarball_files, verify, temp_prefix, package
 
 
 # Temporary hack around https://github.com/JuliaLang/julia/issues/26685
@@ -217,25 +218,29 @@ Given the path to a tarball, return the platform key of that tarball. If none
 can be found, prints a warning and return the current platform suffix.
 """
 function extract_platform_key(path::AbstractString)
-    if endswith(path, ".tar.gz")
-        path = path[1:end-7]
-    end
-    # Locate the last - in the path, which will be part of the platform key
-    idx_dash = something(findlast(isequal('-'), path), 0)
-    if idx_dash == 0
+    try
+        return extract_name_version_platform_key(path)[3]
+    catch
         @warn("Could not extract the platform key of $(path); continuing...")
         return platform_key()
     end
-    # Find the . that separates the the library's name from the platform key, searching
-    # backwards from where we found the -. Note that we can't just go looking directly
-    # for the ., since there may be a version at the end of the platform key that would
-    # get picked up instead, e.g. x86_64-unknown-freebsd11.1.
-    idx_dot = something(findlast(isequal('.'), path[1:idx_dash-1]), 0)
-    if idx_dot == 0
-        @warn("Could not extract the platform key of $(path); continuing...")
-        return platform_key()
+end
+
+"""
+    extract_name_version_platform_key(path::AbstractString)
+
+Given the path to a tarball, return the name, platform key and version of that
+tarball. If any of those things cannot be found, throw an error.
+"""
+function extract_name_version_platform_key(path::AbstractString)
+    m = match(r"(.*)\.v(.*)\.(.*-.*-.*)(.tar.gz)?", basename(path))
+    if m === nothing
+        error("Could not parse name, platform key and version from $(path)")
     end
-    return platform_key(path[idx_dot+1:end])
+    name = m.captures[1]
+    version = VersionNumber(m.captures[2])
+    platkey = platform_key(m.captures[3])
+    return name, version, platkey
 end
 
 """

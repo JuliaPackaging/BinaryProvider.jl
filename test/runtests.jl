@@ -247,8 +247,9 @@ end
     @test repr(MacOS()) == "MacOS(:x86_64)"
 
     for p in [Windows(:i686), Linux(:armv7l, :musl), FreeBSD(:x86_64), MacOS()]
-        fakepath = "/path/to/nowhere/thingo." * triplet(p) * ".tar.gz"
+        fakepath = "/path/to/nowhere/Thingo.v1.2.3." * triplet(p) * ".tar.gz"
         @test extract_platform_key(fakepath) == p
+        @test extract_name_version_platform_key(fakepath) == ("Thingo", v"1.2.3", p)
     end
 end
 
