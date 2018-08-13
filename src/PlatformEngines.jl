@@ -451,7 +451,7 @@ function download(url::AbstractString, dest::AbstractString;
         if isa(e, InterruptException)
             rethrow()
         end
-        error("Could not download $(url) to $(dest)")
+        error("Could not download $(url) to $(dest):\n$(e)")
     end
 end
 
