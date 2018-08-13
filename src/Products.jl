@@ -336,10 +336,12 @@ here, but included for uniformity.
 function locate(fp::FileProduct; platform::Platform = platform_key(),
                                  verbose::Bool = false, isolate::Bool = false)
     # Limited variable expansion capabilities
-    mappings = Dict(
-        "\$target" => triplet(platform),
-        "\${target}" => triplet(platform),
-    )
+    mappings = Dict()
+
+    for (var, val) in [("target", triplet(platform)), ("nbits", wordsize(platform))]
+        mappings["\$$(var)"] = string(val)
+        mappings["\${$(var)}"] = string(val)
+    end
     
     expanded = fp.path
     for (old, new) in mappings
@@ -348,9 +350,12 @@ function locate(fp::FileProduct; platform::Platform = platform_key(),
 
     if isfile(expanded)
         if verbose
-            @info("FileProduct $(expanded) does not exist")
+            @info("FileProduct $(fp.path) found at $(realpath(expanded))")
         end
         return expanded
+    end
+    if verbose
+        @info("FileProduct $(fp.path) not found")
     end
     return nothing
 end
