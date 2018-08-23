@@ -32,12 +32,16 @@ download_info = Dict(
 )
 # First, check to see if we're all satisfied
 if any(!satisfied(p; verbose=verbose) for p in products)
-    if platform_key() in keys(download_info)
+    try
         # Download and install binaries
-        url, tarball_hash = download_info[platform_key()]
+        url, tarball_hash = choose_download(download_info)
         install(url, tarball_hash; prefix=prefix, force=true, verbose=true)
-    else
-        error("Your platform $(Sys.MACHINE) is not supported by this package!")
+    catch e
+        if typeof(e) <: ArgumentError
+            error("Your platform $(Sys.MACHINE) is not supported by this package!")
+        else
+            rethrow(e)
+        end
     end
 
     # Finally, write out a deps.jl file
