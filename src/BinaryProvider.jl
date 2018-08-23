@@ -24,11 +24,6 @@ function __init__()
 
     # Find the right download/compression engines for this platform
     probe_platform_engines!()
-
-    # If we're on a julia that's too old, then fixup the color mappings
-    if !haskey(Base.text_colors, :default)
-        Base.text_colors[:default] = Base.color_normal
-    end
 end
 
 end # module
