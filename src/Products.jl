@@ -23,7 +23,7 @@ functionality:
 abstract type Product end
 
 """
-    satisfied(p::Product; platform::Platform = platform_key(),
+    satisfied(p::Product; platform::Platform = platform_key_abi(),
               verbose::Bool = false, isolate::Bool = false)
 
 Given a `Product`, return `true` if that `Product` is satisfied, e.g. whether
@@ -31,7 +31,7 @@ a file exists that matches all criteria setup for that `Product`.  If `isolate`
 is set to `true`, will isolate all checks from the main Julia process in the
 event that `dlopen()`'ing a library might cause issues.
 """
-function satisfied(p::Product; platform::Platform = platform_key(),
+function satisfied(p::Product; platform::Platform = platform_key_abi(),
                                verbose::Bool = false, isolate::Bool = false)
     return locate(p; platform=platform, verbose=verbose, isolate=isolate) != nothing
 end
@@ -119,7 +119,7 @@ end
 
 """
 locate(lp::LibraryProduct; verbose::Bool = false,
-        platform::Platform = platform_key())
+        platform::Platform = platform_key_abi())
 
 If the given library exists (under any reasonable name) and is `dlopen()`able,
 (assuming it was built for the current platform) return its location.  Note
@@ -128,7 +128,7 @@ that the `dlopen()` test is only run if the current platform matches the given
 on foreign platforms.
 """
 function locate(lp::LibraryProduct; verbose::Bool = false,
-                platform::Platform = platform_key(), isolate::Bool = false)
+                platform::Platform = platform_key_abi(), isolate::Bool = false)
     dir_path = lp.dir_path
     if dir_path === nothing
         dir_path = libdir(lp.prefix, platform)
@@ -162,11 +162,10 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                 end
 
                 # If it does, try to `dlopen()` it if the current platform is good
-                if platform == platform_key()
+                if platform == platform_key_abi()
                     if isolate
                         # Isolated dlopen is a lot slower, but safer
-                        import_libdl = VERSION >= v"0.7.0-DEV.3382" ? "import Libdl" : ""
-                        if success(`$(Base.julia_cmd()) -e "$import_libdl; Libdl.dlopen(\"$dl_path\")"`)
+                        if success(`$(Base.julia_cmd()) -e "import Libdl; Libdl.dlopen(\"$dl_path\")"`)
                             return dl_path
                         end
                     else
@@ -242,7 +241,7 @@ function repr(p::ExecutableProduct)
 end
 
 """
-`locate(fp::ExecutableProduct; platform::Platform = platform_key(),
+`locate(fp::ExecutableProduct; platform::Platform = platform_key_abi(),
                                verbose::Bool = false, isolate::Bool = false)`
 
 If the given executable file exists and is executable, return its path.
@@ -252,7 +251,7 @@ non-Windows platforms, it will check for the executable bit being set.  On
 Windows platforms, it will check that the file ends with ".exe", (adding it on
 automatically, if it is not already present).
 """
-function locate(ep::ExecutableProduct; platform::Platform = platform_key(),
+function locate(ep::ExecutableProduct; platform::Platform = platform_key_abi(),
                 verbose::Bool = false, isolate::Bool = false)
     # On windows, we always slap an .exe onto the end if it doesn't already
     # exist, as Windows won't execute files that don't have a .exe at the end.
@@ -327,13 +326,13 @@ function repr(p::FileProduct)
 end
 
 """
-locate(fp::FileProduct; platform::Platform = platform_key(),
+locate(fp::FileProduct; platform::Platform = platform_key_abi(),
                         verbose::Bool = false, isolate::Bool = false)
 
 If the given file exists, return its path.  The platform argument is ignored
 here, but included for uniformity.
 """
-function locate(fp::FileProduct; platform::Platform = platform_key(),
+function locate(fp::FileProduct; platform::Platform = platform_key_abi(),
                                  verbose::Bool = false, isolate::Bool = false)
     # Limited variable expansion capabilities
     mappings = Dict()
@@ -431,7 +430,7 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
         for product in products
             # Escape the location so that e.g. Windows platforms are happy with
             # the backslashes in a string literal
-            product_path = locate(product, platform=platform_key(),
+            product_path = locate(product, platform=platform_key_abi(),
                                            verbose=verbose)
             product_path = relpath(product_path, dirname(depsjl_path))
             product_path = escape_path(product_path)

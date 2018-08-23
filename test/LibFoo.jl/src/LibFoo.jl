@@ -1,5 +1,5 @@
 module LibFoo
-using Compat.Libdl
+using Libdl
 
 # Load in `deps.jl`, complaining if it does not exist
 const depsjl_path = joinpath(dirname(@__FILE__), "..", "deps", "deps.jl")

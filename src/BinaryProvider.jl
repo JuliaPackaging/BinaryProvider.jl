@@ -15,6 +15,9 @@ include("Prefix.jl")
 # Abstraction of "needing" a file, that would trigger an install
 include("Products.jl")
 
+# Compat shims
+include("CompatShims.jl")
+
 function __init__()
     global global_prefix
 

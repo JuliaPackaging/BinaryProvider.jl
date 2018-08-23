@@ -5,7 +5,7 @@ using Pkg
 using SHA
 
 # The platform we're running on
-const platform = platform_key()
+const platform = platform_key_abi()
 
 # Useful command to launch `sh` on any platform
 const sh = gen_sh_cmd
@@ -187,37 +187,66 @@ end
     @test platform_dlext(MacOS()) != platform_dlext(Linux(:armv7l))
     @test platform_dlext(FreeBSD(:x86_64)) == platform_dlext(Linux(:x86_64))
     @test platform_dlext(UnknownPlatform()) == "unknown"
-    @test platform_dlext() == platform_dlext(platform_key())
+    @test platform_dlext() == platform_dlext(platform)
 
     # Test some valid dynamic library paths
     @test valid_dl_path("libfoo.so.1.2.3", Linux(:x86_64))
-    @test valid_dl_path("libfoo-1.dll", Windows(:x86_64))
+    @test valid_dl_path("libfoo.1.2.3.so", Linux(:x86_64))
+    @test valid_dl_path("libfoo-1.2.3.dll", Windows(:x86_64))
     @test valid_dl_path("libfoo.1.2.3.dylib", MacOS())
     @test !valid_dl_path("libfoo.dylib", Linux(:x86_64))
     @test !valid_dl_path("libfoo.so", Windows(:x86_64))
+    @test !valid_dl_path("libfoo.dll", MacOS())
+    @test !valid_dl_path("libfoo.so.1.2.3.", Linux(:x86_64))
+    @test !valid_dl_path("libfoo.so.1.2a.3", Linux(:x86_64))
 
-    # Make sure the platform_key() with explicit triplet works
-    @test platform_key("x86_64-linux-gnu") == Linux(:x86_64)
-    @test platform_key("i686-unknown-linux-gnu") == Linux(:i686)
-    @test platform_key("x86_64-apple-darwin14") == MacOS()
-    @test platform_key("armv7l-pc-linux-gnueabihf") == Linux(:armv7l)
-    @test platform_key("arm-linux-gnueabihf") == Linux(:armv7l)
-    @test platform_key("aarch64-unknown-linux-gnu") == Linux(:aarch64)
-    @test platform_key("powerpc64le-linux-gnu") == Linux(:powerpc64le)
-    @test platform_key("ppc64le-linux-gnu") == Linux(:powerpc64le)
-    @test platform_key("x86_64-w64-mingw32") == Windows(:x86_64)
-    @test platform_key("i686-w64-mingw32") == Windows(:i686)
-    @test platform_key("x86_64-unknown-freebsd11.1") == FreeBSD(:x86_64)
-    @test platform_key("i686-unknown-freebsd11.1") == FreeBSD(:i686)
-    @test platform_key("amd64-unknown-freebsd12.0") == FreeBSD(:x86_64)
-    @test platform_key("i386-unknown-freebsd10.3") == FreeBSD(:i686)
+    # Make sure the platform_key_abi() with explicit triplet works
+    @test platform_key_abi("x86_64-linux-gnu") == Linux(:x86_64)
+    @test platform_key_abi("x86_64-linux-musl") == Linux(:x86_64, libc=:musl)
+    @test platform_key_abi("i686-unknown-linux-gnu") == Linux(:i686)
+    @test platform_key_abi("x86_64-apple-darwin14") == MacOS()
+    @test platform_key_abi("x86_64-apple-darwin17.0.0") == MacOS()
+    @test platform_key_abi("armv7l-pc-linux-gnueabihf") == Linux(:armv7l)
+    @test platform_key_abi("armv7l-linux-musleabihf") == Linux(:armv7l, libc=:musl)
+    @test platform_key_abi("arm-linux-gnueabihf") == Linux(:armv7l)
+    @test platform_key_abi("aarch64-unknown-linux-gnu") == Linux(:aarch64)
+    @test platform_key_abi("powerpc64le-linux-gnu") == Linux(:powerpc64le)
+    @test platform_key_abi("ppc64le-linux-gnu") == Linux(:powerpc64le)
+    @test platform_key_abi("x86_64-w64-mingw32") == Windows(:x86_64)
+    @test platform_key_abi("i686-w64-mingw32") == Windows(:i686)
+    @test platform_key_abi("x86_64-unknown-freebsd11.1") == FreeBSD(:x86_64)
+    @test platform_key_abi("i686-unknown-freebsd11.1") == FreeBSD(:i686)
+    @test platform_key_abi("amd64-unknown-freebsd12.0") == FreeBSD(:x86_64)
+    @test platform_key_abi("i386-unknown-freebsd10.3") == FreeBSD(:i686)
+
+    # Test inclusion of ABI stuff
+    @test platform_key_abi("x86_64-linux-gnu-gcc7") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc7))
+    @test platform_key_abi("x86_64-linux-gnu-gcc4-cxx11") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc4, :cxx11))
+    @test platform_key_abi("x86_64-linux-gnu-cxx11") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))
 
     # Make sure some of these things are rejected
-    @test platform_key("totally FREEFORM text!!1!!!1!") == UnknownPlatform()
-    @test platform_key("invalid-triplet-here") == UnknownPlatform()
-    @test platform_key("aarch64-linux-gnueabihf") == UnknownPlatform()
-    @test platform_key("armv7l-linux-gnu") == UnknownPlatform()
-    @test platform_key("x86_64-w32-mingw64") == UnknownPlatform()
+    @test platform_key_abi("totally FREEFORM text!!1!!!1!") == UnknownPlatform()
+    @test platform_key_abi("invalid-triplet-here") == UnknownPlatform()
+    @test platform_key_abi("aarch64-linux-gnueabihf") == UnknownPlatform()
+    @test platform_key_abi("armv7l-linux-gnu") == UnknownPlatform()
+    @test platform_key_abi("x86_64-w32-mingw64") == UnknownPlatform()
+
+    # Make sure our version parsing code is working
+    @test BinaryProvider.parse_dl_name_version("libgfortran.dll", Windows(:x86_64)) == ("libgfortran", nothing)
+    @test BinaryProvider.parse_dl_name_version("libgfortran-3.dll", Windows(:x86_64)) == ("libgfortran", v"3")
+    @test BinaryProvider.parse_dl_name_version("libgfortran-3.4.dll", Windows(:x86_64)) == ("libgfortran", v"3.4")
+    @test BinaryProvider.parse_dl_name_version("libgfortran-3.4a.dll", Windows(:x86_64)) == ("libgfortran-3.4a", nothing)
+    @test_throws ArgumentError BinaryProvider.parse_dl_name_version("libgfortran", Windows(:x86_64))
+    @test BinaryProvider.parse_dl_name_version("libgfortran.dylib", MacOS(:x86_64)) == ("libgfortran", nothing)
+    @test BinaryProvider.parse_dl_name_version("libgfortran.3.dylib", MacOS(:x86_64)) == ("libgfortran", v"3")
+    @test BinaryProvider.parse_dl_name_version("libgfortran.3.4.dylib", MacOS(:x86_64)) == ("libgfortran", v"3.4")
+    @test BinaryProvider.parse_dl_name_version("libgfortran.3.4a.dylib", MacOS(:x86_64)) == ("libgfortran.3.4a", nothing)
+    @test_throws ArgumentError BinaryProvider.parse_dl_name_version("libgfortran", MacOS(:x86_64))
+    @test BinaryProvider.parse_dl_name_version("libgfortran.so", Linux(:x86_64)) == ("libgfortran", nothing)
+    @test BinaryProvider.parse_dl_name_version("libgfortran.so.3", Linux(:x86_64)) == ("libgfortran", v"3")
+    @test BinaryProvider.parse_dl_name_version("libgfortran.so.3.4", Linux(:x86_64)) == ("libgfortran", v"3.4")
+    @test_throws ArgumentError BinaryProvider.parse_dl_name_version("libgfortran.so.3.4a", Linux(:x86_64))
+    @test_throws ArgumentError BinaryProvider.parse_dl_name_version("libgfortran", Linux(:x86_64))
 
     # Test that we can indeed ask if something is linux or windows, etc...
     @test Sys.islinux(Linux(:aarch64))
@@ -246,10 +275,11 @@ end
     @test triplet(UnknownPlatform()) == "unknown-unknown-unknown"
 
     @test repr(Windows(:x86_64)) == "Windows(:x86_64)"
-    @test repr(Linux(:x86_64, :glibc, :blank_abi)) == "Linux(:x86_64, :glibc)"
+    @test repr(Linux(:x86_64, :glibc, :blank_abi)) == "Linux(:x86_64, libc=:glibc)"
     @test repr(MacOS()) == "MacOS(:x86_64)"
+    @test repr(MacOS(compiler_abi=CompilerABI(:gcc_any, :cxx11))) == "MacOS(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))"
 
-    for p in [Windows(:i686), Linux(:armv7l, :musl), FreeBSD(:x86_64), MacOS()]
+    for p in [Windows(:i686), Linux(:armv7l, :musl), FreeBSD(:x86_64), MacOS(compiler_abi=CompilerABI(:gcc4))]
         fakepath = "/path/to/nowhere/Thingo.v1.2.3." * triplet(p) * ".tar.gz"
         @test extract_platform_key(fakepath) == p
         @test extract_name_version_platform_key(fakepath) == ("Thingo", v"1.2.3", p)
@@ -410,7 +440,7 @@ end
 
     # Ensure that the test suite thinks that these libraries are foreign
     # so that it doesn't try to `dlopen()` them:
-    foreign_platform = @static if platform_key() == Linux(:aarch64)
+    foreign_platform = if platform == Linux(:aarch64)
         # Arbitrary architecture that is not dlopen()'able
         Linux(:powerpc64le)
     else
@@ -461,13 +491,13 @@ end
 
     # Test that FileProduct's can have `${target}` within their paths:
     temp_prefix() do prefix
-        multilib_dir = joinpath(prefix, "foo", triplet(platform_key()))
+        multilib_dir = joinpath(prefix, "foo", triplet(platform))
         mkpath(multilib_dir)
         touch(joinpath(multilib_dir, "bar"))
 
         for path in ("foo/\$target/bar", "foo/\${target}/bar")
             f = FileProduct(prefix, path, :bar)
-            @test satisfied(f; verbose=true, platform=platform_key())
+            @test satisfied(f; verbose=true, platform=platform)
         end
     end
 end
@@ -700,6 +730,25 @@ end
     end
 end
 
+@testset "choose_download" begin
+    platforms = Dict(
+        Linux(:x86_64, compiler_abi=CompilerABI(:gcc4)) => "linux4",
+        Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)) => "linux7",
+        Linux(:x86_64, compiler_abi=CompilerABI(:gcc8)) => "linux8",
+        MacOS(:x86_64, compiler_abi=CompilerABI(:gcc4)) => "mac4",
+        Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11)) => "win",
+    )
+
+    @test choose_download(platforms, Linux(:x86_64)) == "linux8"
+    @test choose_download(platforms, Linux(:x86_64, compiler_abi=CompilerABI(:gcc7))) == "linux7"
+
+    @test choose_download(platforms, MacOS(:x86_64)) == "mac4"
+    @test_throws ArgumentError choose_download(platforms, MacOS(:x86_64, compiler_abi=CompilerABI(:gcc7)))
+
+    @test choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))) == "win"
+    @test_throws ArgumentError choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx03)))
+end
+
 # Use `build_libfoo_tarball.jl` in the BinaryBuilder.jl repository to generate more of these
 const bin_prefix = "https://github.com/staticfloat/small_bin/raw/51b13b44feb2a262e2e04690bfa54d03167533f2/libfoo"
 const libfoo_downloads = Dict(
@@ -730,103 +779,107 @@ const libfoo_downloads = Dict(
         @test BinaryProvider.safe_isfile(foo_path)
         @test !BinaryProvider.safe_isfile("http://google.com")
 
-        if !haskey(libfoo_downloads, platform)
-            @warn("Platform $platform does not have a libfoo download, skipping download tests")
-        else
-            # Test a good download works
-            url, hash = libfoo_downloads[platform]
-            @test install(url, hash; prefix=prefix, verbose=true)
-
-            fooifier = ExecutableProduct(prefix, "fooifier", :fooifier)
-            libfoo = LibraryProduct(prefix, "libfoo", :libfoo)
-
-            @test satisfied(fooifier; verbose=true)
-            @test satisfied(libfoo; verbose=true)
-
-            fooifier_path = locate(fooifier)
-            libfoo_path = locate(libfoo)
-
-
-            # We know that foo(a, b) returns 2*a^2 - b
-            result = 2*2.2^2 - 1.1
-
-            # Test that we can invoke fooifier
-            @test !success(`$fooifier_path`)
-            @test success(`$fooifier_path 1.5 2.0`)
-            @test parse(Float64,readchomp(`$fooifier_path 2.2 1.1`)) ≈ result
-
-            # Test that we can dlopen() libfoo and invoke it directly
-            hdl = Libdl.dlopen_e(libfoo_path)
-            @test hdl != C_NULL
-            foo = Libdl.dlsym_e(hdl, :foo)
-            @test foo != C_NULL
-            @test ccall(foo, Cdouble, (Cdouble, Cdouble), 2.2, 1.1) ≈ result
-            Libdl.dlclose(hdl)
-
-            # Test uninstallation
-            @test uninstall(manifest_from_url(url; prefix=prefix); verbose=true)
-
-            # Test that download_verify_unpack() works
-            Base.rm(prefix.path; recursive=true, force=true)
-            download_verify_unpack(url, hash, prefix.path)
-            @test satisfied(fooifier; verbose=true)
-            @test satisfied(libfoo; verbose=true)
-
-            # Test that download_verify twice in a row works, and that mucking
-            # with the file causes a redownload if `force` is true:
-            tmpfile = joinpath(prefix, "libfoo.tar.gz")
-            @test download_verify(url, hash, tmpfile; verbose=true)
-            @test download_verify(url, hash, tmpfile; verbose=true)
-
-            # We sleep for at least a second here so that filesystems with low
-            # precision in their mtime implementations don't get confused
-            sleep(2)
-
-            open(tmpfile, "w") do f
-                write(f, "not the correct contents")
+        url, hash = try
+            choose_download(libfoo_downloads, platform)
+        catch e
+            if isa(e, ArgumentError)
+                @warn("Platform $platform does not have a libfoo download, skipping download tests")
+                return
+            else
+                rethrow(e)
             end
-
-            @test_throws ErrorException download_verify(url, hash, tmpfile; verbose=true)
-
-            # This should return `false`, signifying that the download had to erase
-            # the previously downloaded file.
-            @test !download_verify(url, hash, tmpfile; verbose=true, force=true)
-
-            # Now let's test that install() works the same way; freaking out if
-            # the local path has been messed with, unless `force` has been given:
-            tarball_path = joinpath(prefix, "downloads", basename(url))
-            try mkpath(dirname(tarball_path)) catch; end
-            open(tarball_path, "w") do f
-                write(f, "not the correct contents")
-            end
-
-            @test_throws ErrorException install(url, hash; prefix=prefix, verbose=true)
-            @test install(url, hash; prefix=prefix, verbose=true, force=true)
-            @test isinstalled(url, hash; prefix=prefix)
-            @test satisfied(fooifier; verbose=true)
-            @test satisfied(libfoo; verbose=true)
-
-            # Test that installing with a custom tarball_path works:
-            tarball_path = joinpath(prefix, "downloads2", "tarball.tar.gz")
-            @test install(url, hash; prefix=prefix, tarball_path=tarball_path, verbose=true, force=true)
-
-            # Check that the tarball exists and hashes properly
-            @test isfile(tarball_path)
-            hash_check = open(tarball_path, "r") do f
-                bytes2hex(sha256(f))
-            end
-            @test hash_check == hash
-
-            # Check that we're still satisfied
-            @test isinstalled(url, hash; prefix=prefix)
-            @test satisfied(fooifier; verbose=true)
-            @test satisfied(libfoo; verbose=true)
         end
 
+        @test install(url, hash; prefix=prefix, verbose=true)
+
+        fooifier = ExecutableProduct(prefix, "fooifier", :fooifier)
+        libfoo = LibraryProduct(prefix, "libfoo", :libfoo)
+
+        @test satisfied(fooifier; verbose=true)
+        @test satisfied(libfoo; verbose=true)
+
+        fooifier_path = locate(fooifier)
+        libfoo_path = locate(libfoo)
+
+
+        # We know that foo(a, b) returns 2*a^2 - b
+        result = 2*2.2^2 - 1.1
+
+        # Test that we can invoke fooifier
+        @test !success(`$fooifier_path`)
+        @test success(`$fooifier_path 1.5 2.0`)
+        @test parse(Float64,readchomp(`$fooifier_path 2.2 1.1`)) ≈ result
+
+        # Test that we can dlopen() libfoo and invoke it directly
+        hdl = Libdl.dlopen_e(libfoo_path)
+        @test hdl != C_NULL
+        foo = Libdl.dlsym_e(hdl, :foo)
+        @test foo != C_NULL
+        @test ccall(foo, Cdouble, (Cdouble, Cdouble), 2.2, 1.1) ≈ result
+        Libdl.dlclose(hdl)
+
+        # Test uninstallation
+        @test uninstall(manifest_from_url(url; prefix=prefix); verbose=true)
+
+        # Test that download_verify_unpack() works
+        Base.rm(prefix.path; recursive=true, force=true)
+        download_verify_unpack(url, hash, prefix.path)
+        @test satisfied(fooifier; verbose=true)
+        @test satisfied(libfoo; verbose=true)
+
+        # Test that download_verify twice in a row works, and that mucking
+        # with the file causes a redownload if `force` is true:
+        tmpfile = joinpath(prefix, "libfoo.tar.gz")
+        @test download_verify(url, hash, tmpfile; verbose=true)
+        @test download_verify(url, hash, tmpfile; verbose=true)
+
+        # We sleep for at least a second here so that filesystems with low
+        # precision in their mtime implementations don't get confused
+        sleep(2)
+
+        open(tmpfile, "w") do f
+            write(f, "not the correct contents")
+        end
+
+        @test_throws ErrorException download_verify(url, hash, tmpfile; verbose=true)
+
+        # This should return `false`, signifying that the download had to erase
+        # the previously downloaded file.
+        @test !download_verify(url, hash, tmpfile; verbose=true, force=true)
+
+        # Now let's test that install() works the same way; freaking out if
+        # the local path has been messed with, unless `force` has been given:
+        tarball_path = joinpath(prefix, "downloads", basename(url))
+        try mkpath(dirname(tarball_path)) catch; end
+        open(tarball_path, "w") do f
+            write(f, "not the correct contents")
+        end
+
+        @test_throws ErrorException install(url, hash; prefix=prefix, verbose=true)
+        @test install(url, hash; prefix=prefix, verbose=true, force=true)
+        @test isinstalled(url, hash; prefix=prefix)
+        @test satisfied(fooifier; verbose=true)
+        @test satisfied(libfoo; verbose=true)
+
+        # Test that installing with a custom tarball_path works:
+        tarball_path = joinpath(prefix, "downloads2", "tarball.tar.gz")
+        @test install(url, hash; prefix=prefix, tarball_path=tarball_path, verbose=true, force=true)
+
+        # Check that the tarball exists and hashes properly
+        @test isfile(tarball_path)
+        hash_check = open(tarball_path, "r") do f
+            bytes2hex(sha256(f))
+        end
+        @test hash_check == hash
+
+        # Check that we're still satisfied
+        @test isinstalled(url, hash; prefix=prefix)
+        @test satisfied(fooifier; verbose=true)
+        @test satisfied(libfoo; verbose=true)
+
         # Test a bad download fails properly
-        bad_url = "http://localhost:1/this_is_not_a_file.$(triplet(platform)).tar.gz"
-        bad_hash = "0"^64
-        @test_throws ErrorException install(bad_url, bad_hash; prefix=prefix, verbose=true)
+        bad_url = "http://localhost:1/this_is_not_a_file.v1.0.0.$(triplet(platform)).tar.gz"
+        @test_throws ErrorException install(bad_url, "0"^64; prefix=prefix, verbose=true)
     end
 end
 
@@ -875,15 +928,7 @@ end
     end
 
     cd("LibFoo.jl") do
-        if VERSION < v"0.7-"
-            # Now, run `LibFoo.jl`'s tests, adding `LibFoo.jl` to the LOAD_PATH
-            # so that the tests can pick up the `LibFoo` module
-            withenv("JULIA_LOAD_PATH"=>joinpath(pwd(),"src")) do
-                run(`$(Base.julia_cmd()) $(color) test/runtests.jl`)
-            end
-        else
-            # On julia 0.7, we can now rely on Project.toml to set the load path
-            run(`$(Base.julia_cmd()) --project=$(pwd()) $(color) -e 'using Pkg; Pkg.test("LibFoo")'`)
-        end
+        # On julia 0.7, we can now rely on Project.toml to set the load path
+        run(`$(Base.julia_cmd()) --project=$(pwd()) $(color) -e 'using Pkg; Pkg.test("LibFoo")'`)
     end
 end

@@ -130,12 +130,12 @@ function bindir(prefix::Prefix)
 end
 
 """
-    libdir(prefix::Prefix, platform = platform_key())
+    libdir(prefix::Prefix, platform = platform_key_abi())
 
 Returns the library directory for the given `prefix` (note that this differs
 between unix systems and windows systems).
 """
-function libdir(prefix::Prefix, platform = platform_key())
+function libdir(prefix::Prefix, platform = platform_key_abi())
     if Sys.iswindows(platform)
         return joinpath(prefix, "bin")
     else
@@ -222,7 +222,7 @@ function extract_platform_key(path::AbstractString)
         return extract_name_version_platform_key(path)[3]
     catch
         @warn("Could not extract the platform key of $(path); continuing...")
-        return platform_key()
+        return platform_key_abi()
     end
 end
 
@@ -233,13 +233,13 @@ Given the path to a tarball, return the name, platform key and version of that
 tarball. If any of those things cannot be found, throw an error.
 """
 function extract_name_version_platform_key(path::AbstractString)
-    m = match(r"(.*)\.v(.*)\.(.*-.*-.*)(.tar.gz)?", basename(path))
+    m = match(r"^(.*?)\.v(.*?)\.([^\.\-]+-.*).tar.gz$", basename(path))
     if m === nothing
         error("Could not parse name, platform key and version from $(path)")
     end
     name = m.captures[1]
     version = VersionNumber(m.captures[2])
-    platkey = platform_key(m.captures[3])
+    platkey = platform_key_abi(m.captures[3])
     return name, version, platkey
 end
 
@@ -318,10 +318,10 @@ function install(tarball_url::AbstractString,
             platform = extract_platform_key(tarball_url)
 
             # Check if we had a well-formed platform that just doesn't match
-            if platform_key() != platform
+            if platform_key_abi() != platform
                 msg = replace(strip("""
                 Will not install a tarball of platform $(triplet(platform)) on
-                a system of platform $(triplet(platform_key())) unless
+                a system of platform $(triplet(platform_key_abi())) unless
                 `ignore_platform` is explicitly set to `true`.
                 """), "\n" => " ")
                 throw(ArgumentError(msg))
@@ -626,7 +626,7 @@ end
 """
     package(prefix::Prefix, output_base::AbstractString,
             version::VersionNumber;
-            platform::Platform = platform_key(),
+            platform::Platform = platform_key_abi(),
             verbose::Bool = false, force::Bool = false)
 
 Build a tarball of the `prefix`, storing the tarball at `output_base`,
@@ -640,7 +640,7 @@ generated tarball.
 function package(prefix::Prefix,
                  output_base::AbstractString,
                  version::VersionNumber;
-                 platform::Platform = platform_key(),
+                 platform::Platform = platform_key_abi(),
                  verbose::Bool = false,
                  force::Bool = false)
     # Calculate output path
