@@ -604,7 +604,8 @@ end
 
 """
     download_verify_unpack(url::AbstractString, hash::AbstractString,
-                           dest::AbstractString; verbose::Bool = false,
+                           dest::AbstractString; tarball_path = nothing,
+                           verbose::Bool = false, ignore_existence::Bool = false,
                            force::Bool = false)
 
 Helper method to download tarball located at `url`, verify it matches the
@@ -623,11 +624,15 @@ deleted (if it exists), the `dest` folder to be removed (if it exists) and the
 tarball to be redownloaded and reverified.  If the verification check is failed
 a second time, an exception is raised.  If `force` is not specified, a
 verification failure will result in an immediate raised exception.
+
+If `ignore_existence` is set, the tarball is unpacked even if the destination
+directory already exists.
 """
 function download_verify_unpack(url::AbstractString,
                                 hash::AbstractString,
                                 dest::AbstractString;
                                 tarball_path = nothing,
+                                ignore_existence::Bool = false,
                                 force::Bool = false,
                                 verbose::Bool = false)
     # First, determine whether we should keep this tarball around
@@ -674,7 +679,7 @@ function download_verify_unpack(url::AbstractString,
     end
 
     # If the destination path already exists, don't bother to unpack
-    if isdir(dest)
+    if !ignore_existence && isdir(dest)
         if verbose
             @info("Destination directory $(dest) already exists, returning")
         end
