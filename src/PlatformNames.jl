@@ -674,6 +674,32 @@ function platform_key_abi()
     return default_platkey
 end
 
+function platforms_match(a::Platform, b::Platform)
+    # Check to see if a and b  satisfy the rigid constraints first, these are
+    # things that are simple equality checks:
+    function rigid_constraints(a, b)
+        return (typeof(a) <: typeof(b) || typeof(b) <: typeof(a)) &&
+               (arch(a) == arch(b)) && (libc(a) == libc(b)) &&
+               (call_abi(a) == call_abi(b))
+    end
+
+    # The flexible constraints are ones that can do equals, but also have things
+    # like "any" values, etc....
+    function flexible_constraints(a, b)
+        ac = compiler_abi(a)
+        bc = compiler_abi(b)
+        gcc_match = (ac.gcc_version == :gcc_any
+                  || bc.gcc_version == :gcc_any
+                  || ac.gcc_version == bc.gcc_version)
+        cxx_match = (ac.cxx_abi == :cxx_any
+                  || bc.cxx_abi == :cxx_any
+                  || ac.cxx_abi == bc.cxx_abi)
+        return gcc_match && cxx_match
+    end
+
+    return rigid_constraints(a, b) && flexible_constraints(a, b)
+end
+
 """
     choose_download(download_info::Dict, platform::Platform = platform_key_abi())
 
@@ -686,28 +712,7 @@ match exactly, however attributes such as compiler ABI can have wildcards
 within them such as `:gcc_any` which matches any version of GCC.
 """
 function choose_download(download_info::Dict, platform::Platform = platform_key_abi())
-    # We're going to find all keys of download_info that satisfies the rigidd
-    # constraints first, these are things that are simple equality checks:
-    function rigid_constraints(p)
-        return typeof(p) <: typeof(platform) && (arch(p) == arch(platform)) &&
-               (libc(p) == libc(platform)) && (call_abi(p) == call_abi(platform))
-    end
-    ps = filter(rigid_constraints, keys(download_info))
-
-    # The flexible constraints are ones that can do equals, but also have things
-    # like "any" values, etc....
-    function flexible_constraints(p)
-        p1 = compiler_abi(p)
-        p2 = compiler_abi(platform)
-        gcc_match = (p1.gcc_version == :gcc_any
-                  || p2.gcc_version == :gcc_any
-                  || p1.gcc_version == p2.gcc_version)
-        cxx_match = (p1.cxx_abi == :cxx_any
-                  || p2.cxx_abi == :cxx_any
-                  || p1.cxx_abi == p2.cxx_abi)
-        return gcc_match && cxx_match
-    end
-    ps = collect(filter(flexible_constraints, ps))
+    ps = collect(filter(p -> platforms_match(p, platform), keys(download_info)))
 
     if isempty(ps)
         throw(ArgumentError("Unable to find matching download for $(platform)"))

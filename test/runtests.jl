@@ -231,6 +231,18 @@ end
     @test platform_key_abi("armv7l-linux-gnu") == UnknownPlatform()
     @test platform_key_abi("x86_64-w32-mingw64") == UnknownPlatform()
 
+    # Test our platform matching code
+    @test BinaryProvider.platforms_match(Linux(:x86_64), Linux(:x86_64))
+    @test BinaryProvider.platforms_match(Linux(:x86_64), Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)))
+    @test BinaryProvider.platforms_match(Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)), Linux(:x86_64))
+
+    @test !BinaryProvider.platforms_match(Linux(:x86_64), Linux(:i686))
+    @test !BinaryProvider.platforms_match(Linux(:x86_64), Windows(:x86_64))
+    @test !BinaryProvider.platforms_match(Linux(:x86_64), MacOS())
+    @test !BinaryProvider.platforms_match(Linux(:x86_64), UnknownPlatform())
+    @test !BinaryProvider.platforms_match(Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)), Linux(:x86_64, compiler_abi=CompilerABI(:gcc8)))
+    @test !BinaryProvider.platforms_match(Linux(:x86_64, compiler_abi=CompilerABI(:gcc7, :cxx11)), Linux(:x86_64, compiler_abi=CompilerABI(:gcc7, :cxx03)))
+
     # Make sure our version parsing code is working
     @test BinaryProvider.parse_dl_name_version("libgfortran.dll", Windows(:x86_64)) == ("libgfortran", nothing)
     @test BinaryProvider.parse_dl_name_version("libgfortran-3.dll", Windows(:x86_64)) == ("libgfortran", v"3")
@@ -284,6 +296,9 @@ end
         @test extract_platform_key(fakepath) == p
         @test extract_name_version_platform_key(fakepath) == ("Thingo", v"1.2.3", p)
     end
+
+    # This failed on me a while back.  NEVER AGAIN.
+    @test extract_name_version_platform_key("libjpeg.v9.0.0-b.x86_64-apple-darwin14.tar.gz") == ("libjpeg", v"9.0.0-b", MacOS())
 end
 
 @testset "Prefix" begin
@@ -617,7 +632,7 @@ end
 
     # Get a valid platform tarball name that is not our native platform
     other_platform = Linux(:x86_64)
-    if platform == Linux(:x86_64)
+    if BinaryProvider.platforms_match(platform, Linux(:x86_64))
         other_platform = MacOS()
     end
     new_tarball_path = "libfoo.v1.0.0.$(triplet(other_platform)).tar.gz"

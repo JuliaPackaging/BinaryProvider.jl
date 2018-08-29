@@ -233,7 +233,7 @@ Given the path to a tarball, return the name, platform key and version of that
 tarball. If any of those things cannot be found, throw an error.
 """
 function extract_name_version_platform_key(path::AbstractString)
-    m = match(r"^(.*?)\.v(.*?)\.([^\.\-]+-.*).tar.gz$", basename(path))
+    m = match(r"^(.*?)\.v(.*?)\.([^\.\-]+-[^\.\-]+-([^\-]+-){0,2}[^\-]+).tar.gz$", basename(path))
     if m === nothing
         error("Could not parse name, platform key and version from $(path)")
     end
@@ -318,7 +318,7 @@ function install(tarball_url::AbstractString,
             platform = extract_platform_key(tarball_url)
 
             # Check if we had a well-formed platform that just doesn't match
-            if platform_key_abi() != platform
+            if !platforms_match(platform, platform_key_abi())
                 msg = replace(strip("""
                 Will not install a tarball of platform $(triplet(platform)) on
                 a system of platform $(triplet(platform_key_abi())) unless
