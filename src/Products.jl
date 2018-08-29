@@ -170,7 +170,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                         end
                     else
                         hdl = Libdl.dlopen_e(dl_path)
-                        if hdl != C_NULL
+                        if !(hdl in (C_NULL, nothing))
                             Libdl.dlclose(hdl)
                             return dl_path
                         end
@@ -459,7 +459,7 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
             # For Library products, check that we can dlopen it:
             if typeof(product) <: LibraryProduct
                 println(depsjl_file, """
-                    if Libdl.dlopen_e($(varname)) == C_NULL
+                    if Libdl.dlopen_e($(varname)) in (C_NULL, nothing)
                         error("\$($(varname)) cannot be opened, $(rebuild)")
                     end
                 """)
