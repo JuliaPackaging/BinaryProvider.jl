@@ -11,3 +11,10 @@ function platform_key(machine::AbstractString = Sys.MACHINE)
     platkey = platform_key_abi(machine)
     return typeof(platkey)(platkey.arch, platkey.libc, platkey.call_abi)
 end
+
+
+# TODO: fill in better upper bound here when #27674 is backported
+# ref: https://github.com/JuliaLang/julia/pull/27674
+if v"0.7.0" <= VERSION < v"0.7.1"
+    Base.peek(io::Base.AbstractPipe) = Base.peek(Base.pipe_reader(io))
+end
