@@ -9,5 +9,5 @@ end
 function platform_key(machine::AbstractString = Sys.MACHINE)
     Base.depwarn("platform_key() is deprecated, use platform_key_abi() from now on", :binaryprovider_platform_key)
     platkey = platform_key_abi(machine)
-    return typeof(platkey)(platkey.arch, platkey.libc, platkey.call_abi)
+    return typeof(platkey)(arch(platkey), libc(platkey), call_abi(platkey))
 end
