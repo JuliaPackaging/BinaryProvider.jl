@@ -738,6 +738,29 @@ const socrates_hash = "adcbcf15674eafe8905093183d9ab997cbfba9056fc7dde8bfa5a22df
     end
 end
 
+const collapse_url = "https://github.com/staticfloat/small_bin/raw/master/collapse_the_symlink/collapse_the_symlink.tar.gz"
+const collapse_hash = "956c1201405f64d3465cc28cb0dec9d63c11a08cad28c381e13bb22e1fc469d3"
+@testset "Copyderef unpacking" begin
+    withenv("BINARYPROVIDER_COPYDEREF" => "true") do
+        temp_prefix() do prefix
+            target_dir = joinpath(prefix.path, "target")
+            download_verify_unpack(collapse_url, collapse_hash, target_dir; verbose=true)
+
+            # Test that we get the files we expect
+            @test isfile(joinpath(target_dir, "collapse_the_symlink", "foo"))
+            @test isfile(joinpath(target_dir, "collapse_the_symlink", "foo.1"))
+            @test isfile(joinpath(target_dir, "collapse_the_symlink", "foo.1.1"))
+
+            # Test that these are definitely not links
+            @test !islink(joinpath(target_dir, "collapse_the_symlink", "foo"))
+            @test !islink(joinpath(target_dir, "collapse_the_symlink", "foo.1.1"))
+
+            # Test that broken symlinks get transparently dropped
+            @test !ispath(joinpath(target_dir, "collapse_the_symlink", "broken"))
+        end
+    end
+end
+
 @testset "Download GitHub API #88" begin
     mktempdir() do tmp
         BinaryProvider.download("https://api.github.com/repos/JuliaPackaging/BinaryProvider.jl/tarball/c2a4fc38f29eb81d66e3322e585d0199722e5d71", joinpath(tmp, "BinaryProvider"))
