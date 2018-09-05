@@ -101,6 +101,41 @@ function probe_cmd(cmd::Cmd; verbose::Bool = false)
 end
 
 """
+    probe_symlink_creation(dest::AbstractString)
+
+Probes whether we can create a symlink within the given destination directory,
+to determine whether a particular filesystem is "symlink-unfriendly".
+"""
+function probe_symlink_creation(dest::AbstractString)
+    while !isdir(dest)
+        dest = dirname(dest)
+    end
+
+    # Build arbitrary (non-existent) file path name
+    link_path = joinpath(dest, "binaryprovider_symlink_test")
+    while ispath(link_path)
+        link_path *= "1"
+    end
+
+    try
+        symlink("foo", link_path)
+        return true
+    catch e
+        if isa(e, Base.IOError)
+            return false
+        end
+        rethrow(e)
+    finally
+        rm(link_path; force=true)
+    end
+end
+
+# Global variable that tells us whether tempdir() can have symlinks
+# created within it.
+tempdir_symlink_creation = false
+
+
+"""
     probe_platform_engines!(;verbose::Bool = false)
 
 Searches the environment for various tools needed to download, unpack, and
@@ -133,6 +168,15 @@ If `verbose` is `true`, print out the various engines as they are searched.
 function probe_platform_engines!(;verbose::Bool = false)
     global gen_download_cmd, gen_list_tarball_cmd, gen_package_cmd
     global gen_unpack_cmd, parse_tarball_listing, gen_sh_cmd
+    global tempdir_symlink_creation
+
+    # First things first, determine whether tempdir() can have symlinks created
+    # within it.  This is important for our copyderef workaround for e.g. SMBFS
+    tempdir_symlink_creation = probe_symlink_creation(tempdir())
+    if verbose
+        @info("Symlinks allowed in $(tempdir()): $(tempdir_symlink_creation)")
+    end
+
     agent = "BinaryProvider.jl (https://github.com/JuliaPackaging/BinaryProvider.jl)"
     # download_engines is a list of (test_cmd, download_opts_functor)
     # The probulator will check each of them by attempting to run `$test_cmd`,
@@ -586,6 +630,22 @@ Unpack tarball located at file `tarball_path` into directory `dest`.
 """
 function unpack(tarball_path::AbstractString, dest::AbstractString;
                 verbose::Bool = false)
+    # The user can force usage of our dereferencing workaround for filesystems
+    # that don't support symlinks, but it is also autodetected.
+    copyderef = get(ENV, "BINARYPROVIDER_COPYDEREF", "") == "true" ||
+                (tempdir_symlink_creation && !probe_symlink_creation(dest))
+
+    # If we should "copyderef" what we do is to unpack into a temporary directory,
+    # then copy without preserving symlinks into the destination directory.  This
+    # is to work around filesystems that are mounted (such as SMBFS filesystems)
+    # that do not support symlinks.  Note that this does not work if you are on
+    # a system that completely disallows symlinks (Even within temporary
+    # directories) such as Windows XP/7.
+    true_dest = dest
+    if copyderef
+        dest = mktempdir()
+    end
+
     # unpack into dest
     mkpath(dest)
     oc = OutputCollector(gen_unpack_cmd(tarball_path, dest); verbose=verbose)
@@ -598,6 +658,36 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
             rethrow()
         end
         error("Could not unpack $(tarball_path) into $(dest)")
+    end
+
+    if copyderef
+        # We would like to use `cptree(; follow_symlinks=false)` here, but it
+        # freaks out if there are any broken symlinks, which is too finnicky
+        # for our use cases.  For us, we will just print a warning and continue.
+        function cptry_harder(src, dst)
+            mkpath(dst)
+            for name in readdir(src)
+                srcname = joinpath(src, name)
+                dstname = joinpath(dst, name)
+                if isdir(srcname)
+                    cptry_harder(srcname, dstname)
+                else
+                    try
+                        Base.Filesystem.sendfile(srcname, dstname)
+                    catch e
+                        if isa(e, Base.IOError)
+                            if verbose
+                                @warn("Could not copy $(srcname) to $(dstname)")
+                            end
+                        else
+                            rethrow(e)
+                        end
+                    end
+                end
+            end
+        end
+        cptry_harder(dest, true_dest)
+        rm(dest; recursive=true, force=true)
     end
 end
 
