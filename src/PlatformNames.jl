@@ -1,4 +1,4 @@
-export platform_key, platform_key_abi, platform_dlext, valid_dl_path, arch, wordsize, triplet, choose_download,
+export platform_key, platform_key_abi, platform_dlext, valid_dl_path, arch, libc, call_abi, wordsize, triplet, choose_download,
        CompilerABI, Platform, UnknownPlatform, Linux, MacOS, Windows, FreeBSD
 import Base: show
 
