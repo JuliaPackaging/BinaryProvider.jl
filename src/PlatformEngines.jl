@@ -717,6 +717,9 @@ verification failure will result in an immediate raised exception.
 
 If `ignore_existence` is set, the tarball is unpacked even if the destination
 directory already exists.
+
+Returns `true` if a tarball was actually unpacked, `false` if nothing was
+changed in the destination prefix.
 """
 function download_verify_unpack(url::AbstractString,
                                 hash::AbstractString,
@@ -773,7 +776,9 @@ function download_verify_unpack(url::AbstractString,
         if verbose
             @info("Destination directory $(dest) already exists, returning")
         end
-        return
+
+        # Signify that we didn't do any unpacking
+        return false
     end
 
     try
@@ -786,4 +791,7 @@ function download_verify_unpack(url::AbstractString,
             rm(tarball_path)
         end
     end
+
+    # Signify that we did some unpacking!
+    return true
 end
