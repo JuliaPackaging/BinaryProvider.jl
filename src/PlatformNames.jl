@@ -561,7 +561,7 @@ function detect_libgfortran_abi(libgfortran_name::AbstractString, platform::Plat
         5 => :gcc8,
     )
     if !in(version.major, keys(libgfortran_to_gcc))
-        @warn("Unsupported libgfortran version '$version'")
+        @warn("Unsupported libgfortran version '$version'; returning :gcc_any")
         return :gcc_any
     end
     return libgfortran_to_gcc[version.major]
