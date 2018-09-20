@@ -94,17 +94,20 @@ show(io::IO, prefix::Prefix) = show(io, "Prefix($(prefix.path))")
 
 
 """
-    withenv(f::Function, prefixes::Vector{Prefix})
+    withenv(f::Function, prefixes::Vector{Prefix}; julia_libdir::Bool = true)
 
 Wrapper function designed to help executables find dynamic libraries and child
-binaries by wrapping PATH and (DY)LD_LIBRARY_PATH.
+binaries by wrapping PATH and `(DY)LD_(FALLBACK_)LIBRARY_PATH`.  If
+`julia_libdir` is true, then the private library directory of this Julia
+distribution will be added on to the end of the LD_LIBRARY_PATH settings.
 """
-function withenv(f::Function, prefixes::Vector{Prefix})
+function withenv(f::Function, prefixes::Vector{Prefix};
+                 julia_libdir::Bool = true)
     # Join `dirs` to ENV[key], removing duplicates and nonexistent directories
     # as we go, normalizing directory names, splitting and joining by `sep`.
-    function joinenv(key, dirs, sep)
-        value = [dirs..., split(get(ENV, key, ""), sep)...]
-        return join([abspath(d) for d in value if isdir(d)], sep)
+    function joinenv(key, dirs, sep, tail_dirs = [])
+        value = [dirs..., split(get(ENV, key, ""), sep)..., tail_dirs...]
+        return join(unique([abspath(d) for d in value if isdir(d)]), sep)
     end
     # We're going to build up PATH and {DY,}LD_LIBRARY_PATH such that binaries
     # that use things from the given prefixes can function properly.
@@ -113,8 +116,14 @@ function withenv(f::Function, prefixes::Vector{Prefix})
 
     # {DY,}LD_LIBRARY_PATH only makes sense on non-windows
     if !Sys.iswindows()
-        envname = Sys.isapple() ? "DYLD_LIBRARY_PATH" : "LD_LIBRARY_PATH"
-        push!(mapping, envname => joinenv(envname, libdir.(prefixes), ":"))
+        libdirs = libdir.(prefixes)
+        tail_dirs = []
+        if julia_libdir
+            tail_dirs = [joinpath(Sys.BINDIR, Base.PRIVATE_LIBDIR)]
+        end
+
+        envname = Sys.isapple() ? "DYLD_FALLBACK_LIBRARY_PATH" : "LD_LIBRARY_PATH"
+        push!(mapping, envname => joinenv(envname, libdirs, ":", tail_dirs))
     end
 
     # Use withenv to apply the calculated environment mappings to f.
