@@ -1,7 +1,7 @@
 ## This file contains functionality related to the actual layout of the files
 #  on disk.  Things like the name of where downloads are stored, and what
 #  environment variables must be updated to, etc...
-import Base: convert, joinpath, show
+import Base: convert, joinpath, show, withenv
 using SHA
 
 export Prefix, bindir, libdir, includedir, logdir, activate, deactivate,
@@ -92,33 +92,35 @@ joinpath(s::AbstractString, prefix::Prefix, args...) = joinpath(s, prefix.path, 
 convert(::Type{AbstractString}, prefix::Prefix) = prefix.path
 show(io::IO, prefix::Prefix) = show(io, "Prefix($(prefix.path))")
 
-"""
-    split_PATH(PATH::AbstractString = ENV["PATH"])
 
-Splits a string such as the  `PATH` environment variable into a list of strings
-according to the path separation rules for the current platform.
 """
-function split_PATH(PATH::AbstractString = ENV["PATH"])
-    @static if Sys.iswindows()
-        return split(PATH, ";")
-    else
-        return split(PATH, ":")
+    withenv(f::Function, prefixes::Vector{Prefix})
+
+Wrapper function designed to help executables find dynamic libraries and child
+binaries by wrapping PATH and (DY)LD_LIBRARY_PATH.
+"""
+function withenv(f::Function, prefixes::Vector{Prefix})
+    # Join `dirs` to ENV[key], removing duplicates and nonexistent directories
+    # as we go, normalizing directory names, splitting and joining by `sep`.
+    function joinenv(key, dirs, sep)
+        value = [dirs..., split(get(ENV, key, ""), sep)...]
+        return join([abspath(d) for d in value if isdir(d)], sep)
     end
-end
+    # We're going to build up PATH and {DY,}LD_LIBRARY_PATH such that binaries
+    # that use things from the given prefixes can function properly.
+    sep = Sys.iswindows() ? ";" : ":"
+    mapping = ["PATH" => joinenv("PATH", bindir.(prefixes), sep)]
 
-"""
-    join_PATH(PATH::Vector{AbstractString})
-
-Given a list of strings, return a joined string suitable for the `PATH`
-environment variable appropriate for the current platform.
-"""
-function join_PATH(paths::Vector{S}) where S<:AbstractString
-    @static if Sys.iswindows()
-        return join(paths, ";")
-    else
-        return join(paths, ":")
+    # {DY,}LD_LIBRARY_PATH only makes sense on non-windows
+    if !Sys.iswindows()
+        envname = Sys.isapple() ? "DYLD_LIBRARY_PATH" : "LD_LIBRARY_PATH"
+        push!(mapping, envname => joinenv(envname, libdir.(prefixes), ":"))
     end
+
+    # Use withenv to apply the calculated environment mappings to f.
+    return withenv(f, mapping...)
 end
+withenv(f::Function, prefix::Prefix) = withenv(f, [prefix])
 
 """
     bindir(prefix::Prefix)
@@ -159,56 +161,6 @@ Returns the logs directory for the given `prefix`.
 """
 function logdir(prefix::Prefix)
     return joinpath(prefix, "logs")
-end
-
-"""
-    activate(prefix::Prefix)
-
-Prepends paths to environment variables so that binaries and libraries are
-available to Julia.
-"""
-function activate(prefix::Prefix)
-    # Add to PATH
-    paths = split_PATH()
-    if !(bindir(prefix) in paths)
-        prepend!(paths, [bindir(prefix)])
-    end
-    ENV["PATH"] = join_PATH(paths)
-
-    # Add to DL_LOAD_PATH
-    if !(libdir(prefix) in Libdl.DL_LOAD_PATH)
-        prepend!(Libdl.DL_LOAD_PATH, [libdir(prefix)])
-    end
-    return nothing
-end
-
-"""
-    activate(func::Function, prefix::Prefix)
-
-Prepends paths to environment variables so that binaries and libraries are
-available to Julia, calls the user function `func`, then `deactivate()`'s
-the `prefix`` again.
-"""
-function activate(func::Function, prefix::Prefix)
-    activate(prefix)
-    func()
-    deactivate(prefix)
-end
-
-"""
-    deactivate(prefix::Prefix)
-
-Removes paths added to environment variables by `activate()`
-"""
-function deactivate(prefix::Prefix)
-    # Remove from PATH
-    paths = split_PATH()
-    filter!(p -> p != bindir(prefix), paths)
-    ENV["PATH"] = join_PATH(paths)
-
-    # Remove from DL_LOAD_PATH
-    filter!(p -> p != libdir(prefix), Libdl.DL_LOAD_PATH)
-    return nothing
 end
 
 """
