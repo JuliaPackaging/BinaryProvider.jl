@@ -882,9 +882,13 @@ const libfoo_downloads = Dict(
 
         # Test that download_verify_unpack() works
         Base.rm(prefix.path; recursive=true, force=true)
-        download_verify_unpack(url, hash, prefix.path)
+        @test download_verify_unpack(url, hash, prefix.path)
         @test satisfied(fooifier; verbose=true)
         @test satisfied(libfoo; verbose=true)
+
+        # Test that running download_verify_unpack again just returns `false`,
+        # signifying that it didn't actually re-unpack anything.
+        @test !download_verify_unpack(url, hash, prefix.path)
 
         # Test that download_verify twice in a row works, and that mucking
         # with the file causes a redownload if `force` is true:
