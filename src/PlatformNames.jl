@@ -540,26 +540,19 @@ function valid_dl_path(path::AbstractString, platform::Platform)
 end
 
 """
-    detect_libgfortran_abi()
+    detect_libgfortran_abi(libgfortran_name::AbstractString)
 
-Introspects the currently running Julia process to see what version of
-libgfortran is loaded, and determines the appropriate ABI that should be
-downloaded for this Julia version.
+Examines the given libgfortran SONAME to see what version of GCC corresponds
+to the given libgfortran version.
 """
-function detect_libgfortran_abi()
-    libgfortran_paths = filter(x -> occursin("libgfortran", x), dllist())
-    if isempty(libgfortran_paths)
-         # One day, I hope to not be linking against libgfortran in base Julia
-        return :gcc_any
-    end
-
+function detect_libgfortran_abi(libgfortran_name::AbstractString, platform::Platform = platform_key_abi(Sys.MACHINE))
     # Extract the version number from this libgfortran.  Ironically, parse_dl_name_version()
     # wants a Platform, but we may not have initialized the default platform key yet when we
     # run this method for the first time (since we need the output of this function to set
     # that default platform) so we manually pass in Sys.MACHINE.  :P
-    name, version = parse_dl_name_version(first(libgfortran_paths), platform_key_abi(Sys.MACHINE))
+    name, version = parse_dl_name_version(libgfortran_name, platform)
     if version === nothing
-        @warn("Unable to determine libgfortran version from '$(first(libgfortran_paths))'; returning :gcc_any")
+        @warn("Unable to determine libgfortran version from '$(libgfortran_name)'; returning :gcc_any")
         return :gcc_any
     end
     libgfortran_to_gcc = Dict(
@@ -572,6 +565,21 @@ function detect_libgfortran_abi()
         return :gcc_any
     end
     return libgfortran_to_gcc[version.major]
+end
+
+"""
+    detect_libgfortran_abi()
+
+If no parameter is given, introspects the current Julia process to determine
+the version of GCC this Julia was built with.
+"""
+function detect_libgfortran_abi()
+    libgfortran_paths = filter(x -> occursin("libgfortran", x), dllist())
+    if isempty(libgfortran_paths)
+         # One day, I hope to not be linking against libgfortran in base Julia
+        return :gcc_any
+    end
+    return detect_libgfortran_abi(first(libgfortran_paths))
 end
 
 """
