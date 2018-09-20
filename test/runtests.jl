@@ -348,8 +348,10 @@ end
             @test startswith(ENV["PATH"], bindir(prefix))
 
             if !Sys.iswindows()
-                envname = Sys.isapple() ? "DYLD_LIBRARY_PATH" : "LD_LIBRARY_PATH"
+                envname = Sys.isapple() ? "DYLD_FALLBACK_LIBRARY_PATH" : "LD_LIBRARY_PATH"
                 @test startswith(ENV[envname], libdir(prefix))
+                private_libdir = abspath(joinpath(Sys.BINDIR, Base.PRIVATE_LIBDIR))
+                @test endswith(ENV[envname], private_libdir)
 
                 # Test we can run the script we dropped within this prefix.
                 # Once again, something about Windows | busybox | Julia won't
