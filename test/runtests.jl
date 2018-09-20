@@ -343,25 +343,21 @@ end
         end
         chmod(ppt_path, 0o775)
 
-        # Test that activation adds certain paths to our environment variables
-        activate(prefix)
+        # Test that our `withenv()` stuff works.  :D
+        withenv(prefix) do
+            @test startswith(ENV["PATH"], bindir(prefix))
 
-        # PATH[1] should be "<prefix>/bin" now
-        @test BinaryProvider.split_PATH()[1] == bindir(prefix)
-        @test Libdl.DL_LOAD_PATH[1] == libdir(prefix)
+            if !Sys.iswindows()
+                envname = Sys.isapple() ? "DYLD_LIBRARY_PATH" : "LD_LIBRARY_PATH"
+                @test startswith(ENV[envname], libdir(prefix))
 
-        # Test we can run the script we dropped within this prefix.  Once again,
-        # something about Windows | busybox | Julia won't pick this up even though
-        # the path clearly points to the file.  :(
-        @static if !Sys.iswindows()
-            @test success(sh(`$(ppt_path)`))
-            @test success(sh(`prefix_path_test.sh`))
+                # Test we can run the script we dropped within this prefix.
+                # Once again, something about Windows | busybox | Julia won't
+                # pick this up even though the path clearly points to the file.
+                @test success(sh(`$(ppt_path)`))
+                @test success(sh(`prefix_path_test.sh`))
+            end
         end
-
-        # Now deactivate and make sure that all traces are gone
-        deactivate(prefix)
-        @test BinaryProvider.split_PATH()[1] != bindir(prefix)
-        @test Libdl.DL_LOAD_PATH[1] != libdir(prefix)
         
         # Test that we can control libdir() via platform arguments
         @test libdir(prefix, Linux(:x86_64)) == joinpath(prefix, "lib")

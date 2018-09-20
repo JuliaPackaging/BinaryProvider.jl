@@ -23,7 +23,6 @@ function __init__()
 
     # Initialize our global_prefix
     global_prefix = Prefix(joinpath(dirname(@__FILE__), "../", "global_prefix"))
-    activate(global_prefix)
 
     # Find the right download/compression engines for this platform
     probe_platform_engines!()
