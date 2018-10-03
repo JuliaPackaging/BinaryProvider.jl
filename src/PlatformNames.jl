@@ -639,11 +639,17 @@ close enough for our purposes, as you can't mix linkages between Julia and LLVM 
 are not compiled in the same way).
 """
 function detect_cxx11_string_abi()
-    hdl = dlopen(@static Sys.iswindows() ? "LLVM" : "libLLVM")
-    if hdl == C_NULL
+    function open_libllvm()
+        for lib_name in ("libLLVM", "LLVM", "libLLVMSupport")
+            hdl = dlopen_e(lib_name)
+            if hdl != C_NULL
+                return hdl
+            end
+        end
         error("Unable to open libLLVM!")
     end
 
+    hdl = open_libllvm()
     # Check for llvm::sys::getProcessTriple(), first without cxx11 tag:
     if dlsym_e(hdl, "_ZN4llvm3sys16getProcessTripleEv") != C_NULL
         return :cxx03
