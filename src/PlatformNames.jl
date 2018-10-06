@@ -613,6 +613,7 @@ function detect_libstdcxx_abi()
     for minor_version in 1:26
         if dlsym_e(hdl, "GLIBCXX_3.4.$(minor_version)") == C_NULL
             max_version = VersionNumber("3.4.$(minor_version - 1)")
+            break
         end
     end
     dlclose(hdl)
