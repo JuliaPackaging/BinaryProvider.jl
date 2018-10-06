@@ -611,16 +611,16 @@ function detect_libstdcxx_abi()
     max_version = v"3.4.0"
     hdl = dlopen(first(libstdcxx_paths))
     for minor_version in 1:26
-        if dlsym_e(hdl, "GLIBCXX_3.4.$(minor_version)") == C_NULL
-            max_version = VersionNumber("3.4.$(minor_version - 1)")
-            break
+        if dlsym_e(hdl, "GLIBCXX_3.4.$(minor_version)") != C_NULL
+            max_version = VersionNumber("3.4.$(minor_version)")
         end
     end
     dlclose(hdl)
 
     # Full list available here: https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html
     if max_version < v"3.4.18"
-        error("libstdc++ ABI version '$max_version' too small; please build Julia with GCC >= 4.8.5")
+        @warn "cannot detect available libstdc++ ABI version '$max_version', expect >= 3.4.23 (built Julia with GCC >= 4.8)"
+        return :gcc4
     elseif max_version < v"3.4.23"
         # If we aren't up to 7.1.0, then we fall all the way back to 4.8.5
         return :gcc4
