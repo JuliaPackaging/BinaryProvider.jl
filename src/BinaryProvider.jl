@@ -28,4 +28,8 @@ function __init__()
     probe_platform_engines!()
 end
 
+# gotta go fast
+include("precompile.jl")
+_precompile_()
+
 end # module
