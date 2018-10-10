@@ -619,8 +619,8 @@ function detect_libstdcxx_abi()
 
     # Full list available here: https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html
     if max_version < v"3.4.18"
-        @warn "cannot detect available libstdc++ ABI version '$max_version', expect >= 3.4.23 (built Julia with GCC >= 4.8)"
-        return :gcc4
+        @warn "Cannot make sense of autodetected libstdc++ ABI version ('$max_version')"
+        return :gcc_any
     elseif max_version < v"3.4.23"
         # If we aren't up to 7.1.0, then we fall all the way back to 4.8.5
         return :gcc4
