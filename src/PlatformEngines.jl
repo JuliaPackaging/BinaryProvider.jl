@@ -90,11 +90,11 @@ function probe_cmd(cmd::Cmd; verbose::Bool = false)
         @info("Probing $(cmd.exec[1]) as a possibility...")
     end
     try
-        success(cmd)
-        if verbose
+        res = success(cmd)
+        if res && verbose
             @info("  Probe successful for $(cmd.exec[1])")
         end
-        return true
+        return res
     catch
         return false
     end
