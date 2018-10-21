@@ -719,7 +719,7 @@ end
     choose_download(download_info::Dict, platform::Platform = platform_key_abi())
 
 Given a `download_info` dictionary mapping platforms to some value, choose
-the value whose key best matches `platform`, throwing an error if no matches
+the value whose key best matches `platform`, returning `nothing` if no matches
 can be found.
 
 Platform attributes such as architecture, libc, calling ABI, etc... must all
@@ -730,7 +730,7 @@ function choose_download(download_info::Dict, platform::Platform = platform_key_
     ps = collect(filter(p -> platforms_match(p, platform), keys(download_info)))
 
     if isempty(ps)
-        throw(ArgumentError("Unable to find matching download for $(platform)"))
+        return nothing
     end
 
     # At this point, we may have multiple possibilities.  E.g. if, in the future,
