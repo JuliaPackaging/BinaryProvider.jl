@@ -800,10 +800,10 @@ end
     @test choose_download(platforms, Linux(:x86_64, compiler_abi=CompilerABI(:gcc7))) == "linux7"
 
     @test choose_download(platforms, MacOS(:x86_64)) == "mac4"
-    @test_throws ArgumentError choose_download(platforms, MacOS(:x86_64, compiler_abi=CompilerABI(:gcc7)))
+    @test choose_download(platforms, MacOS(:x86_64, compiler_abi=CompilerABI(:gcc7))) == nothing
 
     @test choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))) == "win"
-    @test_throws ArgumentError choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx03)))
+    @test choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx03))) == nothing
 end
 
 # Use `build_libfoo_tarball.jl` in the BinaryBuilder.jl repository to generate more of these
