@@ -266,11 +266,12 @@ function probe_platform_engines!(;verbose::Bool = false)
 
         # We want to search both the `PATH`, and the direct path for powershell
         psh_path = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell"
+        psh_cmd = "exit [System.Net.SecurityProtocolType]::Tls12 -eq \$null"
         prepend!(download_engines, [
-            (`$psh_path -Command ""`, psh_download(psh_path))
+            (`$psh_path -Command "$psh_cmd"`, psh_download(psh_path))
         ])
         prepend!(download_engines, [
-            (`powershell -Command ""`, psh_download(`powershell`))
+            (`powershell -Command "$psh_cmd"`, psh_download(`powershell`))
         ])
 
         # We greatly prefer `7z` as a compression engine on Windows
@@ -385,7 +386,12 @@ function probe_platform_engines!(;verbose::Bool = false)
     if !download_found
         errmsg *= "No download engines found. We looked for: "
         errmsg *= join([d[1].exec[1] for d in download_engines], ", ")
-        errmsg *= ". Install one and ensure it  is available on the path.\n"
+        errmsg *= ". Install one and ensure it is available on the path.\n"
+
+        if Sys.iswindows()
+            errmsg *= "Ensure Windows Management Framework 3.0 or later "
+            errmsg *= "is installed and that Windows PowerShell can be started.\n"
+        end
     end
 
     if !compression_found
