@@ -395,11 +395,14 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
     escape_path = path -> replace(path, "\\" => "\\\\")
 
     # Grab the package name as the name of the top-level directory of a package
-    if VERSION < v"0.7.0-"
-        package_name = basename(dirname(dirname(depsjl_path)))
-    else
+    # Auto-detect being placed within the `~/.julia/packages/XXXXX` directory
+    if basename(dirname(dirname(dirname(dirname(depsjl_path))))) == "packages"
         package_name = basename(dirname(dirname(dirname(depsjl_path))))
-    end          
+    else
+        # otherwise assume same as folder name
+        # TODO: check Project.toml
+        package_name = basename(dirname(dirname(depsjl_path)))
+    end
     # We say this a couple of times
     rebuild = strip("""
     Please re-run Pkg.build(\\\"$(package_name)\\\"), and restart Julia.
