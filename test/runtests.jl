@@ -271,6 +271,20 @@ end
         @test !BinaryProvider.platforms_match(Linux(:x86_64), UnknownPlatform())
         @test !BinaryProvider.platforms_match(Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)), Linux(:x86_64, compiler_abi=CompilerABI(:gcc8)))
         @test !BinaryProvider.platforms_match(Linux(:x86_64, compiler_abi=CompilerABI(:gcc7, :cxx11)), Linux(:x86_64, compiler_abi=CompilerABI(:gcc7, :cxx03)))
+
+        # Test that :gcc4 matches with :gcc5 and :gcc6, as we only care aobut libgfortran version
+        @test BinaryProvider.platforms_match(
+            Linux(:x86_64; compiler_abi=CompilerABI(:gcc4)),
+            Linux(:x86_64; compiler_abi=CompilerABI(:gcc5)),
+        )
+        @test BinaryProvider.platforms_match(
+            Linux(:x86_64; compiler_abi=CompilerABI(:gcc4)),
+            Linux(:x86_64; compiler_abi=CompilerABI(:gcc6)),
+        )
+        @test BinaryProvider.platforms_match(
+            Linux(:x86_64; compiler_abi=CompilerABI(:gcc5)),
+            Linux(:x86_64; compiler_abi=CompilerABI(:gcc6)),
+        )
     end
 
     @testset "DL name/version parsing" begin
@@ -789,21 +803,37 @@ end
 
 @testset "choose_download" begin
     platforms = Dict(
+        # Typical binning test
         Linux(:x86_64, compiler_abi=CompilerABI(:gcc4)) => "linux4",
         Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)) => "linux7",
         Linux(:x86_64, compiler_abi=CompilerABI(:gcc8)) => "linux8",
+
+        # Ambiguity test
+        Linux(:aarch64, compiler_abi=CompilerABI(:gcc4)) => "linux4",
+        Linux(:aarch64, compiler_abi=CompilerABI(:gcc5)) => "linux5",
+
         MacOS(:x86_64, compiler_abi=CompilerABI(:gcc4)) => "mac4",
         Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11)) => "win",
     )
 
     @test choose_download(platforms, Linux(:x86_64)) == "linux8"
     @test choose_download(platforms, Linux(:x86_64, compiler_abi=CompilerABI(:gcc7))) == "linux7"
-
+    
+    # Ambiguity test
+    @test choose_download(platforms, Linux(:aarch64)) == "linux5"
+    @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc4))) == "linux5"
+    @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc5))) == "linux5"
+    @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc6))) == "linux5"
+    @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc7))) == nothing
+    
     @test choose_download(platforms, MacOS(:x86_64)) == "mac4"
     @test choose_download(platforms, MacOS(:x86_64, compiler_abi=CompilerABI(:gcc7))) == nothing
 
     @test choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))) == "win"
     @test choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx03))) == nothing
+   
+    # Poor little guy
+    @test choose_download(platforms, FreeBSD(:x86_64)) == nothing
 end
 
 # Use `build_libfoo_tarball.jl` in the BinaryBuilder.jl repository to generate more of these
