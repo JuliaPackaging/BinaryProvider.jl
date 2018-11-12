@@ -369,7 +369,7 @@ function probe_platform_engines!(;verbose::Bool = false)
     end
 
     for path in sh_engines
-        if probe_cmd(`$path --help`; verbose=verbose)
+        if probe_cmd(`$path -c ""`; verbose=verbose)
             gen_sh_cmd = (cmd) -> `$path -c $cmd`
             if verbose
                 @info("Found sh engine $(path.exec[1])")
