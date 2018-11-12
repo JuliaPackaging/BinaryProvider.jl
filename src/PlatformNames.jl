@@ -10,7 +10,7 @@ end
 # We need to track our compiler ABI compatibility.
 struct CompilerABI
     # Major GCC version that we're locked into.
-    # Can be [:gcc4, :gcc7, :gcc8, :gcc_any]
+    # Can be [:gcc4, :gcc5, :gcc6, :gcc7, :gcc8, :gcc_any]
     gcc_version::Symbol
 
     # Whether we're using cxx11abi strings
@@ -18,7 +18,7 @@ struct CompilerABI
     cxx_abi::Symbol
 
     function CompilerABI(gcc_version::Symbol = :gcc_any, cxx_abi::Symbol = :cxx_any)
-        if !in(gcc_version, [:gcc4, :gcc7, :gcc8, :gcc_any])
+        if !in(gcc_version, [:gcc4, :gcc5, :gcc6, :gcc7, :gcc8, :gcc_any])
             throw(ArgumentError("Unsupported GCC major version '$gcc_version'"))
         end
 
@@ -389,6 +389,8 @@ function platform_key_abi(machine::AbstractString)
     gcc_version_mapping = Dict(
         :gcc_any => "",
         :gcc4 => "-gcc4",
+        :gcc5 => "-gcc5",
+        :gcc6 => "-gcc6",
         :gcc7 => "-gcc7",
         :gcc8 => "-gcc8",
     )
@@ -703,9 +705,21 @@ function platforms_match(a::Platform, b::Platform)
     function flexible_constraints(a, b)
         ac = compiler_abi(a)
         bc = compiler_abi(b)
+
+        # Map from GCC version to libgfortran SO version
+        gfmap = Dict(
+            :gcc4 => 3,
+            :gcc5 => 3,
+            :gcc6 => 3,
+            :gcc7 => 4,
+            :gcc8 => 5,
+        )
+
+        # We consider two GCC versions to match if their libgfortran
+        # versions match; e.g. :gcc4 and :gcc5 match.
         gcc_match = (ac.gcc_version == :gcc_any
                   || bc.gcc_version == :gcc_any
-                  || ac.gcc_version == bc.gcc_version)
+                  || gfmap[ac.gcc_version] == gfmap[bc.gcc_version])
         cxx_match = (ac.cxx_abi == :cxx_any
                   || bc.cxx_abi == :cxx_any
                   || ac.cxx_abi == bc.cxx_abi)
