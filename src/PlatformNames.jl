@@ -1,5 +1,5 @@
 export platform_key, platform_key_abi, platform_dlext, valid_dl_path, arch, libc, call_abi, wordsize, triplet, choose_download,
-       CompilerABI, Platform, UnknownPlatform, Linux, MacOS, Windows, FreeBSD
+       CompilerABI, Platform, UnknownPlatform, Linux, MacOS, Windows, FreeBSD, WebAssembly
 import Base: show
 
 abstract type Platform end
@@ -198,6 +198,26 @@ struct FreeBSD <: Platform
     end
 end
 
+struct WebAssembly <: Platform
+    arch::Symbol
+    libc::Symbol
+    call_abi::Symbol
+    compiler_abi::CompilerABI
+
+    function WebAssembly(arch::Symbol=:wasm32, 
+                         libc::Symbol=:blank_libc,
+                         call_abi::Symbol=:emscripten,
+                         compiler_abi::CompilerABI=CompilerABI())
+        if arch !== :wasm32
+            throw(ArgumentError("Unsupported architecture '$arch' for WebAssembly"))
+        end
+        if !in(call_abi, [:unknown, :emscripten])
+            throw(ArgumentError("Unsupported abi '$abi' for WebAssembly"))
+        end
+        return new(arch, libc, call_abi, compiler_abi)
+    end
+end
+
 """
     platform_name(p::Platform)
 
@@ -208,7 +228,8 @@ platform_name(p::Linux) = "Linux"
 platform_name(p::MacOS) = "MacOS"
 platform_name(p::Windows) = "Windows"
 platform_name(p::FreeBSD) = "FreeBSD"
-platform_name(p::UnknownPlatform) = "UnknownPlatform"
+platform_name(p::WebAssembly) = "WebAssembly"
+platforn_name(p::UnknownPlatform) = "UnknownPlatform"
 
 """
     arch(p::Platform)
@@ -322,6 +343,7 @@ vendor_str(p::Windows) = "-w64-mingw32"
 vendor_str(p::MacOS) = "-apple-darwin14"
 vendor_str(p::Linux) = "-linux"
 vendor_str(p::FreeBSD) = "-unknown-freebsd11.1"
+vendor_str(p::WebAssembly) = "-unknown"
 
 # Special-case UnknownPlatform
 triplet(p::UnknownPlatform) = "unknown-unknown-unknown"
@@ -338,6 +360,7 @@ function libc_str(p::Platform)
     end
 end
 call_abi_str(p::Platform) = (call_abi(p) == :blank_abi) ? "" : string(call_abi(p))
+call_abi_str(p::WebAssembly) = string("-", call_abi(p))
 function compiler_abi_str(cabi::CompilerABI)
     str = ""
     if cabi.gcc_version != :gcc_any
@@ -363,6 +386,8 @@ Returns the platform key for the current platform, or any other though the
 the use of the `machine` parameter.
 """
 function platform_key_abi(machine::AbstractString)
+    machine == "wasm32-unknown-emscripten" && (return WebAssembly())
+
     # We're going to build a mondo regex here to parse everything:
     arch_mapping = Dict(
         :x86_64 => "(x86_|amd)64",
@@ -384,6 +409,7 @@ function platform_key_abi(machine::AbstractString)
     )
     call_abi_mapping = Dict(
         :blank_abi => "",
+        :emscripten => "emscripten",
         :eabihf => "eabihf",
     )
     gcc_version_mapping = Dict(
@@ -484,6 +510,7 @@ platform_dlext(::Linux) = "so"
 platform_dlext(::FreeBSD) = "so"
 platform_dlext(::MacOS) = "dylib"
 platform_dlext(::Windows) = "dll"
+platform_dlext(::WebAssembly) = "wasm"
 platform_dlext(::UnknownPlatform) = "unknown"
 platform_dlext() = platform_dlext(platform_key_abi())
 
