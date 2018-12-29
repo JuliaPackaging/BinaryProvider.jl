@@ -98,8 +98,8 @@ end
 
     # Next, test reading the output of a pipeline()
     grepline = pipeline(
-        sh(`-c 'printf "Hello\nWorld\nJulia\n"'`),
-        sh(`-c 'while read line; do case $line in *ul*) echo $line; esac; done'`)
+        sh(`'printf "Hello\nWorld\nJulia\n"'`),
+        sh(`'while read line; do case $line in *ul*) echo $line; esac; done'`)
     )
     oc = OutputCollector(grepline)
 
