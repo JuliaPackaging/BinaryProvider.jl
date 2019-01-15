@@ -226,11 +226,11 @@ function probe_platform_engines!(;verbose::Bool = false)
             elseif endswith(tarball_path, ".bz2")
                 Jjz = "j"
             end
-            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path)`
+            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(escape_string(out_path)) --force-local`
         end
         package_tar = (in_path, tarball_path) ->
-            `$tar_cmd -czvf $tarball_path -C $(in_path) .`
-        list_tar = (in_path) -> `$tar_cmd -tzf $in_path`
+            `$tar_cmd -czvf $tarball_path -C $(in_path) . --force-local`
+        list_tar = (in_path) -> `$tar_cmd -tzf $in_path --force-local`
         push!(compression_engines, (
             `$tar_cmd --help`,
             unpack_tar,
