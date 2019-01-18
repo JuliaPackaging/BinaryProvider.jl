@@ -328,7 +328,7 @@ function install(tarball_url::AbstractString,
 
     # Check to see if any files are already present
     for file in file_list
-        if isfile(joinpath(prefix, file))
+        if safe_isfile(joinpath(prefix, file))
             if !force
                 msg  = "$(file) already exists and would be overwritten while "
                 msg *= "installing $(basename(tarball_path))\n"
