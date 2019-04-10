@@ -22,7 +22,10 @@ function __init__()
     global global_prefix
 
     # Initialize our global_prefix
-    global_prefix = Prefix(joinpath(dirname(pathof(@__MODULE__)), "..", "global_prefix"))
+    global_prefix = Prefix(joinpath(dirname(something(
+        pathof(@__MODULE__),  # may be `nothing`; see JuliaLang/julia#31662
+        @__FILE__,
+    )), "..", "global_prefix"))
 
     # Find the right download/compression engines for this platform
     probe_platform_engines!()
