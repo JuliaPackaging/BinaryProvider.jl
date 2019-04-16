@@ -682,13 +682,10 @@ end
 # and over and over again.  Note that we manually slap on a compiler abi
 # string onto the end, so as to encode that in Sys.MACHINE like we expect our
 # triplets to be encoded.
-default_platkey = platform_key_abi(string(
-    Sys.MACHINE,
-    compiler_abi_str(detect_compiler_abi()),
-))
+const default_platkey = Ref{Platform}()
+
 function platform_key_abi()
-    global default_platkey
-    return default_platkey
+    return default_platkey[]
 end
 
 function platforms_match(a::Platform, b::Platform)

@@ -6,6 +6,7 @@ export gen_download_cmd, gen_unpack_cmd, gen_package_cmd, gen_list_tarball_cmd,
        parse_tarball_listing, gen_sh_cmd, parse_7z_list, parse_tar_list,
        download_verify_unpack, download_verify, unpack
 
+const download_command_func = Ref{Function}()
 """
     gen_download_cmd(url::AbstractString, out_path::AbstractString)
 
@@ -15,9 +16,16 @@ the location given by `out_path`.
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-gen_download_cmd = (url::AbstractString, out_path::AbstractString) ->
-    error("Call `probe_platform_engines()` before `gen_download_cmd()`")
+function gen_download_cmd(url::AbstractString, out_path::AbstractString)
+    if isassigned(download_command_func)
+        download_command_func[](url, out_path)
+    else
+        error("Call `probe_platform_engines()` before `gen_download_cmd()`")
+    end
+end
 
+
+const gen_unpack_cmd_func = Ref{Function}()
 """
     gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString)
 
@@ -27,9 +35,15 @@ Return a `Cmd` that will unpack the given `tarball_path` into the given
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-gen_unpack_cmd = (tarball_path::AbstractString, out_path::AbstractString) ->
-    error("Call `probe_platform_engines()` before `gen_unpack_cmd()`")
+function gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString)
+    if isassigned(gen_unpack_cmd_func)
+        gen_unpack_cmd_func[](tarball_path, out_path)
+    else
+        error("Call `probe_platform_engines()` before `gen_unpack_cmd()`")
+    end
+end
 
+const gen_package_cmd_func = Ref{Function}()
 """
     gen_package_cmd(in_path::AbstractString, tarball_path::AbstractString)
 
@@ -39,9 +53,15 @@ tarball located at `tarball_path`.
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-gen_package_cmd = (in_path::AbstractString, tarball_path::AbstractString) ->
-    error("Call `probe_platform_engines()` before `gen_package_cmd()`")
+function gen_package_cmd(in_path::AbstractString, tarball_path::AbstractString)
+    if isassigned(gen_package_cmd_func)
+        gen_package_cmd_func[](in_path, tarball_path)
+    else
+        error("Call `probe_platform_engines()` before `gen_package_cmd()`")
+    end
+end
 
+const gen_list_tarball_cmd_func = Ref{Function}()
 """
     gen_list_tarball_cmd(tarball_path::AbstractString)
 
@@ -52,9 +72,16 @@ tarball.
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-gen_list_tarball_cmd = (tarball_path::AbstractString) ->
-    error("Call `probe_platform_engines()` before `gen_list_tarball_cmd()`")
+function gen_list_tarball_cmd(tarball_path::AbstractString)
+    if isassigned(gen_list_tarball_cmd_func)
+        gen_list_tarball_cmd_func[](tarball_path)
+    else
+        error("Call `probe_platform_engines()` before `gen_list_tarball_cmd()`")
+    end
+end
 
+
+const parse_tarball_listing_func = Ref{Function}()
 """
     parse_tarball_listing(output::AbstractString)
 
@@ -63,9 +90,15 @@ Parses the result of `gen_list_tarball_cmd()` into something useful.
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-parse_tarball_listing = (output::AbstractString) ->
-    error("Call `probe_platform_engines()` before `parse_tarball_listing()`")
+function parse_tarball_listing(output::AbstractString)
+    if isassigned(parse_tarball_listing_func)
+        parse_tarball_listing_func[](output)
+    else
+        error("Call `probe_platform_engines()` before `parse_tarball_listing()`")
+    end
+end
 
+const gen_sh_cmd_func = Ref{Function}()
 """
     gen_sh_cmd(cmd::Cmd)
 
@@ -76,8 +109,13 @@ to the `sh` provided by the `busybox.exe` shipped with Julia.
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-gen_sh_cmd = (cmd::Cmd) ->
-    error("Call `probe_platform_engines()` before `gen_sh_cmd()`")
+function gen_sh_cmd(cmd::Cmd)
+    if isassigned(gen_sh_cmd_func)
+        gen_sh_cmd_func[](cmd)
+    else
+        error("Call `probe_platform_engines()` before `gen_sh_cmd()`")
+    end
+end
 
 
 """
@@ -132,8 +170,88 @@ end
 
 # Global variable that tells us whether tempdir() can have symlinks
 # created within it.
-tempdir_symlink_creation = false
+const tempdir_symlink_creation = Ref(false)
 
+# 7z is rather intensely verbose.  We also want to try running not only
+# `7z` but also a direct path to the `7z.exe` bundled with Julia on
+# windows, so we create generator functions to spit back functors to invoke
+# the correct 7z given the path to the executable:
+
+const exe7z = Ref{String}()
+
+function unpack_7z(tarball_path, out_path)
+    pipeline(
+        `$(exe7z[]) x $(tarball_path) -y -so`,
+        `$(exe7z[]) x -si -y -ttar -o$(out_path)`
+    )
+end
+
+function package_7z(in_path, tarball_path)
+    pipeline(
+        `$(exe7z[]) a -ttar -so a.tar "$(joinpath(".",in_path,"*"))"`,
+        `$(exe7z[]) a -si $(tarball_path)`
+    )
+end
+
+function list_7z(path)
+    pipeline(`$(exe7z[]) x $path -so`, `$(exe7z[]) l -ttar -y -si`)
+end
+
+const tar_cmd = Ref{String}()
+
+function unpack_tar(tarball_path, out_path)
+    Jjz = "z"
+    if endswith(tarball_path, ".xz")
+        Jjz = "J"
+    elseif endswith(tarball_path, ".bz2")
+        Jjz = "j"
+    end
+    return `$(tar_cmd[]) -x$(Jjz)f $(tarball_path) --directory=$(out_path)`
+end
+
+function package_tar(in_path, tarball_path)
+    `$(tar_cmd[]) -czvf $tarball_path -C $(in_path) .`
+end
+
+function list_tar(in_path)
+    `$(tar_cmd[]) -tzf $in_path`
+end
+
+
+
+const binary_provider_agent = "BinaryProvider.jl (https://github.com/JuliaPackaging/BinaryProvider.jl)"
+
+function download_curl(url, path)
+    `curl -H "User-Agent: $binary_provider_agent" -C - -\# -f -o $path -L $url`
+end
+
+function download_wget(url, path)
+    `wget --tries=5 -U $binary_provider_agent -c -O $path $url`
+end
+
+function download_fetch(url, path)
+    `fetch --user-agent=$binary_provider_agent -f $path $url`
+end
+function download_busybox(url, path)
+    `busybox wget -U $binary_provider_agent -c -O $path $url`
+end
+
+const powershell_path = Ref{String}()
+
+# For download engines, we will most likely want to use powershell.
+# Let's generate a functor to return the necessary powershell magics
+# to download a file, given a path to the powershell executable
+function download_powershell(url, path)
+    webclient_code = """
+    [System.Net.ServicePointManager]::SecurityProtocol =
+        [System.Net.SecurityProtocolType]::Tls12;
+    \$webclient = (New-Object System.Net.Webclient);
+    \$webclient.Headers.Add("user-agent", "$binary_provider_agent");
+    \$webclient.DownloadFile("$url", "$path")
+    """
+    replace(webclient_code, "\n" => " ")
+    return `$(powershell_path[]) -NoProfile -Command "$webclient_code"`
+end
 
 """
     probe_platform_engines!(;verbose::Bool = false)
@@ -166,120 +284,63 @@ will be printed and the typical searching will be performed.
 If `verbose` is `true`, print out the various engines as they are searched.
 """
 function probe_platform_engines!(;verbose::Bool = false)
-    global gen_download_cmd, gen_list_tarball_cmd, gen_package_cmd
-    global gen_unpack_cmd, parse_tarball_listing, gen_sh_cmd
-    global tempdir_symlink_creation
-
     # First things first, determine whether tempdir() can have symlinks created
     # within it.  This is important for our copyderef workaround for e.g. SMBFS
-    tempdir_symlink_creation = probe_symlink_creation(tempdir())
+    tempdir_symlink_creation[] = probe_symlink_creation(tempdir())
     if verbose
-        @info("Symlinks allowed in $(tempdir()): $(tempdir_symlink_creation)")
+        @info("Symlinks allowed in $(tempdir()): $(tempdir_symlink_creation[])")
     end
 
-    agent = "BinaryProvider.jl (https://github.com/JuliaPackaging/BinaryProvider.jl)"
     # download_engines is a list of (test_cmd, download_opts_functor)
     # The probulator will check each of them by attempting to run `$test_cmd`,
     # and if that works, will set the global download functions appropriately.
     download_engines = [
-        (`curl --help`, (url, path) -> `curl -H "User-Agent: $agent" -C - -\# -f -o $path -L $url`),
-        (`wget --help`, (url, path) -> `wget --tries=5 -U $agent -c -O $path $url`),
-        (`fetch --help`, (url, path) -> `fetch --user-agent=$agent -f $path $url`),
-        (`busybox wget --help`, (url, path) -> `busybox wget -U $agent -c -O $path $url`),
+        (Ref{String}() => ["curl"], ["--help"], download_curl),
+        (Ref{String}() => ["wget"], ["--help"], download_wget),
+        (Ref{String}() => ["fetch"], ["--help"], download_fetch),
+        (Ref{String}() => ["busybox"], ["wget", "--help"], download_busybox),
     ]
-
-    # 7z is rather intensely verbose.  We also want to try running not only
-    # `7z` but also a direct path to the `7z.exe` bundled with Julia on
-    # windows, so we create generator functions to spit back functors to invoke
-    # the correct 7z given the path to the executable:
-    unpack_7z = (exe7z) -> begin
-        return (tarball_path, out_path) ->
-            pipeline(`$exe7z x $(tarball_path) -y -so`,
-                     `$exe7z x -si -y -ttar -o$(out_path)`)
-    end
-    package_7z = (exe7z) -> begin
-        return (in_path, tarball_path) ->
-            pipeline(`$exe7z a -ttar -so a.tar "$(joinpath(".",in_path,"*"))"`,
-                     `$exe7z a -si $(tarball_path)`)
-    end
-    list_7z = (exe7z) -> begin
-        return (path) ->
-            pipeline(`$exe7z x $path -so`, `$exe7z l -ttar -y -si`)
-    end
-
-    # Tar is rather less verbose, and we don't need to search multiple places
-    # for it, so just rely on PATH to have `tar` available for us:
 
     # compression_engines is a list of (test_cmd, unpack_opts_functor,
     # package_opts_functor, list_opts_functor, parse_functor).  The probulator
     # will check each of them by attempting to run `$test_cmd`, and if that
     # works, will set the global compression functions appropriately.
-    gen_7z = (p) -> (unpack_7z(p), package_7z(p), list_7z(p), parse_7z_list)
     compression_engines = Tuple[]
-
-    for tar_cmd in [`tar`, `busybox tar`]
-        # Some tar's aren't smart enough to auto-guess decompression method. :(
-        unpack_tar = (tarball_path, out_path) -> begin
-            Jjz = "z"
-            if endswith(tarball_path, ".xz")
-                Jjz = "J"
-            elseif endswith(tarball_path, ".bz2")
-                Jjz = "j"
-            end
-            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path)`
-        end
-        package_tar = (in_path, tarball_path) ->
-            `$tar_cmd -czvf $tarball_path -C $(in_path) .`
-        list_tar = (in_path) -> `$tar_cmd -tzf $in_path`
-        push!(compression_engines, (
-            `$tar_cmd --help`,
-            unpack_tar,
-            package_tar,
-            list_tar,
-            parse_tar_list,
-        ))
-    end
 
     # sh_engines is just a list of Cmds-as-paths
     sh_engines = [
         `sh`,
     ]
 
+    exe7zips = String[]
+    # Tar is rather less verbose, and we don't need to search multiple places
+    # for it, so just rely on PATH to have `tar` available for us:
+    # Some tar's aren't smart enough to auto-guess decompression method. :(
+    push!(compression_engines, (
+        tar_cmd => ["tar", "busybox tar"],
+        ["--help"],
+        unpack_tar,
+        package_tar,
+        list_tar,
+        parse_tar_list,
+    ))
+
     # For windows, we need to tweak a few things, as the tools available differ
     @static if Sys.iswindows()
-        # For download engines, we will most likely want to use powershell.
-        # Let's generate a functor to return the necessary powershell magics
-        # to download a file, given a path to the powershell executable
-        psh_download = (psh_path) -> begin
-            return (url, path) -> begin
-                webclient_code = """
-                [System.Net.ServicePointManager]::SecurityProtocol =
-                    [System.Net.SecurityProtocolType]::Tls12;
-                \$webclient = (New-Object System.Net.Webclient);
-                \$webclient.Headers.Add("user-agent", "$agent");
-                \$webclient.DownloadFile("$url", "$path")
-                """
-                replace(webclient_code, "\n" => " ")
-                return `$psh_path -NoProfile -Command "$webclient_code"`
-            end
-        end
 
         # We want to search both the `PATH`, and the direct path for powershell
-        psh_path = joinpath(get(ENV, "SYSTEMROOT", "C:\\Windows"), "System32\\WindowsPowerShell\\v1.0\\powershell.exe")
+        psh_paths = [
+            joinpath(get(ENV, "SYSTEMROOT", "C:\\Windows"), "System32\\WindowsPowerShell\\v1.0\\powershell.exe"),
+            "powershell"
+        ]
         prepend!(download_engines, [
-            (`$psh_path -Command ""`, psh_download(psh_path))
-        ])
-        prepend!(download_engines, [
-            (`powershell -Command ""`, psh_download(`powershell`))
+            (powershell_path => psh_paths, ["-Command", ""], download_powershell)
         ])
 
         # We greatly prefer `7z` as a compression engine on Windows
-        prepend!(compression_engines, [(`7z --help`, gen_7z("7z")...)])
-
+        push!(exe7zips, "7z")
         # On windows, we bundle 7z with Julia, so try invoking that directly
-        exe7z = joinpath(Sys.BINDIR, "7z.exe")
-        prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
-
+        push!(exe7zips, joinpath(Sys.BINDIR, "7z.exe"))
         # And finally, we want to look for sh as busybox as well:
         busybox = joinpath(Sys.BINDIR, "busybox.exe")
         prepend!(sh_engines, [(`$busybox sh`)])
@@ -329,38 +390,52 @@ function probe_platform_engines!(;verbose::Bool = false)
     end
 
     # Search for a download engine
-    for (test, dl_func) in download_engines
-        if probe_cmd(`$test`; verbose=verbose)
-            # Set our download command generator
-            gen_download_cmd = dl_func
-            download_found = true
+    for ((ref, exes), args, dl_func) in download_engines
+        for exe in exes
+            ref[] = exe # update exe ref
+            if probe_cmd(`$exe $args`; verbose=verbose)
+                # Set our download command generator
+                download_command_func[] = dl_func
+                download_found = true
 
-            if verbose
-                @info("Found download engine $(test.exec[1])")
+                if verbose
+                    @info("Found download engine $(exe)")
+                end
+                break
             end
-            break
         end
     end
 
     if verbose
         @info("Probing for compression engine...")
     end
-
+    push!(compression_engines, (
+        exe7z => exe7zips,
+        ["--help"],
+        unpack_7z,
+        package_7z,
+        list_7z,
+        parse_7z_list,
+    ))
     # Search for a compression engine
-    for (test, unpack, package, list, parse) in compression_engines
-        if probe_cmd(`$test`; verbose=verbose)
-            # Set our compression command generators
-            gen_unpack_cmd = unpack
-            gen_package_cmd = package
-            gen_list_tarball_cmd = list
-            parse_tarball_listing = parse
+    for ((ref, exes), arg, unpack, package, list, parse) in compression_engines
+        for exe in exes
+            # update the exe
+            ref[] = exe
+            if probe_cmd(`$exe $arg`; verbose=verbose)
+                # Set our compression command generators
+                gen_unpack_cmd_func[] = unpack
+                gen_package_cmd_func[] = package
+                gen_list_tarball_cmd_func[] = list
+                parse_tarball_listing_func[] = parse
 
-            if verbose
-                @info("Found compression engine $(test.exec[1])")
+                if verbose
+                    @info("Found compression engine $exe")
+                end
+
+                compression_found = true
+                break
             end
-
-            compression_found = true
-            break
         end
     end
 
@@ -370,7 +445,7 @@ function probe_platform_engines!(;verbose::Bool = false)
 
     for path in sh_engines
         if probe_cmd(`$path --help`; verbose=verbose)
-            gen_sh_cmd = (cmd) -> `$path -c $cmd`
+            gen_sh_cmd_func[] = (cmd) -> `$path -c $cmd`
             if verbose
                 @info("Found sh engine $(path.exec[1])")
             end
@@ -633,7 +708,7 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
     # The user can force usage of our dereferencing workaround for filesystems
     # that don't support symlinks, but it is also autodetected.
     copyderef = get(ENV, "BINARYPROVIDER_COPYDEREF", "") == "true" ||
-                (tempdir_symlink_creation && !probe_symlink_creation(dest))
+                (tempdir_symlink_creation[] && !probe_symlink_creation(dest))
 
     # If we should "copyderef" what we do is to unpack into a temporary directory,
     # then copy without preserving symlinks into the destination directory.  This

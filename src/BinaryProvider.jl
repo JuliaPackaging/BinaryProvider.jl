@@ -19,13 +19,19 @@ include("Products.jl")
 include("CompatShims.jl")
 
 function __init__()
-    global global_prefix
-
     # Initialize our global_prefix
-    global_prefix = Prefix(joinpath(dirname(pathof(@__MODULE__)), "..", "global_prefix"))
-
+    path = joinpath(@__DIR__, "..", "global_prefix")
+    global_prefix[] = Prefix(path)
+    default_platkey[] = platform_key_abi(string(
+        Sys.MACHINE,
+        compiler_abi_str(detect_compiler_abi()),
+    ))
     # Find the right download/compression engines for this platform
-    probe_platform_engines!()
+    try
+        probe_platform_engines!()
+    catch e
+        @show e
+    end
 end
 
 # gotta go fast
