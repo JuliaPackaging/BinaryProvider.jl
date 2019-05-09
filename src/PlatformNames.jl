@@ -613,7 +613,7 @@ function detect_libstdcxx_abi()
     max_version = v"3.4.0"
     hdl = dlopen(first(libstdcxx_paths))
     for minor_version in 1:26
-        if dlsym_e(hdl, "GLIBCXX_3.4.$(minor_version)") != C_NULL
+        if dlsym(hdl, "GLIBCXX_3.4.$(minor_version)"; throw_error=false) != C_NULL
             max_version = VersionNumber("3.4.$(minor_version)")
         end
     end
