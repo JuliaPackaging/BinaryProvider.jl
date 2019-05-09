@@ -612,9 +612,10 @@ function detect_libstdcxx_abi()
     # ObjectFile which is unacceptable for us.  So instead we just brute-force it.
     max_version = v"3.4.0"
     hdl = dlopen(first(libstdcxx_paths))
-    for minor_version in 1:26
-        if dlsym(hdl, "GLIBCXX_3.4.$(minor_version)"; throw_error=false) != C_NULL
+    for minor_version in 26:-1:17
+        if dlsym(hdl, "GLIBCXX_3.4.$(minor_version)"; throw_error=false) != nothing
             max_version = VersionNumber("3.4.$(minor_version)")
+            break
         end
     end
     dlclose(hdl)
