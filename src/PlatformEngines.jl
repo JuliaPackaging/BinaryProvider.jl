@@ -714,7 +714,7 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
                         end
                     end
                 end
-        end
+            end
         end
         cptry_harder(dest, true_dest)
         rm(dest; recursive=true, force=true)
