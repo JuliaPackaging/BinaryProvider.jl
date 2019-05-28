@@ -485,7 +485,7 @@ function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = fal
         error("Could not list contents of tarball $(tarball_path)")
     end
     output = collect_stdout(oc)
-
+    @debug(output)
     if match(r"^[\r\n]*7-Zip"s, output) != nothing
         mm = eachmatch(r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s, output)
     else
