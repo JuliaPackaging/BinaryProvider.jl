@@ -489,7 +489,7 @@ function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = fal
     if match(r"^[\r\n]*7-Zip"s, output) != nothing
         mm = eachmatch(r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s, output)
     else
-        mm = eachmatch(r"^l\S+ \S+\s+\d+ \S+ \S+ (.+?)(?: -> (.+?))?\r?$"m, output)
+        mm = eachmatch(r"^l\S+ \S+\s+\d+\s+\S+\s+\S+(?:\s+[\d:]+ \d+)? (?:\.[\\/])?(.+?)(?: -> (.+?))?\r?$"m, output)
     end
     return [m.captures[1] => joinpath(splitdir(m.captures[1])[1], split(m.captures[2], "/")...) for m in mm]
 end
