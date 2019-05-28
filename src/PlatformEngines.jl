@@ -230,7 +230,7 @@ function probe_platform_engines!(;verbose::Bool = false)
         end
         package_tar = (in_path, tarball_path) ->
             `$tar_cmd -czvf $tarball_path -C $(in_path) .`
-        list_tar = (in_path; verbose = false) -> `$tar_cmd -tzf$(verbose ? ["v"] : []) $in_path`
+        list_tar = (in_path; verbose = false) -> `$tar_cmd -tz$(verbose ? ["v"] : [])f $in_path`
         push!(compression_engines, (
             `$tar_cmd --help`,
             unpack_tar,
