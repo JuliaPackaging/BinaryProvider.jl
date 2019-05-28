@@ -485,11 +485,11 @@ function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = fal
         error("Could not list contents of tarball $(tarball_path)")
     end
     output = collect_stdout(oc)
-    @info("copyderef2: \r\n" * output)
+    # @info("copyderef2: \r\n" * output)
     if match(r"^[\r\n]*7-Zip"s, output) != nothing
         mm = eachmatch(r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s, output)
     else
-        mm = eachmatch(r"^l\S+ \S+\s+\d+\s+\S+\s+\S+(?:\s+[\d:]+ \d+)? (?:\.[\\/])?(.+?)(?: -> (.+?))?\r?$"m, output)
+        mm = eachmatch(r"^l\S+\s+(?:\S+|\S+ \S+\s+\S+)\s+\d+ (?:\S+ \S+|\S+\s+\d+\s+\d+) (?:\.[\\/])?(.+?)(?: -> (.+?))?\r?$"m, output)
     end
     return [m.captures[1] => joinpath(splitdir(m.captures[1])[1], split(m.captures[2], "/")...) for m in mm]
 end
