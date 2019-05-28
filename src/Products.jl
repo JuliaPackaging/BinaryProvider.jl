@@ -390,7 +390,7 @@ package load time, and if an error is discovered, package loading will fail,
 asking the user to re-run `Pkg.build("package_name")`.
 """
 function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
-                         verbose::Bool=false) where {P <: Product}
+                         verbose::Bool=false, isolate::Bool=true) where {P <: Product}
     # helper function to escape paths
     escape_path = path -> replace(path, "\\" => "\\\\")
 
@@ -410,7 +410,7 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
 
     # Begin by ensuring that we can satisfy every product RIGHT NOW
     for p in products
-        if !satisfied(p; verbose=verbose)
+        if !satisfied(p; verbose=verbose, isolate=isolate)
             error("$p is not satisfied, cannot generate deps.jl!")
         end
     end
