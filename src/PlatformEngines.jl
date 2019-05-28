@@ -196,8 +196,6 @@ function probe_platform_engines!(;verbose::Bool = false)
         return (tarball_path, out_path, excludelist = "") ->
             pipeline(`$exe7z x $(tarball_path) -y -so`,
                      `$exe7z x -si -y -ttar -o$(out_path)  $(excludelist=="" ? [] : ["-x@" * excludelist])`)
-#            pipeline(`C:\\Users\\m136270\\Desktop\\Misc\\hh\\hh.bat $(tarball_path) $(out_path)`)
-
     end
     package_7z = (exe7z) -> begin
         return (in_path, tarball_path) ->
