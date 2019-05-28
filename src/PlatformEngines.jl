@@ -193,9 +193,11 @@ function probe_platform_engines!(;verbose::Bool = false)
     # windows, so we create generator functions to spit back functors to invoke
     # the correct 7z given the path to the executable:
     unpack_7z = (exe7z) -> begin
-        return (tarball_path, out_path) ->
+        return (tarball_path, out_path, excludelist = "") ->
             pipeline(`$exe7z x $(tarball_path) -y -so`,
-                     `$exe7z x -si -y -ttar -o$(out_path)`)
+                     `$exe7z x -si -y -ttar -o$(out_path)  $(excludelist=="" ? [] : ["-x@" * excludelist])`)
+#            pipeline(`C:\\Users\\m136270\\Desktop\\Misc\\hh\\hh.bat $(tarball_path) $(out_path)`)
+
     end
     package_7z = (exe7z) -> begin
         return (in_path, tarball_path) ->
@@ -203,8 +205,8 @@ function probe_platform_engines!(;verbose::Bool = false)
                      `$exe7z a -si $(tarball_path)`)
     end
     list_7z = (exe7z) -> begin
-        return (path) ->
-            pipeline(`$exe7z x $path -so`, `$exe7z l -ttar -y -si`)
+        return (path; verbose = false) ->
+            pipeline(`$exe7z x $path -so`, `$exe7z l -ttar -y -si $(verbose ? ["-slt"] : [])`)
     end
 
     # Tar is rather less verbose, and we don't need to search multiple places
@@ -219,18 +221,18 @@ function probe_platform_engines!(;verbose::Bool = false)
 
     for tar_cmd in [`tar`, `busybox tar`]
         # Some tar's aren't smart enough to auto-guess decompression method. :(
-        unpack_tar = (tarball_path, out_path) -> begin
+        unpack_tar = (tarball_path, out_path, excludelist = "") -> begin
             Jjz = "z"
             if endswith(tarball_path, ".xz")
                 Jjz = "J"
             elseif endswith(tarball_path, ".bz2")
                 Jjz = "j"
             end
-            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path)`
+            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path) $(excludelist=="" ? [] : ["--exclude-from=" * excludelist])`
         end
         package_tar = (in_path, tarball_path) ->
             `$tar_cmd -czvf $tarball_path -C $(in_path) .`
-        list_tar = (in_path) -> `$tar_cmd -tzf $in_path`
+        list_tar = (in_path; verbose = false) -> `$tar_cmd -tzf$(verbose ? ["v"] : []) $in_path`
         push!(compression_engines, (
             `$tar_cmd --help`,
             unpack_tar,
@@ -630,17 +632,21 @@ Unpack tarball located at file `tarball_path` into directory `dest`.
 """
 function unpack(tarball_path::AbstractString, dest::AbstractString;
                 verbose::Bool = false)
-    # The user can force usage of our dereferencing workaround for filesystems
+    # The user can force usage of our dereferencing workarounds for filesystems
     # that don't support symlinks, but it is also autodetected.
     copyderef = get(ENV, "BINARYPROVIDER_COPYDEREF", "") == "true" ||
                 (tempdir_symlink_creation && !probe_symlink_creation(dest))
-
+    copyderef2 = get(ENV, "BINARYPROVIDER_COPYDEREF2", "") == "true" ||
+                (!copyderef && !tempdir_symlink_creation && !probe_symlink_creation(dest))
     # If we should "copyderef" what we do is to unpack into a temporary directory,
     # then copy without preserving symlinks into the destination directory.  This
     # is to work around filesystems that are mounted (such as SMBFS filesystems)
     # that do not support symlinks.  Note that this does not work if you are on
     # a system that completely disallows symlinks (Even within temporary
     # directories) such as Windows XP/7.
+    # The second workaround now also works for filesystems without symlinks. Here
+    # we exclude symlinks from being exctracted and copy the sources of the symlinked
+    # files instead.
     true_dest = dest
     if copyderef
         dest = mktempdir()
@@ -648,7 +654,18 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
 
     # unpack into dest
     mkpath(dest)
-    oc = OutputCollector(gen_unpack_cmd(tarball_path, dest); verbose=verbose)
+    excludelist = ""
+    symlinks = []
+
+    if copyderef2
+        symlinks = list_tarball_symlinks(tarball_path)
+        if length(symlinks) > 0
+            excludelist = joinpath(dest, "excludelist.txt")
+            write(excludelist, join([s[1] for s in symlinks], "\n"))
+        end
+    end
+
+    oc = OutputCollector(gen_unpack_cmd(tarball_path, dest, excludelist); verbose=verbose)
     try
         if !wait(oc)
             error()
@@ -658,6 +675,21 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
             rethrow()
         end
         error("Could not unpack $(tarball_path) into $(dest)")
+    end
+
+    if copyderef2 && length(symlinks) > 0
+        @info("Replacing symlinks in tarball by their source files ...\n" * join(string.(symlinks),"\n"))
+        for s in symlinks
+            sourcefile = joinpath(dest, replace(s[2], r"(?:\.[\\/])(.*)" => s"\1"))
+            destfile = joinpath(dest, replace(s[1], r"(?:\.[\\/])(.*)" => s"\1"))
+
+            if isfile(sourcefile)
+                cp(sourcefile, destfile, force = true)
+            else
+                @warn("Symlink source '$sourcefile' does not exist!")
+            end
+        end
+        rm(excludelist; force = true)
     end
 
     if copyderef
@@ -684,7 +716,7 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
                         end
                     end
                 end
-            end
+        end
         end
         cptry_harder(dest, true_dest)
         rm(dest; recursive=true, force=true)

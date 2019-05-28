@@ -471,6 +471,30 @@ function list_tarball_files(path::AbstractString; verbose::Bool = false)
 end
 
 """
+    list_tarball_symlinks(path::AbstractString; verbose::Bool = false)
+
+Given a `.tar.gz` filepath, return a dictionary of symlinks in the archive
+"""
+function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = false)
+    oc = OutputCollector(gen_list_tarball_cmd(tarball_path; verbose = true); verbose = verbose)
+    try
+        if !wait(oc)
+            error()
+        end
+    catch
+        error("Could not list contents of tarball $(tarball_path)")
+    end
+    output = collect_stdout(oc)
+
+    if match(r"^[\r\n]*7-Zip"s, output) != nothing
+        mm = eachmatch(r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s, output)
+    else
+        mm = eachmatch(r"^l\S+ \S+\s+\d+ \S+ \S+ (.+?)(?: -> (.+?))?\r?$"m, output)
+    end
+    return [m.captures[1] => joinpath(splitdir(m.captures[1])[1], split(m.captures[2], "/")...) for m in mm]
+end
+
+"""
     verify(path::AbstractString, hash::AbstractString;
            verbose::Bool = false, report_cache_status::Bool = false)
 
