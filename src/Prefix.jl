@@ -488,10 +488,20 @@ function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = fal
     # @info("copyderef2: \r\n" * output)
     if match(r"^[\r\n]*7-Zip"s, output) != nothing
         mm = eachmatch(r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s, output)
+        symlinks = [m.captures[1] => joinpath(splitdir(m.captures[1])[1], split(m.captures[2], "/")...) for m in mm]
     else
-        mm = eachmatch(r"^l\S+\s+(?:\S+|\S+ \S+\s+\S+)\s+\d+ (?:\S+ \S+|\S+\s+\d+\s+\d+) (?:\.[\\/])?(.+?)(?: -> (.+?))?\r?$"m, output)
+        #determine number of lines with symlinks
+        numberOfLinks = length([m for m in eachmatch(r"^l"m, output)])
+        # first regex
+        mm = eachmatch(r"^l([^:]+(?::\d\d)+|.+  \d{4}) (.+?)(?: -> (.+?))?\r?$"m, output)
+        symlinks = [m.captures[2] => joinpath(splitdir(m.captures[2])[1], split(m.captures[3], "/")...) for m in mm]
+        #if not successful try another one
+        if length(symlinks) != numberOfLinks
+            mm = eachmatch(r"^l.+ \d{4} (.+?)(?: -> (.+?))?\r?$"m, output)
+            symlinks = [m.captures[1] => joinpath(splitdir(m.captures[1])[1], split(m.captures[2], "/")...) for m in mm]
+        end
     end
-    return [m.captures[1] => joinpath(splitdir(m.captures[1])[1], split(m.captures[2], "/")...) for m in mm]
+    return symlinks
 end
 
 """
