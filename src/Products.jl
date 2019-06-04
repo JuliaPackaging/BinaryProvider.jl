@@ -178,6 +178,8 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
 
                     if verbose
                         @info("$(dl_path) cannot be dlopen'ed")
+                        res = Libdl.dlopen(dl_path,throw_error = false)
+                        @info res
                     end
                 else
                     # If the current platform doesn't match, then just trust in our
