@@ -219,15 +219,16 @@ function probe_platform_engines!(;verbose::Bool = false)
 
     write("demoTar.txt","Demo file for tar listing")
     for tar_cmd in [`tar`, `busybox tar`]
-        # determine tar list format
+        # try to determine the tar list format
+        local symlink_parser
         try
             tarListing = read(pipeline(`$tar_cmd -c demoTar.txt`,`$tar_cmd -tv`), String)
             m = match(r"((?:\S+\s+)+?)demoTar\.txt", tarListing)[1]
             nargs = length(split(m, " "; keepempty = false))
             symlink_parser = Regex("^l(?:\\S+\\s+){$nargs}(.+?)(?: -> (.+?))?\\r?\$", "m")
         catch
-            # determination of tar lisst format not successful, using generic expression
-            # this will fail, if the symlink contains space characters (which is highly improbable)
+            # generic expression for symlink parsing
+            # this will fail, if the symlink contains space characters (which is highly improbable, though)
             symlink_parser = r"^l.+? (\S+?)(?: -> (.+?))?\r?$"m
         end
         # Some tar's aren't smart enough to auto-guess decompression method. :(
@@ -293,7 +294,7 @@ function probe_platform_engines!(;verbose::Bool = false)
         # On windows, we bundle 7z with Julia, so try invoking that directly
         exe7z = joinpath(Sys.BINDIR, "7z.exe")
         prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
-        
+
         # And finally, we want to look for sh as busybox as well:
         busybox = joinpath(Sys.BINDIR, "busybox.exe")
         prepend!(sh_engines, [(`$busybox sh`)])
