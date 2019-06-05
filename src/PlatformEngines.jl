@@ -214,8 +214,7 @@ function probe_platform_engines!(;verbose::Bool = false)
     # package_opts_functor, list_opts_functor, parse_functor).  The probulator
     # will check each of them by attempting to run `$test_cmd`, and if that
     # works, will set the global compression functions appropriately.
-    symlink_parser = r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s
-    gen_7z = (unpack_7z, package_7z, list_7z, parse_7z_list, symlink_parser)
+    gen_7z = (p) -> (unpack_7z(p), package_7z(p), list_7z(p), parse_7z_list, r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s)
     compression_engines = Tuple[]
 
     write("demoTar.txt","Demo file for tar listing")
@@ -289,11 +288,12 @@ function probe_platform_engines!(;verbose::Bool = false)
         ])
 
         # We greatly prefer `7z` as a compression engine on Windows
-        prepend!(compression_engines, [(`7z --help`, [f("7z") for f in gen_7z[1:3]]..., gen_7z[4:end]...)])
+        prepend!(compression_engines, [(`7z --help`, gen_7z("7z")...)])
 
         # On windows, we bundle 7z with Julia, so try invoking that directly
         exe7z = joinpath(Sys.BINDIR, "7z.exe")
-        prepend!(compression_engines, [(`$exe7z --help`, [f(exe7z) for f in gen_7z[1:3]]..., gen_7z[4:end]...)])
+        prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
+        
         # And finally, we want to look for sh as busybox as well:
         busybox = joinpath(Sys.BINDIR, "busybox.exe")
         prepend!(sh_engines, [(`$busybox sh`)])
