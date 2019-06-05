@@ -168,7 +168,7 @@ If `verbose` is `true`, print out the various engines as they are searched.
 function probe_platform_engines!(;verbose::Bool = false)
     global gen_download_cmd, gen_list_tarball_cmd, gen_package_cmd
     global gen_unpack_cmd, parse_tarball_listing, gen_sh_cmd
-    global tempdir_symlink_creation
+    global tempdir_symlink_creation, gen_symlink_parser
 
     # First things first, determine whether tempdir() can have symlinks created
     # within it.  This is important for our copyderef workaround for e.g. SMBFS
@@ -214,10 +214,23 @@ function probe_platform_engines!(;verbose::Bool = false)
     # package_opts_functor, list_opts_functor, parse_functor).  The probulator
     # will check each of them by attempting to run `$test_cmd`, and if that
     # works, will set the global compression functions appropriately.
-    gen_7z = (p) -> (unpack_7z(p), package_7z(p), list_7z(p), parse_7z_list)
+    symlink_parser = r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s
+    gen_7z = (unpack_7z, package_7z, list_7z, parse_7z_list, symlink_parser)
     compression_engines = Tuple[]
 
+    write("demoTar.txt","Demo file for tar listing")
     for tar_cmd in [`tar`, `busybox tar`]
+        # determine tar list format
+        try
+            tarListing = read(pipeline(`$tar_cmd -c demoTar.txt`,`$tar_cmd -tv`), String)
+            m = match(r"((?:\S+\s+)+?)demoTar\.txt", tarListing)[1]
+            nargs = length(split(m, " "; keepempty = false))
+            symlink_parser = Regex("^l(?:\\S+\\s+){$nargs}(.+?)(?: -> (.+?))?\\r?\$", "m")
+        catch
+            # determination of tar lisst format not successful, using generic expression
+            # this will fail, if the symlink contains space characters (which is highly improbable)
+            symlink_parser = r"^l.+? (\S+?)(?: -> (.+?))?\r?$"m
+        end
         # Some tar's aren't smart enough to auto-guess decompression method. :(
         unpack_tar = (tarball_path, out_path, excludelist = "") -> begin
             Jjz = "z"
@@ -237,8 +250,10 @@ function probe_platform_engines!(;verbose::Bool = false)
             package_tar,
             list_tar,
             parse_tar_list,
+            symlink_parser
         ))
     end
+    rm("demoTar.txt", force = true)
 
     # sh_engines is just a list of Cmds-as-paths
     sh_engines = [
@@ -274,12 +289,11 @@ function probe_platform_engines!(;verbose::Bool = false)
         ])
 
         # We greatly prefer `7z` as a compression engine on Windows
-        prepend!(compression_engines, [(`7z --help`, gen_7z("7z")...)])
+        prepend!(compression_engines, [(`7z --help`, [f("7z") for f in gen_7z[1:3]]..., gen_7z[4:end]...)])
 
         # On windows, we bundle 7z with Julia, so try invoking that directly
         exe7z = joinpath(Sys.BINDIR, "7z.exe")
-        prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
-
+        prepend!(compression_engines, [(`$exe7z --help`, [f(exe7z) for f in gen_7z[1:3]]..., gen_7z[4:end]...)])
         # And finally, we want to look for sh as busybox as well:
         busybox = joinpath(Sys.BINDIR, "busybox.exe")
         prepend!(sh_engines, [(`$busybox sh`)])
@@ -347,13 +361,14 @@ function probe_platform_engines!(;verbose::Bool = false)
     end
 
     # Search for a compression engine
-    for (test, unpack, package, list, parse) in compression_engines
+    for (test, unpack, package, list, parse, parse_symlinks) in compression_engines
         if probe_cmd(`$test`; verbose=verbose)
             # Set our compression command generators
             gen_unpack_cmd = unpack
             gen_package_cmd = package
             gen_list_tarball_cmd = list
             parse_tarball_listing = parse
+            gen_symlink_parser = parse_symlinks
 
             if verbose
                 @info("Found compression engine $(test.exec[1])")
