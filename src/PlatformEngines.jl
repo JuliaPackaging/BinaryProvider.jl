@@ -217,9 +217,9 @@ function probe_platform_engines!(;verbose::Bool = false)
     compression_engines = Tuple[]
 
     (tmpfile, io) = mktemp()
-    @info(tmpfile)
     write(io, "Demo file for tar listing (Julia package BinaryProvider.jl)")
     close(io)
+
     for tar_cmd in [`tar`, `busybox tar`]
         # try to determine the tar list format
         local symlink_parser
@@ -235,6 +235,22 @@ function probe_platform_engines!(;verbose::Bool = false)
             # "(.+?)" = a non-greedy sequence of characters: the symlink
             # "(?: -> (.+?))?" = an optional group of " -> " followed by a non-greedy sequence of characters: the source of the link
             # "\r?\$" = matches the end of line with an optional return character for some OSes
+            # Demo listings
+            # drwxrwxr-x  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/
+            # lrwxrwxrwx  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/foo -> foo.1
+            # -rw-rw-r--  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/foo.1
+            # lrwxrwxrwx  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/foo.1.1 -> foo.1
+            # lrwxrwxrwx  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/broken -> obviously_broken
+            #
+            # drwxrwxr-x sabae/sabae       0 2018-09-05 18:19 collapse_the_symlink/
+            # lrwxrwxrwx sabae/sabae       0 2018-09-05 18:19 collapse_the_symlink/foo -> foo.1
+            #
+            # lrwxrwxr-x 1000/1000 498007696 2009-11-27 00:14:00 link1 -> source1
+            # lrw-rw-r-- 1000/1000 1359020032 2019-06-03 12:02:03 link2 -> sourcedir/source2
+            #
+            # now a pathological link "2009 link with blanks"
+            # this can only be tracked by determining the tar format beforehand:
+            # lrw-rw-r-- 0 1000 1000 1359020032 Jul  8 2009 2009 link with blanks -> target with blanks
             symlink_parser = Regex("^l(?:\\S+\\s+){$nargs}(.+?)(?: -> (.+?))?\\r?\$", "m")
         catch
             # generic expression for symlink parsing
@@ -659,6 +675,10 @@ Unpack tarball located at file `tarball_path` into directory `dest`.
 """
 function unpack(tarball_path::AbstractString, dest::AbstractString;
                 verbose::Bool = false)
+
+    # unpack into dest
+    mkpath(dest)
+
     # The user can force usage of our dereferencing workarounds for filesystems
     # that don't support symlinks, but it is also autodetected.
     copyderef = (get(ENV, "BINARYPROVIDER_COPYDEREF", "") == "true") || !probe_symlink_creation(dest)
