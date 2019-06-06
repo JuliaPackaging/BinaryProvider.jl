@@ -485,7 +485,6 @@ function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = fal
         error("Could not list contents of tarball $(tarball_path)")
     end
     output = collect_stdout(oc)
-    # @info("copyderef2: \r\n" * output)
 
     mm = [m.captures for m in eachmatch(gen_symlink_parser, output)]
     symlinks = [m[1] => joinpath(splitdir(m[1])[1], split(m[2], "/")...) for m in mm]

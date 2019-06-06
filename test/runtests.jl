@@ -774,7 +774,7 @@ end
 const collapse_url = "https://github.com/staticfloat/small_bin/raw/master/collapse_the_symlink/collapse_the_symlink.tar.gz"
 const collapse_hash = "956c1201405f64d3465cc28cb0dec9d63c11a08cad28c381e13bb22e1fc469d3"
 @testset "Copyderef unpacking" begin
-    withenv("BINARYPROVIDER_COPYDEREF2" => "true") do
+    withenv("BINARYPROVIDER_COPYDEREF" => "true") do
         temp_prefix() do prefix
             target_dir = joinpath(prefix.path, "target")
             download_verify_unpack(collapse_url, collapse_hash, target_dir; verbose=true)
