@@ -213,6 +213,49 @@ function probe_platform_engines!(;verbose::Bool = false)
     # (?:[^\r\n]+\r?\n)+ = a group of non-empty lines (information belonging to one file is written as a block of lines followed by an empty line)
     # more info on regex and a powerful online tester can be found at https://regex101.com
     # Symbolic Link = ([^\r\n]+)"s) matches the source filename
+    # Demo 7z listing of tar files:
+    # 7-Zip [64] 16.04 : Copyright (c) 1999-2016 Igor Pavlov : 2016-10-04
+    #
+    #
+    # Listing archive:
+    # --
+    # Path =
+    # Type = tar
+    # Code Page = UTF-8
+    #
+    # ----------
+    # Path = .
+    # Folder = +
+    # Size = 0
+    # Packed Size = 0
+    # Modified = 2018-08-22 11:44:23
+    # Mode = 0rwxrwxr-x
+    # User = travis
+    # Group = travis
+    # Symbolic Link =
+    # Hard Link =
+
+    # Path = .\lib\libpng.a
+    # Folder = -
+    # Size = 10
+    # Packed Size = 0
+    # Modified = 2018-08-22 11:44:51
+    # Mode = 0rwxrwxrwx
+    # User = travis
+    # Group = travis
+    # Symbolic Link = libpng16.a
+    # Hard Link =
+    #
+    # Path = .\lib\libpng16.a
+    # Folder = -
+    # Size = 334498
+    # Packed Size = 334848
+    # Modified = 2018-08-22 11:44:49
+    # Mode = 0rw-r--r--
+    # User = travis
+    # Group = travis
+    # Symbolic Link =
+    # Hard Link =
     gen_7z = (p) -> (unpack_7z(p), package_7z(p), list_7z(p), parse_7z_list, r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s)
     compression_engines = Tuple[]
 
@@ -267,7 +310,7 @@ function probe_platform_engines!(;verbose::Bool = false)
             elseif endswith(tarball_path, ".bz2")
                 Jjz = "j"
             end
-            excludeoption = excludelist=="" ? `` : `--exclude-from='$excludelist'`
+            excludeoption = excludelist=="" ? `` : `--exclude-from="$excludelist"`
             return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path) $(excludeoption)`
         end
         package_tar = (in_path, tarball_path) ->
