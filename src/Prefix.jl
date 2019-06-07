@@ -7,7 +7,7 @@ using SHA
 export Prefix, bindir, libdir, includedir, logdir, activate, deactivate,
        extract_name_version_platform_key, extract_platform_key, isinstalled,
        install, uninstall, manifest_from_url, manifest_for_file,
-       list_tarball_files, verify, temp_prefix, package
+       list_tarball_files, list_tarball_symlinks, verify, temp_prefix, package
 
 
 # Temporary hack around https://github.com/JuliaLang/julia/issues/26685
