@@ -19,15 +19,17 @@ gen_download_cmd = (url::AbstractString, out_path::AbstractString) ->
     error("Call `probe_platform_engines()` before `gen_download_cmd()`")
 
 """
-    gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString)
+    gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString; excludelist::Union{AbstractString, Cmd} = ``)
 
 Return a `Cmd` that will unpack the given `tarball_path` into the given
 `out_path`.  If `out_path` is not already a directory, it will be created.
+excludlist is an optional file which contains a list of files that is not unpacked
+This option is mainyl used to exclude symlinks from extraction (see: `copyderef`)
 
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-gen_unpack_cmd = (tarball_path::AbstractString, out_path::AbstractString) ->
+gen_unpack_cmd = (tarball_path::AbstractString, out_path::AbstractString; excludelist::Union{AbstractString, Cmd} = ``) ->
     error("Call `probe_platform_engines()` before `gen_unpack_cmd()`")
 
 """
@@ -130,11 +132,6 @@ function probe_symlink_creation(dest::AbstractString)
     end
 end
 
-# Global variable that tells us whether tempdir() can have symlinks
-# created within it.
-tempdir_symlink_creation = false
-
-
 """
     probe_platform_engines!(;verbose::Bool = false)
 
@@ -168,7 +165,7 @@ If `verbose` is `true`, print out the various engines as they are searched.
 function probe_platform_engines!(;verbose::Bool = false)
     global gen_download_cmd, gen_list_tarball_cmd, gen_package_cmd
     global gen_unpack_cmd, parse_tarball_listing, gen_sh_cmd
-    global tempdir_symlink_creation, gen_symlink_parser
+    global gen_symlink_parser
 
     agent = "BinaryProvider.jl (https://github.com/JuliaPackaging/BinaryProvider.jl)"
     # download_engines is a list of (test_cmd, download_opts_functor)
@@ -186,9 +183,9 @@ function probe_platform_engines!(;verbose::Bool = false)
     # windows, so we create generator functions to spit back functors to invoke
     # the correct 7z given the path to the executable:
     unpack_7z = (exe7z) -> begin
-        return (tarball_path, out_path, excludelist = "") ->
-            pipeline(`$exe7z x $(tarball_path) -y -so`,
-                     `$exe7z x -si -y -ttar -o$(out_path)  $(excludelist=="" ? [] : ["-x@" * excludelist])`)
+        return (tarball_path, out_path, excludelist = ``) ->
+        pipeline(`$exe7z x $(tarball_path) -y -so`,
+                 `$exe7z x -si -y -ttar -o$(out_path)  -x@$(excludelist)`)
     end
     package_7z = (exe7z) -> begin
         return (in_path, tarball_path) ->
@@ -303,15 +300,14 @@ function probe_platform_engines!(;verbose::Bool = false)
             symlink_parser = r"^l.+? (\S+?)(?: -> (.+?))?\r?$"m
         end
         # Some tar's aren't smart enough to auto-guess decompression method. :(
-        unpack_tar = (tarball_path, out_path, excludelist = "") -> begin
+        unpack_tar = (tarball_path, out_path, excludelist = ``) -> begin
             Jjz = "z"
             if endswith(tarball_path, ".xz")
                 Jjz = "J"
             elseif endswith(tarball_path, ".bz2")
                 Jjz = "j"
             end
-            excludeoption = excludelist=="" ? `` : `--exclude-from="$excludelist"`
-            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path) $(excludeoption)`
+            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path) --exclude-from=$(excludelist)`
         end
         package_tar = (in_path, tarball_path) ->
             `$tar_cmd -czvf $tarball_path -C $(in_path) .`
@@ -731,8 +727,7 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
     # This is to work around filesystems that are mounted (such as SMBFS filesystems)
     # that do not support symlinks.
 
-    excludelist = ""
-    symlinks = []
+    excludelist = ``
 
     if copyderef
         symlinks = list_tarball_symlinks(tarball_path)
