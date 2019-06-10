@@ -19,7 +19,7 @@ gen_download_cmd = (url::AbstractString, out_path::AbstractString) ->
     error("Call `probe_platform_engines()` before `gen_download_cmd()`")
 
 """
-    gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString; excludelist::AbstractString = nothing)
+    gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString; excludelist::Union{AbstractString, Nothing} = nothing)
 
 Return a `Cmd` that will unpack the given `tarball_path` into the given
 `out_path`.  If `out_path` is not already a directory, it will be created.
@@ -29,7 +29,7 @@ This option is mainyl used to exclude symlinks from extraction (see: `copyderef`
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-gen_unpack_cmd = (tarball_path::AbstractString, out_path::AbstractString; excludelist::AbstractString = nothing) ->
+gen_unpack_cmd = (tarball_path::AbstractString, out_path::AbstractString; excludelist::Union{AbstractString, Nothing} = nothing) ->
     error("Call `probe_platform_engines()` before `gen_unpack_cmd()`")
 
 """
