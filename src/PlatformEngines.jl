@@ -361,11 +361,11 @@ function probe_platform_engines!(;verbose::Bool = false)
         ])
 
         # We greatly prefer `7z` as a compression engine on Windows
-        prepend!(compression_engines, [(`7z --help`, gen_7z("7z")...)])
+        #prepend!(compression_engines, [(`7z --help`, gen_7z("7z")...)])
 
         # On windows, we bundle 7z with Julia, so try invoking that directly
         exe7z = joinpath(Sys.BINDIR, "7z.exe")
-        prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
+        #prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
 
         # And finally, we want to look for sh as busybox as well:
         busybox = joinpath(Sys.BINDIR, "busybox.exe")
@@ -546,23 +546,24 @@ Given the output of `tar -t`, parse out the listed filenames.  This funciton
 used by `list_tarball_files`.
 """
 function parse_tar_list(output::AbstractString)
-    lines = [chomp(l) for l in split(output, "\n")]
-    for idx in 1:length(lines)
-        if endswith(lines[idx], '\r')
-            lines[idx] = lines[idx][1:end-1]
-        end
-    end
-
-    # Drop empty lines and and directories
-    lines = [l for l in lines if !isempty(l) && !endswith(l, '/')]
-
-    # Eliminate `./` prefix, if it exists
-    for idx in 1:length(lines)
-        if startswith(lines[idx], "./") || startswith(lines[idx], ".\\")
-            lines[idx] = lines[idx][3:end]
-        end
-    end
-
+    # lines = [chomp(l) for l in split(output, "\n")]
+    # for idx in 1:length(lines)
+    #     if endswith(lines[idx], '\r')
+    #         lines[idx] = lines[idx][1:end-1]
+    #     end
+    # end
+    #
+    # # Drop empty lines and and directories
+    # lines = [l for l in lines if !isempty(l) && !endswith(l, '/')]
+    #
+    # # Eliminate `./` prefix, if it exists
+    # for idx in 1:length(lines)
+    #     if startswith(lines[idx], "./") || startswith(lines[idx], ".\\")
+    #         lines[idx] = lines[idx][3:end]
+    #     end
+    # end
+    lines = [m.captures[1] for m in eachmatch(r"^(.+?)(?<!/\r|/)\r?$"m, output)]
+    @info(output)
     return lines
 end
 
