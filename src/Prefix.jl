@@ -7,7 +7,7 @@ using SHA
 export Prefix, bindir, libdir, includedir, logdir, activate, deactivate,
        extract_name_version_platform_key, extract_platform_key, isinstalled,
        install, uninstall, manifest_from_url, manifest_for_file,
-       list_tarball_files, verify, temp_prefix, package
+       list_tarball_files, list_tarball_symlinks, verify, temp_prefix, package
 
 
 # Temporary hack around https://github.com/JuliaLang/julia/issues/26685
@@ -468,6 +468,30 @@ function list_tarball_files(path::AbstractString; verbose::Bool = false)
         error("Could not list contents of tarball $(path)")
     end
     return parse_tarball_listing(collect_stdout(oc))
+end
+
+"""
+    list_tarball_symlinks(path::AbstractString; verbose::Bool = false)
+
+Given a `.tar.gz` filepath, return a dictionary of symlinks in the archive
+"""
+function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = false)
+    if !isdefined(BinaryProvider, :gen_symlink_parser)
+        error("Call `probe_platform_engines!()` before `list_tarball_symlinks()`")
+    end
+    oc = OutputCollector(gen_list_tarball_cmd(tarball_path; verbose = true); verbose = verbose)
+    try
+        if !wait(oc)
+            error()
+        end
+    catch
+        error("Could not list contents of tarball $(tarball_path)")
+    end
+    output = collect_stdout(oc)
+
+    mm = [m.captures for m in eachmatch(gen_symlink_parser, output)]
+    symlinks = [m[1] => joinpath(splitdir(m[1])[1], split(m[2], "/")...) for m in mm]
+    return symlinks
 end
 
 """

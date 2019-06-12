@@ -19,15 +19,17 @@ gen_download_cmd = (url::AbstractString, out_path::AbstractString) ->
     error("Call `probe_platform_engines()` before `gen_download_cmd()`")
 
 """
-    gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString)
+    gen_unpack_cmd(tarball_path::AbstractString, out_path::AbstractString; excludelist::Union{AbstractString, Nothing} = nothing)
 
 Return a `Cmd` that will unpack the given `tarball_path` into the given
 `out_path`.  If `out_path` is not already a directory, it will be created.
+excludlist is an optional file which contains a list of files that is not unpacked
+This option is mainyl used to exclude symlinks from extraction (see: `copyderef`)
 
 This method is initialized by `probe_platform_engines()`, which should be
 automatically called upon first import of `BinaryProvider`.
 """
-gen_unpack_cmd = (tarball_path::AbstractString, out_path::AbstractString) ->
+gen_unpack_cmd = (tarball_path::AbstractString, out_path::AbstractString; excludelist::Union{AbstractString, Nothing} = nothing) ->
     error("Call `probe_platform_engines()` before `gen_unpack_cmd()`")
 
 """
@@ -130,11 +132,6 @@ function probe_symlink_creation(dest::AbstractString)
     end
 end
 
-# Global variable that tells us whether tempdir() can have symlinks
-# created within it.
-tempdir_symlink_creation = false
-
-
 """
     probe_platform_engines!(;verbose::Bool = false)
 
@@ -168,14 +165,7 @@ If `verbose` is `true`, print out the various engines as they are searched.
 function probe_platform_engines!(;verbose::Bool = false)
     global gen_download_cmd, gen_list_tarball_cmd, gen_package_cmd
     global gen_unpack_cmd, parse_tarball_listing, gen_sh_cmd
-    global tempdir_symlink_creation
-
-    # First things first, determine whether tempdir() can have symlinks created
-    # within it.  This is important for our copyderef workaround for e.g. SMBFS
-    tempdir_symlink_creation = probe_symlink_creation(tempdir())
-    if verbose
-        @info("Symlinks allowed in $(tempdir()): $(tempdir_symlink_creation)")
-    end
+    global gen_symlink_parser
 
     agent = "BinaryProvider.jl (https://github.com/JuliaPackaging/BinaryProvider.jl)"
     # download_engines is a list of (test_cmd, download_opts_functor)
@@ -193,9 +183,9 @@ function probe_platform_engines!(;verbose::Bool = false)
     # windows, so we create generator functions to spit back functors to invoke
     # the correct 7z given the path to the executable:
     unpack_7z = (exe7z) -> begin
-        return (tarball_path, out_path) ->
-            pipeline(`$exe7z x $(tarball_path) -y -so`,
-                     `$exe7z x -si -y -ttar -o$(out_path)`)
+        return (tarball_path, out_path, excludelist = nothing) ->
+        pipeline(`$exe7z x $(tarball_path) -y -so`,
+                 `$exe7z x -si -y -ttar -o$(out_path) $(excludelist == nothing ? [] : "-x@$(excludelist)")`)
     end
     package_7z = (exe7z) -> begin
         return (in_path, tarball_path) ->
@@ -203,8 +193,8 @@ function probe_platform_engines!(;verbose::Bool = false)
                      `$exe7z a -si $(tarball_path)`)
     end
     list_7z = (exe7z) -> begin
-        return (path) ->
-            pipeline(`$exe7z x $path -so`, `$exe7z l -ttar -y -si`)
+        return (path; verbose = false) ->
+            pipeline(`$exe7z x $path -so`, `$exe7z l -ttar -y -si $(verbose ? ["-slt"] : [])`)
     end
 
     # Tar is rather less verbose, and we don't need to search multiple places
@@ -214,31 +204,128 @@ function probe_platform_engines!(;verbose::Bool = false)
     # package_opts_functor, list_opts_functor, parse_functor).  The probulator
     # will check each of them by attempting to run `$test_cmd`, and if that
     # works, will set the global compression functions appropriately.
-    gen_7z = (p) -> (unpack_7z(p), package_7z(p), list_7z(p), parse_7z_list)
+
+    # the regex at the last position is meant for parsing the symlinks from verbose 7z-listing
+    # "Path = ([^\r\n]+)\r?\n" matches the symlink name which is followed by an optional return and a new line
+    # (?:[^\r\n]+\r?\n)+ = a group of non-empty lines (information belonging to one file is written as a block of lines followed by an empty line)
+    # more info on regex and a powerful online tester can be found at https://regex101.com
+    # Symbolic Link = ([^\r\n]+)"s) matches the source filename
+    # Demo 7z listing of tar files:
+    # 7-Zip [64] 16.04 : Copyright (c) 1999-2016 Igor Pavlov : 2016-10-04
+    #
+    #
+    # Listing archive:
+    # --
+    # Path =
+    # Type = tar
+    # Code Page = UTF-8
+    #
+    # ----------
+    # Path = .
+    # Folder = +
+    # Size = 0
+    # Packed Size = 0
+    # Modified = 2018-08-22 11:44:23
+    # Mode = 0rwxrwxr-x
+    # User = travis
+    # Group = travis
+    # Symbolic Link =
+    # Hard Link =
+
+    # Path = .\lib\libpng.a
+    # Folder = -
+    # Size = 10
+    # Packed Size = 0
+    # Modified = 2018-08-22 11:44:51
+    # Mode = 0rwxrwxrwx
+    # User = travis
+    # Group = travis
+    # Symbolic Link = libpng16.a
+    # Hard Link =
+    #
+    # Path = .\lib\libpng16.a
+    # Folder = -
+    # Size = 334498
+    # Packed Size = 334848
+    # Modified = 2018-08-22 11:44:49
+    # Mode = 0rw-r--r--
+    # User = travis
+    # Group = travis
+    # Symbolic Link =
+    # Hard Link =
+    gen_7z = (p) -> (unpack_7z(p), package_7z(p), list_7z(p), parse_7z_list, r"Path = ([^\r\n]+)\r?\n(?:[^\r\n]+\r?\n)+Symbolic Link = ([^\r\n]+)"s)
     compression_engines = Tuple[]
 
+    (tmpfile, io) = mktemp()
+    write(io, "Demo file for tar listing (Julia package BinaryProvider.jl)")
+    close(io)
+
     for tar_cmd in [`tar`, `busybox tar`]
+        # try to determine the tar list format
+        local symlink_parser
+        try
+            # Windows 10 now has a `tar` but it needs the `-f -` flag to use stdin/stdout
+            # The Windows 10 tar does not work on substituted drives (`subst U: C:\Users`)
+            # If a drive letter is part of the filename, then tar spits out a warning on stderr:
+            # "tar: Removing leading drive letter from member names" - but it works properly
+            tarListing = read(pipeline(`$tar_cmd -cf - $tmpfile`, `$tar_cmd -tvf -`), String)
+            # obtain the text of the line before the filename
+            m = match(Regex("((?:\\S+\\s+)+?)$tmpfile"), tarListing)[1]
+            # count the number of words before the filename
+            nargs = length(split(m, " "; keepempty = false))
+            # build a regex for catching the symlink:
+            # "^l" = line starting with l
+            # "(?:\S+\s+){$nargs} = nargs non-capturing groups of many non-spaces "\S+" and many spaces "\s+"
+            # "(.+?)" = a non-greedy sequence of characters: the symlink
+            # "(?: -> (.+?))?" = an optional group of " -> " followed by a non-greedy sequence of characters: the source of the link
+            # "\r?\$" = matches the end of line with an optional return character for some OSes
+            # Demo listings
+            # drwxrwxr-x  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/
+            # lrwxrwxrwx  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/foo -> foo.1
+            # -rw-rw-r--  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/foo.1
+            # lrwxrwxrwx  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/foo.1.1 -> foo.1
+            # lrwxrwxrwx  0 sabae  sabae       0 Sep  5  2018 collapse_the_symlink/broken -> obviously_broken
+            #
+            # drwxrwxr-x sabae/sabae       0 2018-09-05 18:19 collapse_the_symlink/
+            # lrwxrwxrwx sabae/sabae       0 2018-09-05 18:19 collapse_the_symlink/foo -> foo.1
+            #
+            # lrwxrwxr-x 1000/1000 498007696 2009-11-27 00:14:00 link1 -> source1
+            # lrw-rw-r-- 1000/1000 1359020032 2019-06-03 12:02:03 link2 -> sourcedir/source2
+            #
+            # now a pathological link "2009 link with blanks"
+            # this can only be tracked by determining the tar format beforehand:
+            # lrw-rw-r-- 0 1000 1000 1359020032 Jul  8 2009 2009 link with blanks -> target with blanks
+            symlink_parser = Regex("^l(?:\\S+\\s+){$nargs}(.+?)(?: -> (.+?))?\\r?\$", "m")
+        catch
+            # generic expression for symlink parsing
+            # this will fail, if the symlink contains space characters (which is highly improbable, though)
+            # "^l.+?" = a line starting with an "l" followed by a sequence of non-greedy characters
+            # \S+? the filename consisting of non-space characters, the rest as above
+            symlink_parser = r"^l.+? (\S+?)(?: -> (.+?))?\r?$"m
+        end
         # Some tar's aren't smart enough to auto-guess decompression method. :(
-        unpack_tar = (tarball_path, out_path) -> begin
+        unpack_tar = (tarball_path, out_path, excludelist = nothing) -> begin
             Jjz = "z"
             if endswith(tarball_path, ".xz")
                 Jjz = "J"
             elseif endswith(tarball_path, ".bz2")
                 Jjz = "j"
             end
-            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path)`
+            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path) $(excludelist == nothing ? [] : "--exclude-from=$(excludelist)")`
         end
         package_tar = (in_path, tarball_path) ->
             `$tar_cmd -czvf $tarball_path -C $(in_path) .`
-        list_tar = (in_path) -> `$tar_cmd -tzf $in_path`
+        list_tar = (in_path; verbose = false) -> `$tar_cmd $(verbose ? "-tzvf" : "-tzf") $in_path`
         push!(compression_engines, (
             `$tar_cmd --help`,
             unpack_tar,
             package_tar,
             list_tar,
             parse_tar_list,
+            symlink_parser
         ))
     end
+    rm(tmpfile, force = true)
 
     # sh_engines is just a list of Cmds-as-paths
     sh_engines = [
@@ -347,13 +434,14 @@ function probe_platform_engines!(;verbose::Bool = false)
     end
 
     # Search for a compression engine
-    for (test, unpack, package, list, parse) in compression_engines
+    for (test, unpack, package, list, parse, parse_symlinks) in compression_engines
         if probe_cmd(`$test`; verbose=verbose)
             # Set our compression command generators
             gen_unpack_cmd = unpack
             gen_package_cmd = package
             gen_list_tarball_cmd = list
             parse_tarball_listing = parse
+            gen_symlink_parser = parse_symlinks
 
             if verbose
                 @info("Found compression engine $(test.exec[1])")
@@ -459,6 +547,11 @@ used by `list_tarball_files`.
 """
 function parse_tar_list(output::AbstractString)
     lines = [chomp(l) for l in split(output, "\n")]
+    for idx in 1:length(lines)
+        if endswith(lines[idx], '\r')
+            lines[idx] = lines[idx][1:end-1]
+        end
+    end
 
     # Drop empty lines and and directories
     lines = [l for l in lines if !isempty(l) && !endswith(l, '/')]
@@ -630,25 +723,31 @@ Unpack tarball located at file `tarball_path` into directory `dest`.
 """
 function unpack(tarball_path::AbstractString, dest::AbstractString;
                 verbose::Bool = false)
-    # The user can force usage of our dereferencing workaround for filesystems
-    # that don't support symlinks, but it is also autodetected.
-    copyderef = get(ENV, "BINARYPROVIDER_COPYDEREF", "") == "true" ||
-                (tempdir_symlink_creation && !probe_symlink_creation(dest))
-
-    # If we should "copyderef" what we do is to unpack into a temporary directory,
-    # then copy without preserving symlinks into the destination directory.  This
-    # is to work around filesystems that are mounted (such as SMBFS filesystems)
-    # that do not support symlinks.  Note that this does not work if you are on
-    # a system that completely disallows symlinks (Even within temporary
-    # directories) such as Windows XP/7.
-    true_dest = dest
-    if copyderef
-        dest = mktempdir()
-    end
 
     # unpack into dest
     mkpath(dest)
-    oc = OutputCollector(gen_unpack_cmd(tarball_path, dest); verbose=verbose)
+
+    # The user can force usage of our dereferencing workarounds for filesystems
+    # that don't support symlinks, but it is also autodetected.
+    copyderef = (get(ENV, "BINARYPROVIDER_COPYDEREF", "") == "true") || !probe_symlink_creation(dest)
+
+    # If we should "copyderef" what we do is to unpack everything except symlinks
+    # then copy the sources of the symlinks to the destination of the symlink instead.
+    # This is to work around filesystems that are mounted (such as SMBFS filesystems)
+    # that do not support symlinks.
+
+    excludelist = nothing
+
+    if copyderef
+        symlinks = list_tarball_symlinks(tarball_path)
+        if length(symlinks) > 0
+            (excludelist, io) = mktemp()
+            write(io, join([s[1] for s in symlinks], "\n"))
+            close(io)
+        end
+    end
+
+    oc = OutputCollector(gen_unpack_cmd(tarball_path, dest, excludelist); verbose=verbose)
     try
         if !wait(oc)
             error()
@@ -660,34 +759,19 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
         error("Could not unpack $(tarball_path) into $(dest)")
     end
 
-    if copyderef
-        # We would like to use `cptree(; follow_symlinks=false)` here, but it
-        # freaks out if there are any broken symlinks, which is too finnicky
-        # for our use cases.  For us, we will just print a warning and continue.
-        function cptry_harder(src, dst)
-            mkpath(dst)
-            for name in readdir(src)
-                srcname = joinpath(src, name)
-                dstname = joinpath(dst, name)
-                if isdir(srcname)
-                    cptry_harder(srcname, dstname)
-                else
-                    try
-                        Base.Filesystem.sendfile(srcname, dstname)
-                    catch e
-                        if isa(e, Base.IOError)
-                            if verbose
-                                @warn("Could not copy $(srcname) to $(dstname)")
-                            end
-                        else
-                            rethrow(e)
-                        end
-                    end
-                end
+    if copyderef && length(symlinks) > 0
+        @info("Replacing symlinks in tarball by their source files ...\n" * join(string.(symlinks),"\n"))
+        for s in symlinks
+            sourcefile = joinpath(dest, replace(s[2], r"(?:\.[\\/])(.*)" => s"\1"))
+            destfile = joinpath(dest, replace(s[1], r"(?:\.[\\/])(.*)" => s"\1"))
+
+            if isfile(sourcefile)
+                cp(sourcefile, destfile, force = true)
+            else
+                @warn("Symlink source '$sourcefile' does not exist!")
             end
         end
-        cptry_harder(dest, true_dest)
-        rm(dest; recursive=true, force=true)
+        rm(excludelist; force = true)
     end
 end
 

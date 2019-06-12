@@ -374,7 +374,7 @@ end
                 @test success(sh(`prefix_path_test.sh`))
             end
         end
-        
+
         # Test that we can control libdir() via platform arguments
         @test libdir(prefix, Linux(:x86_64)) == joinpath(prefix, "lib")
         @test libdir(prefix, Windows(:x86_64)) == joinpath(prefix, "bin")
@@ -478,7 +478,7 @@ end
             touch(l_path)
             @test satisfied(l, verbose=true, platform=p)
             @test satisfied(l, verbose=true, platform=p, isolate=true)
-            
+
             # Check LibraryProduct objects with explicit directory paths
             ld = LibraryProduct(libdir(prefix, p), "libfoo", :libfoo)
             @test satisfied(ld, verbose=true, platform=p)
@@ -818,20 +818,20 @@ end
 
     @test choose_download(platforms, Linux(:x86_64)) == "linux8"
     @test choose_download(platforms, Linux(:x86_64, compiler_abi=CompilerABI(:gcc7))) == "linux7"
-    
+
     # Ambiguity test
     @test choose_download(platforms, Linux(:aarch64)) == "linux5"
     @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc4))) == "linux5"
     @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc5))) == "linux5"
     @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc6))) == "linux5"
     @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc7))) == nothing
-    
+
     @test choose_download(platforms, MacOS(:x86_64)) == "mac4"
     @test choose_download(platforms, MacOS(:x86_64, compiler_abi=CompilerABI(:gcc7))) == nothing
 
     @test choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))) == "win"
     @test choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx03))) == nothing
-   
+
     # Poor little guy
     @test choose_download(platforms, FreeBSD(:x86_64)) == nothing
 end
