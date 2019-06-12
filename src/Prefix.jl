@@ -476,6 +476,9 @@ end
 Given a `.tar.gz` filepath, return a dictionary of symlinks in the archive
 """
 function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = false)
+    if !isdefined(BinaryProvider, :gen_symlink_parser)
+        error("Call `probe_platform_engines!()` before `list_tarball_symlinks()`")
+    end
     oc = OutputCollector(gen_list_tarball_cmd(tarball_path; verbose = true); verbose = verbose)
     try
         if !wait(oc)
