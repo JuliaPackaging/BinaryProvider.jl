@@ -119,7 +119,9 @@ function probe_symlink_creation(dest::AbstractString)
         link_path *= "1"
     end
 
+    loglevel = Logging.min_enabled_level(current_logger())
     try
+        disable_logging(Logging.Warn)
         symlink("foo", link_path)
         return true
     catch e
@@ -128,6 +130,7 @@ function probe_symlink_creation(dest::AbstractString)
         end
         rethrow(e)
     finally
+        disable_logging(loglevel-1)
         rm(link_path; force=true)
     end
 end
@@ -267,8 +270,11 @@ function probe_platform_engines!(;verbose::Bool = false)
             # Windows 10 now has a `tar` but it needs the `-f -` flag to use stdin/stdout
             # The Windows 10 tar does not work on substituted drives (`subst U: C:\Users`)
             # If a drive letter is part of the filename, then tar spits out a warning on stderr:
-            # "tar: Removing leading drive letter from member names" - but it works properly
-            tarListing = read(pipeline(`$tar_cmd -cf - $tmpfile`, `$tar_cmd -tvf -`), String)
+            # "tar: Removing leading drive letter from member names"
+            # Therefore we cd to tmpdir() first
+            cd(tempdir()) do
+                tarListing = read(pipeline(`$tar_cmd -cf - $(basename(tmpfile))`, `$tar_cmd -tvf -`), String)
+            end
             # obtain the text of the line before the filename
             m = match(Regex("((?:\\S+\\s+)+?)$tmpfile"), tarListing)[1]
             # count the number of words before the filename
