@@ -1,6 +1,6 @@
 module BinaryProvider
 
-using Libdl
+using Libdl, Logging
 
 # Utilities for controlling verbosity
 include("LoggingUtils.jl")
