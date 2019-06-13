@@ -165,7 +165,8 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                 if platforms_match(platform, platform_key_abi())
                     if isolate
                         # Isolated dlopen is a lot slower, but safer
-                        if success(`$(Base.julia_cmd()) -e "import Libdl; Libdl.dlopen(\"$dl_path\")"`)
+                        dl_esc_path = replace(dl_path, "\\"=>"\\\\")
+                        if success(`$(Base.julia_cmd()) -e "import Libdl; Libdl.dlopen(\"$(dl_esc_path)\")"`)
                             return dl_path
                         end
                     else
@@ -341,7 +342,7 @@ function locate(fp::FileProduct; platform::Platform = platform_key_abi(),
         mappings["\$$(var)"] = string(val)
         mappings["\${$(var)}"] = string(val)
     end
-    
+
     expanded = fp.path
     for (old, new) in mappings
         expanded = replace(expanded, old => new)
