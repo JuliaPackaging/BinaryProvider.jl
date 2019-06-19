@@ -490,7 +490,7 @@ function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = fal
     output = collect_stdout(oc)
 
     mm = [m.captures for m in eachmatch(gen_symlink_parser, output)]
-    symlinks = [m[1] => joinpath(splitdir(m[1])[1], split(m[2], "/")...) for m in mm]
+    symlinks = [m[1] => joinpath(dirname(m[1]), m[2]) for m in mm]
     return symlinks
 end
 

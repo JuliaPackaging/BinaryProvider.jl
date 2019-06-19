@@ -405,7 +405,7 @@ end
 	bin/
 	bin/socrates
 	"""
-	@test parse_tar_list(fake_tar_output) == ["bin/socrates"]
+	@test parse_tar_list(fake_tar_output) == normpath.(["bin/socrates"])
 
 end
 
