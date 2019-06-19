@@ -382,11 +382,11 @@ function probe_platform_engines!(;verbose::Bool = false)
         ])
 
         # We greatly prefer `7z` as a compression engine on Windows
-        #prepend!(compression_engines, [(`7z --help`, gen_7z("7z")...)])
+        prepend!(compression_engines, [(`7z --help`, gen_7z("7z")...)])
 
         # On windows, we bundle 7z with Julia, so try invoking that directly
         exe7z = joinpath(Sys.BINDIR, "7z.exe")
-        #prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
+        prepend!(compression_engines, [(`$exe7z --help`, gen_7z(exe7z)...)])
 
         # And finally, we want to look for sh as busybox as well:
         busybox = joinpath(Sys.BINDIR, "busybox.exe")
