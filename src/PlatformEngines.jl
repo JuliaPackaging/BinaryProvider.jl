@@ -349,6 +349,8 @@ function probe_platform_engines!(;verbose::Bool = false)
                 [System.Net.ServicePointManager]::SecurityProtocol =
                     [System.Net.SecurityProtocolType]::Tls12;
                 \$webclient = (New-Object System.Net.Webclient);
+                \$webclient.UseDefaultCredentials = \$true;
+                \$webclient.Proxy.Credentials = \$webclient.Credentials;
                 \$webclient.Headers.Add("user-agent", "$agent");
                 \$webclient.DownloadFile("$url", "$path")
                 """
