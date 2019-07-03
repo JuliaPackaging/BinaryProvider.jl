@@ -317,11 +317,26 @@ function probe_platform_engines!(;verbose::Bool = false)
             elseif endswith(tarball_path, ".bz2")
                 Jjz = "j"
             end
-            return `$tar_cmd -x$(Jjz)f $(tarball_path) --directory=$(out_path) $(excludelist == nothing ? [] : "--exclude-from=$(excludelist)")`
+            return `$tar_cmd -x$(Jjz)f $(tarball_path) -C$(out_path) $(excludelist == nothing ? [] : "-X$(excludelist)")`
         end
-        package_tar = (in_path, tarball_path) ->
-            `$tar_cmd -czvf $tarball_path -C $(in_path) .`
-        list_tar = (in_path; verbose = false) -> `$tar_cmd $(verbose ? "-tzvf" : "-tzf") $in_path`
+        package_tar = (in_path, tarball_path) -> begin
+            Jjz = "z"
+            if endswith(tarball_path, ".xz")
+                Jjz = "J"
+            elseif endswith(tarball_path, ".bz2")
+                Jjz = "j"
+            end
+            return `$tar_cmd -c$(Jjz)vf $tarball_path -C$(in_path) .`
+        end
+        list_tar = (in_path; verbose = false) -> begin
+            Jjz = "z"
+            if endswith(in_path, ".xz")
+                Jjz = "J"
+            elseif endswith(in_path, ".bz2")
+                Jjz = "j"
+            end
+            return `$tar_cmd $(verbose ? "-t$(Jjz)vf" : "-t$(Jjz)f") $in_path`
+        end
         push!(compression_engines, (
             `$tar_cmd --help`,
             unpack_tar,
@@ -569,7 +584,8 @@ function parse_tar_list(output::AbstractString)
         end
     end
 
-    return lines
+    # make sure paths are always returned in the system's default way
+    return Sys.iswindows() ? replace.(lines, ['/' => '\\']) : lines
 end
 
 """
@@ -752,7 +768,7 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
             close(io)
         end
     end
-
+    
     oc = OutputCollector(gen_unpack_cmd(tarball_path, dest, excludelist); verbose=verbose)
     try
         if !wait(oc)
@@ -768,8 +784,8 @@ function unpack(tarball_path::AbstractString, dest::AbstractString;
     if copyderef && length(symlinks) > 0
         @info("Replacing symlinks in tarball by their source files ...\n" * join(string.(symlinks),"\n"))
         for s in symlinks
-            sourcefile = joinpath(dest, replace(s[2], r"(?:\.[\\/])(.*)" => s"\1"))
-            destfile = joinpath(dest, replace(s[1], r"(?:\.[\\/])(.*)" => s"\1"))
+            sourcefile = normpath(joinpath(dest, s[2]))
+            destfile   = normpath(joinpath(dest, s[1]))
 
             if isfile(sourcefile)
                 cp(sourcefile, destfile, force = true)
