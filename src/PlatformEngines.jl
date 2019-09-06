@@ -180,6 +180,7 @@ function probe_platform_engines!(;verbose::Bool = false)
         (`fetch --help`, (url, path) -> `fetch --user-agent=$agent -f $path $url`),
         (`busybox wget --help`, (url, path) -> `busybox wget -U $agent -c -O $path $url`),
     ]
+    Sys.isapple() && pushfirst!(download_engines, (`/usr/bin/curl --help`, (url, path) -> `/usr/bin/curl -H "User-Agent: $agent" -C - -\# -f -o $path -L $url`))
 
     # 7z is rather intensely verbose.  We also want to try running not only
     # `7z` but also a direct path to the `7z.exe` bundled with Julia on
