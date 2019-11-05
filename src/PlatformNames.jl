@@ -388,11 +388,11 @@ function platform_key_abi(machine::AbstractString)
     )
     gcc_version_mapping = Dict(
         :gcc_any => "",
-        :gcc4 => "-gcc4",
+        :gcc4 => "(-libgfortran3)|(-gcc4)",
         :gcc5 => "-gcc5",
         :gcc6 => "-gcc6",
-        :gcc7 => "-gcc7",
-        :gcc8 => "-gcc8",
+        :gcc7 => "(-libgfortran4)|(-gcc7)",
+        :gcc8 => "(-libgfortran5)|(-gcc8)",
     )
     cxx_abi_mapping = Dict(
         :cxx_any => "",

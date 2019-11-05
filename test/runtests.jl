@@ -250,6 +250,8 @@ end
         @test platform_key_abi("x86_64-linux-gnu-gcc7") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc7))
         @test platform_key_abi("x86_64-linux-gnu-gcc4-cxx11") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc4, :cxx11))
         @test platform_key_abi("x86_64-linux-gnu-cxx11") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))
+        @test platform_key_abi("x86_64-linux-gnu-libgfortran5-cxx11") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc8, :cxx11))
+        @test platform_key_abi("x86_64-linux-gnu-libgfortran3") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc4))
 
         # Make sure some of these things are rejected
         @test platform_key_abi("totally FREEFORM text!!1!!!1!") == UnknownPlatform()
