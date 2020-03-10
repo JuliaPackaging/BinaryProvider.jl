@@ -7,8 +7,8 @@ using SHA
 export Prefix, bindir, libdir, includedir, logdir, activate, deactivate,
        extract_name_version_platform_key, extract_platform_key, isinstalled,
        install, uninstall, manifest_from_url, manifest_for_file,
-       list_tarball_files, list_tarball_symlinks, verify, temp_prefix, package
-
+       list_tarball_files, list_tarball_symlinks, verify, temp_prefix, package,
+       choose_download
 
 # Temporary hack around https://github.com/JuliaLang/julia/issues/26685
 function safe_isfile(path)
@@ -70,10 +70,8 @@ struct Prefix
     """
         Prefix(path::AbstractString)
 
-    A `Prefix` represents a binary installation location.  There is a default
-    global `Prefix` (available at `BinaryProvider.global_prefix`) that packages
-    are installed into by default, however custom prefixes can be created
-    trivially by simply constructing a `Prefix` with a given `path` to install
+    A `Prefix` represents a binary installation location.  Custom prefixes can
+    be created by constructing a `Prefix` with a given `path` to install
     binaries into, likely including folders such as `bin`, `lib`, etc...
     """
     function Prefix(path::AbstractString)
@@ -448,165 +446,7 @@ function manifest_for_file(path::AbstractString;
     error("Could not find $(search_path) in any manifest files")
 end
 
-"""
-    list_tarball_files(path::AbstractString; verbose::Bool = false)
 
-Given a `.tar.gz` filepath, list the compressed contents.
-"""
-function list_tarball_files(path::AbstractString; verbose::Bool = false)
-    if !isfile(path)
-        error("Tarball path $(path) does not exist")
-    end
-
-    # Run the listing command, then parse the output
-    oc = OutputCollector(gen_list_tarball_cmd(path); verbose=verbose)
-    try
-        if !wait(oc)
-            error()
-        end
-    catch
-        error("Could not list contents of tarball $(path)")
-    end
-    return parse_tarball_listing(collect_stdout(oc))
-end
-
-"""
-    list_tarball_symlinks(path::AbstractString; verbose::Bool = false)
-
-Given a `.tar.gz` filepath, return a dictionary of symlinks in the archive
-"""
-function list_tarball_symlinks(tarball_path::AbstractString; verbose::Bool = false)
-    if !isdefined(BinaryProvider, :gen_symlink_parser)
-        error("Call `probe_platform_engines!()` before `list_tarball_symlinks()`")
-    end
-    oc = OutputCollector(gen_list_tarball_cmd(tarball_path; verbose = true); verbose = verbose)
-    try
-        if !wait(oc)
-            error()
-        end
-    catch
-        error("Could not list contents of tarball $(tarball_path)")
-    end
-    output = collect_stdout(oc)
-
-    mm = [m.captures for m in eachmatch(gen_symlink_parser, output)]
-    symlinks = [m[1] => joinpath(dirname(m[1]), m[2]) for m in mm]
-    return symlinks
-end
-
-"""
-    verify(path::AbstractString, hash::AbstractString;
-           verbose::Bool = false, report_cache_status::Bool = false)
-
-Given a file `path` and a `hash`, calculate the SHA256 of the file and compare
-it to `hash`.  If an error occurs, `verify()` will throw an error.  This method
-caches verification results in a `"\$(path).sha256"` file to accelerate re-
-verification of files that have been previously verified.  If no `".sha256"`
-file exists, a full verification will be done and the file will be created,
-with the calculated hash being stored within the `".sha256"` file..  If a
-`".sha256"` file does exist, its contents are checked to ensure that the hash
-contained within matches the given `hash` parameter, and its modification time
-shows that the file located at `path` has not been modified since the last
-verification.
-
-If `report_cache_status` is set to `true`, then the return value will be a
-`Symbol` giving a granular status report on the state of the hash cache, in
-addition to the `true`/`false` signifying whether verification completed
-successfully.
-"""
-function verify(path::AbstractString, hash::AbstractString; verbose::Bool = false,
-                report_cache_status::Bool = false, hash_path::AbstractString="$(path).sha256")
-    if length(hash) != 64
-        msg  = "Hash must be 256 bits (64 characters) long, "
-        msg *= "given hash is $(length(hash)) characters long"
-        error(msg)
-    end
-
-    # First, check to see if the hash cache is consistent
-    status = :hash_consistent
-
-    # First, it must exist
-    if isfile(hash_path)
-        # Next, it must contain the same hash as what we're verifying against
-        if read(hash_path, String) == hash
-            # Next, it must be no older than the actual path
-            if stat(hash_path).mtime >= stat(path).mtime
-                # If all of that is true, then we're good!
-                if verbose
-                    info_onchange(
-                        "Hash cache is consistent, returning true",
-                        "verify_$(hash_path)",
-                        @__LINE__,
-                    )
-                end
-                status = :hash_cache_consistent
-
-                # If we're reporting our status, then report it!
-                if report_cache_status
-                    return true, status
-                else
-                    return true
-                end
-            else
-                if verbose
-                    info_onchange(
-                        "File has been modified, hash cache invalidated",
-                        "verify_$(hash_path)",
-                        @__LINE__,
-                    )
-                end
-                status = :file_modified
-            end
-        else
-            if verbose
-                info_onchange(
-                    "Verification hash mismatch, hash cache invalidated",
-                    "verify_$(hash_path)",
-                    @__LINE__,
-                )
-            end
-            status = :hash_cache_mismatch
-        end
-    else
-        if verbose
-            info_onchange(
-                "No hash cache found",
-                "verify_$(hash_path)",
-                @__LINE__,
-            )
-        end
-        status = :hash_cache_missing
-    end
-
-    open(path) do file
-        calc_hash = bytes2hex(sha256(file))
-        if verbose
-            info_onchange(
-                "Calculated hash $calc_hash for file $path",
-                "hash_$(hash_path)",
-                @__LINE__,
-            )
-        end
-
-        if calc_hash != hash
-            msg  = "Hash Mismatch!\n"
-            msg *= "  Expected sha256:   $hash\n"
-            msg *= "  Calculated sha256: $calc_hash"
-            error(msg)
-        end
-    end
-
-    # Save a hash cache if everything worked out fine
-    open(hash_path, "w") do file
-        write(file, hash)
-    end
-
-    if report_cache_status
-        return true, status
-    else
-        return true
-    end
-end
 
 """
     package(prefix::Prefix, output_base::AbstractString,
@@ -647,7 +487,7 @@ function package(prefix::Prefix,
     end
 
     # Package `prefix.path` into the tarball contained at `out_path`
-    package(prefix.path, out_path; verbose=verbose)
+    package(prefix.path, out_path)
 
     # Also spit out the hash of the archive file
     hash = open(out_path, "r") do f

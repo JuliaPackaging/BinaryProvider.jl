@@ -7,9 +7,6 @@ using SHA
 # The platform we're running on
 const platform = platform_key_abi()
 
-# Useful command to launch `sh` on any platform
-const sh = gen_sh_cmd
-
 # Output of a few scripts we are going to run
 const simple_out = "1\n2\n3\n4\n"
 const long_out = join(["$(idx)\n" for idx in 1:100], "")
@@ -18,6 +15,9 @@ const newlines_out = join(["marco$(d)polo$(d)" for d in ("\n","\r","\r\n")], "")
 # Explicitly probe platform engines in verbose mode to get coverage and make
 # CI debugging easier
 BinaryProvider.probe_platform_engines!(;verbose=true)
+
+# shell executable for testing
+sh = "sh"
 
 # Helper function to strip out color codes from strings to make it easier to
 # compare output within tests that has been colorized
@@ -33,7 +33,7 @@ end
 @testset "OutputCollector" begin
     cd("output_tests") do
         # Collect the output of `simple.sh``
-        oc = OutputCollector(sh(`./simple.sh`))
+        oc = OutputCollector(`$sh ./simple.sh`)
 
         # Ensure we can wait on it and it exited properly
         @test wait(oc)
@@ -70,7 +70,7 @@ end
 
     # Next test a much longer output program
     cd("output_tests") do
-        oc = OutputCollector(sh(`./long.sh`))
+        oc = OutputCollector(`$sh ./long.sh`)
 
         # Test that it worked, we can read it, and tail() works
         @test wait(oc)
@@ -80,7 +80,7 @@ end
 
     # Next, test a command that fails
     cd("output_tests") do
-        oc = OutputCollector(sh(`./fail.sh`))
+        oc = OutputCollector(`$sh ./fail.sh`)
 
         @test !wait(oc)
         @test merge(oc) == "1\n2\n"
@@ -89,7 +89,7 @@ end
     # Next, test a command that kills itself (NOTE: This doesn't work on windows.  sigh.)
     @static if !Sys.iswindows()
         cd("output_tests") do
-            oc = OutputCollector(sh(`./kill.sh`))
+            oc = OutputCollector(`$sh ./kill.sh`)
 
             @test !wait(oc)
             @test collect_stdout(oc) == "1\n2\n"
@@ -98,8 +98,8 @@ end
 
     # Next, test reading the output of a pipeline()
     grepline = pipeline(
-        sh(`'printf "Hello\nWorld\nJulia\n"'`),
-        sh(`'while read line; do case $line in *ul*) echo $line; esac; done'`)
+        `$sh -c 'printf "Hello\nWorld\nJulia\n"'`,
+        `$sh -c 'while read line; do case $line in *ul*) echo $line; esac; done'`
     )
     oc = OutputCollector(grepline)
 
@@ -108,7 +108,7 @@ end
 
     # Next, test that \r and \r\n are treated like \n
     cd("output_tests") do
-        oc = OutputCollector(sh(`./newlines.sh`))
+        oc = OutputCollector(`$sh ./newlines.sh`)
 
         @test wait(oc)
         @test collect_stdout(oc) == newlines_out
@@ -117,7 +117,7 @@ end
     # Next, test that tee'ing to a stream works
     cd("output_tests") do
         ios = IOBuffer()
-        oc = OutputCollector(sh(`./simple.sh`); tee_stream=ios, verbose=true)
+        oc = OutputCollector(`$sh ./simple.sh`; tee_stream=ios, verbose=true)
         @test wait(oc)
         @test merge(oc) == simple_out
 
@@ -131,7 +131,7 @@ end
     # Also test that auto-tail'ing can be can be directed to a stream
     cd("output_tests") do
         ios = IOBuffer()
-        oc = OutputCollector(sh(`./fail.sh`); tee_stream=ios)
+        oc = OutputCollector(`$sh ./fail.sh`; tee_stream=ios)
 
         @test !wait(oc)
         @test merge(oc) == "1\n2\n"
@@ -145,194 +145,13 @@ end
     # Also test that auto-tail'ing can be turned off
     cd("output_tests") do
         ios = IOBuffer()
-        oc = OutputCollector(sh(`./fail.sh`); tee_stream=ios, tail_error=false)
+        oc = OutputCollector(`$sh ./fail.sh`; tee_stream=ios, tail_error=false)
 
         @test !wait(oc)
         @test merge(oc) == "1\n2\n"
 
         seekstart(ios)
         @test String(read(ios)) == ""
-    end
-end
-
-@testset "PlatformNames" begin
-    # Ensure the platform type constructors are well behaved
-    @testset "Platform constructors" begin
-        @test_throws ArgumentError Linux(:not_a_platform)
-        @test_throws ArgumentError Linux(:x86_64, :crazy_libc)
-        @test_throws ArgumentError Linux(:x86_64, :glibc, :crazy_abi)
-        @test_throws ArgumentError Linux(:x86_64, :glibc, :eabihf)
-        @test_throws ArgumentError Linux(:armv7l, :glibc, :blank_abi)
-        @test_throws ArgumentError MacOS(:i686)
-        @test_throws ArgumentError MacOS(:x86_64, :glibc)
-        @test_throws ArgumentError MacOS(:x86_64, :blank_libc, :eabihf)
-        @test_throws ArgumentError Windows(:armv7l)
-        @test_throws ArgumentError Windows(:x86_64, :glibc)
-        @test_throws ArgumentError Windows(:x86_64, :blank_libc, :eabihf)
-        @test_throws ArgumentError FreeBSD(:not_a_platform)
-        @test_throws ArgumentError FreeBSD(:x86_64, :crazy_libc)
-        @test_throws ArgumentError FreeBSD(:x86_64, :blank_libc, :crazy_abi)
-        @test_throws ArgumentError FreeBSD(:x86_64, :blank_libc, :eabihf)
-        @test_throws ArgumentError FreeBSD(:armv7l, :blank_libc, :blank_abi)
-    end
-
-    @testset "Platform properties" begin
-        # Test that we can get that arch of various platforms
-        @test arch(Linux(:aarch64, :musl)) == :aarch64
-        @test arch(Windows(:i686)) == :i686
-        @test arch(UnknownPlatform()) == :unknown
-        @test arch(FreeBSD(:amd64)) == :x86_64
-        @test arch(FreeBSD(:i386)) == :i686
-
-        # Test that our platform_dlext stuff works
-        @test platform_dlext(Linux(:x86_64)) == platform_dlext(Linux(:i686))
-        @test platform_dlext(Windows(:x86_64)) == platform_dlext(Windows(:i686))
-        @test platform_dlext(MacOS()) != platform_dlext(Linux(:armv7l))
-        @test platform_dlext(FreeBSD(:x86_64)) == platform_dlext(Linux(:x86_64))
-        @test platform_dlext(UnknownPlatform()) == "unknown"
-        @test platform_dlext() == platform_dlext(platform)
-
-        @test wordsize(Linux(:i686)) == wordsize(Linux(:armv7l)) == 32
-        @test wordsize(MacOS()) == wordsize(Linux(:aarch64)) == 64
-        @test wordsize(FreeBSD(:x86_64)) == wordsize(Linux(:powerpc64le)) == 64
-        @test wordsize(UnknownPlatform()) == 0
-
-        @test triplet(Windows(:i686)) == "i686-w64-mingw32"
-        @test triplet(Linux(:x86_64, :musl)) == "x86_64-linux-musl"
-        @test triplet(Linux(:armv7l, :musl)) == "arm-linux-musleabihf"
-        @test triplet(Linux(:x86_64)) == "x86_64-linux-gnu"
-        @test triplet(Linux(:armv7l)) == "arm-linux-gnueabihf"
-        @test triplet(MacOS()) == "x86_64-apple-darwin14"
-        @test triplet(FreeBSD(:x86_64)) == "x86_64-unknown-freebsd11.1"
-        @test triplet(FreeBSD(:i686)) == "i686-unknown-freebsd11.1"
-        @test triplet(UnknownPlatform()) == "unknown-unknown-unknown"
-
-        @test repr(Windows(:x86_64)) == "Windows(:x86_64)"
-        @test repr(Linux(:x86_64, :glibc, :blank_abi)) == "Linux(:x86_64, libc=:glibc)"
-        @test repr(MacOS()) == "MacOS(:x86_64)"
-        @test repr(MacOS(compiler_abi=CompilerABI(:gcc_any, :cxx11))) == "MacOS(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))"
-    end
-
-    @testset "Valid DL paths" begin
-        # Test some valid dynamic library paths
-        @test valid_dl_path("libfoo.so.1.2.3", Linux(:x86_64))
-        @test valid_dl_path("libfoo.1.2.3.so", Linux(:x86_64))
-        @test valid_dl_path("libfoo-1.2.3.dll", Windows(:x86_64))
-        @test valid_dl_path("libfoo.1.2.3.dylib", MacOS())
-        @test !valid_dl_path("libfoo.dylib", Linux(:x86_64))
-        @test !valid_dl_path("libfoo.so", Windows(:x86_64))
-        @test !valid_dl_path("libfoo.dll", MacOS())
-        @test !valid_dl_path("libfoo.so.1.2.3.", Linux(:x86_64))
-        @test !valid_dl_path("libfoo.so.1.2a.3", Linux(:x86_64))
-    end
-
-    @testset "platform_key_abi parsing" begin
-        # Make sure the platform_key_abi() with explicit triplet works
-        @test platform_key_abi("x86_64-linux-gnu") == Linux(:x86_64)
-        @test platform_key_abi("x86_64-linux-musl") == Linux(:x86_64, libc=:musl)
-        @test platform_key_abi("i686-unknown-linux-gnu") == Linux(:i686)
-        @test platform_key_abi("x86_64-apple-darwin14") == MacOS()
-        @test platform_key_abi("x86_64-apple-darwin17.0.0") == MacOS()
-        @test platform_key_abi("armv7l-pc-linux-gnueabihf") == Linux(:armv7l)
-        @test platform_key_abi("armv7l-linux-musleabihf") == Linux(:armv7l, libc=:musl)
-        @test platform_key_abi("arm-linux-gnueabihf") == Linux(:armv7l)
-        @test platform_key_abi("aarch64-unknown-linux-gnu") == Linux(:aarch64)
-        @test platform_key_abi("powerpc64le-linux-gnu") == Linux(:powerpc64le)
-        @test platform_key_abi("ppc64le-linux-gnu") == Linux(:powerpc64le)
-        @test platform_key_abi("x86_64-w64-mingw32") == Windows(:x86_64)
-        @test platform_key_abi("i686-w64-mingw32") == Windows(:i686)
-        @test platform_key_abi("x86_64-unknown-freebsd11.1") == FreeBSD(:x86_64)
-        @test platform_key_abi("i686-unknown-freebsd11.1") == FreeBSD(:i686)
-        @test platform_key_abi("amd64-unknown-freebsd12.0") == FreeBSD(:x86_64)
-        @test platform_key_abi("i386-unknown-freebsd10.3") == FreeBSD(:i686)
-
-        # Test inclusion of ABI stuff
-        @test platform_key_abi("x86_64-linux-gnu-gcc7") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc7))
-        @test platform_key_abi("x86_64-linux-gnu-gcc4-cxx11") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc4, :cxx11))
-        @test platform_key_abi("x86_64-linux-gnu-cxx11") == Linux(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))
-
-        # Make sure some of these things are rejected
-        @test platform_key_abi("totally FREEFORM text!!1!!!1!") == UnknownPlatform()
-        @test platform_key_abi("invalid-triplet-here") == UnknownPlatform()
-        @test platform_key_abi("aarch64-linux-gnueabihf") == UnknownPlatform()
-        @test platform_key_abi("armv7l-linux-gnu") == UnknownPlatform()
-        @test platform_key_abi("x86_64-w32-mingw64") == UnknownPlatform()
-    end
-
-    @testset "platforms_match()" begin
-        # Test our platform matching code
-        @test BinaryProvider.platforms_match(Linux(:x86_64), Linux(:x86_64))
-        @test BinaryProvider.platforms_match(Linux(:x86_64), Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)))
-        @test BinaryProvider.platforms_match(Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)), Linux(:x86_64))
-
-        @test !BinaryProvider.platforms_match(Linux(:x86_64), Linux(:i686))
-        @test !BinaryProvider.platforms_match(Linux(:x86_64), Windows(:x86_64))
-        @test !BinaryProvider.platforms_match(Linux(:x86_64), MacOS())
-        @test !BinaryProvider.platforms_match(Linux(:x86_64), UnknownPlatform())
-        @test !BinaryProvider.platforms_match(Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)), Linux(:x86_64, compiler_abi=CompilerABI(:gcc8)))
-        @test !BinaryProvider.platforms_match(Linux(:x86_64, compiler_abi=CompilerABI(:gcc7, :cxx11)), Linux(:x86_64, compiler_abi=CompilerABI(:gcc7, :cxx03)))
-
-        # Test that :gcc4 matches with :gcc5 and :gcc6, as we only care aobut libgfortran version
-        @test BinaryProvider.platforms_match(
-            Linux(:x86_64; compiler_abi=CompilerABI(:gcc4)),
-            Linux(:x86_64; compiler_abi=CompilerABI(:gcc5)),
-        )
-        @test BinaryProvider.platforms_match(
-            Linux(:x86_64; compiler_abi=CompilerABI(:gcc4)),
-            Linux(:x86_64; compiler_abi=CompilerABI(:gcc6)),
-        )
-        @test BinaryProvider.platforms_match(
-            Linux(:x86_64; compiler_abi=CompilerABI(:gcc5)),
-            Linux(:x86_64; compiler_abi=CompilerABI(:gcc6)),
-        )
-    end
-
-    @testset "DL name/version parsing" begin
-        # Make sure our version parsing code is working
-        @test BinaryProvider.parse_dl_name_version("libgfortran.dll", Windows(:x86_64)) == ("libgfortran", nothing)
-        @test BinaryProvider.parse_dl_name_version("libgfortran-3.dll", Windows(:x86_64)) == ("libgfortran", v"3")
-        @test BinaryProvider.parse_dl_name_version("libgfortran-3.4.dll", Windows(:x86_64)) == ("libgfortran", v"3.4")
-        @test BinaryProvider.parse_dl_name_version("libgfortran-3.4a.dll", Windows(:x86_64)) == ("libgfortran-3.4a", nothing)
-        @test_throws ArgumentError BinaryProvider.parse_dl_name_version("libgfortran", Windows(:x86_64))
-        @test BinaryProvider.parse_dl_name_version("libgfortran.dylib", MacOS(:x86_64)) == ("libgfortran", nothing)
-        @test BinaryProvider.parse_dl_name_version("libgfortran.3.dylib", MacOS(:x86_64)) == ("libgfortran", v"3")
-        @test BinaryProvider.parse_dl_name_version("libgfortran.3.4.dylib", MacOS(:x86_64)) == ("libgfortran", v"3.4")
-        @test BinaryProvider.parse_dl_name_version("libgfortran.3.4a.dylib", MacOS(:x86_64)) == ("libgfortran.3.4a", nothing)
-        @test_throws ArgumentError BinaryProvider.parse_dl_name_version("libgfortran", MacOS(:x86_64))
-        @test BinaryProvider.parse_dl_name_version("libgfortran.so", Linux(:x86_64)) == ("libgfortran", nothing)
-        @test BinaryProvider.parse_dl_name_version("libgfortran.so.3", Linux(:x86_64)) == ("libgfortran", v"3")
-        @test BinaryProvider.parse_dl_name_version("libgfortran.so.3.4", Linux(:x86_64)) == ("libgfortran", v"3.4")
-        @test_throws ArgumentError BinaryProvider.parse_dl_name_version("libgfortran.so.3.4a", Linux(:x86_64))
-        @test_throws ArgumentError BinaryProvider.parse_dl_name_version("libgfortran", Linux(:x86_64))
-
-        for p in [Windows(:i686), Linux(:armv7l, :musl), FreeBSD(:x86_64), MacOS(compiler_abi=CompilerABI(:gcc4))]
-            fakepath = "/path/to/nowhere/Thingo.v1.2.3." * triplet(p) * ".tar.gz"
-            @test extract_platform_key(fakepath) == p
-            @test extract_name_version_platform_key(fakepath) == ("Thingo", v"1.2.3", p)
-        end
-
-        # This failed on me a while back.  NEVER AGAIN.
-        @test extract_name_version_platform_key("libjpeg.v9.0.0-b.x86_64-apple-darwin14.tar.gz") == ("libjpeg", v"9.0.0-b", MacOS())
-    end
-
-    @testset "Sys.is* overloading" begin
-        # Test that we can indeed ask if something is linux or windows, etc...
-        @test Sys.islinux(Linux(:aarch64))
-        @test !Sys.islinux(Windows(:x86_64))
-        @test Sys.iswindows(Windows(:i686))
-        @test !Sys.iswindows(Linux(:x86_64))
-        @test Sys.isapple(MacOS())
-        @test !Sys.isapple(Linux(:powerpc64le))
-        @test Sys.isbsd(MacOS())
-        @test Sys.isbsd(FreeBSD(:x86_64))
-        @test !Sys.isbsd(Linux(:powerpc64le, :musl))
-    end
-
-    @testset "Compiler ABI detection" begin
-        @test BinaryProvider.detect_libgfortran_abi("libgfortran.so.5", Linux(:x86_64)) == :gcc8
-        @test BinaryProvider.detect_libgfortran_abi("libgfortran.4.dylib", MacOS()) == :gcc7
-        @test BinaryProvider.detect_libgfortran_abi("libgfortran-3.dll", Windows(:x86_64)) == :gcc4
-        @test BinaryProvider.detect_libgfortran_abi("blah.so", Linux(:aarch64)) == :gcc_any
     end
 end
 
@@ -370,8 +189,8 @@ end
                 # Test we can run the script we dropped within this prefix.
                 # Once again, something about Windows | busybox | Julia won't
                 # pick this up even though the path clearly points to the file.
-                @test success(sh(`$(ppt_path)`))
-                @test success(sh(`prefix_path_test.sh`))
+                @test success(`$sh $(ppt_path)`)
+                @test success(`$sh -c prefix_path_test.sh`)
             end
         end
 
@@ -379,34 +198,6 @@ end
         @test libdir(prefix, Linux(:x86_64)) == joinpath(prefix, "lib")
         @test libdir(prefix, Windows(:x86_64)) == joinpath(prefix, "bin")
     end
-end
-
-@testset "Tarball listing parsing" begin
-    fake_7z_output = """
-	7-Zip [64] 9.20  Copyright (c) 1999-2010 Igor Pavlov  2010-11-18
-	p7zip Version 9.20 (locale=en_US.UTF-8,Utf16=on,HugeFiles=on,4 CPUs)
-
-	Listing archive:
-
-	--
-	Path =
-	Type = tar
-
-	   Date      Time    Attr         Size   Compressed  Name
-	------------------- ----- ------------ ------------  ------------------------
-	2017-04-10 14:45:00 D....            0            0  bin
-	2017-04-10 14:44:59 .....          211          512  bin/socrates
-	------------------- ----- ------------ ------------  ------------------------
-									   211          512  1 files, 1 folders
-	"""
-	@test parse_7z_list(fake_7z_output) == ["bin/socrates"]
-
-	fake_tar_output = """
-	bin/
-	bin/socrates
-	"""
-	@test parse_tar_list(fake_tar_output) == normpath.(["bin/socrates"])
-
 end
 
 @testset "Products" begin
@@ -658,9 +449,11 @@ end
         @test_throws ArgumentError install(other_path, tarball_hash; prefix=prefix, ignore_platform=false)
         Base.rm(other_path; force=true)
 
-        # Ensure that hash mismatches throw errors
+        # Ensure that hash mismatches log errors
         fake_hash = reverse(tarball_hash)
-        @test_throws ErrorException install(tarball_path, fake_hash; prefix=prefix)
+        @test_logs (:error, r"Hash Mismatch") match_mode=:any begin
+            install(tarball_path, fake_hash; prefix=prefix)
+        end
     end
 
     # Get a valid platform tarball name that is not our native platform
@@ -801,54 +594,19 @@ end
     end
 end
 
-@testset "choose_download" begin
-    platforms = Dict(
-        # Typical binning test
-        Linux(:x86_64, compiler_abi=CompilerABI(:gcc4)) => "linux4",
-        Linux(:x86_64, compiler_abi=CompilerABI(:gcc7)) => "linux7",
-        Linux(:x86_64, compiler_abi=CompilerABI(:gcc8)) => "linux8",
-
-        # Ambiguity test
-        Linux(:aarch64, compiler_abi=CompilerABI(:gcc4)) => "linux4",
-        Linux(:aarch64, compiler_abi=CompilerABI(:gcc5)) => "linux5",
-
-        MacOS(:x86_64, compiler_abi=CompilerABI(:gcc4)) => "mac4",
-        Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11)) => "win",
-    )
-
-    @test choose_download(platforms, Linux(:x86_64)) == "linux8"
-    @test choose_download(platforms, Linux(:x86_64, compiler_abi=CompilerABI(:gcc7))) == "linux7"
-
-    # Ambiguity test
-    @test choose_download(platforms, Linux(:aarch64)) == "linux5"
-    @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc4))) == "linux5"
-    @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc5))) == "linux5"
-    @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc6))) == "linux5"
-    @test choose_download(platforms, Linux(:aarch64; compiler_abi=CompilerABI(:gcc7))) == nothing
-
-    @test choose_download(platforms, MacOS(:x86_64)) == "mac4"
-    @test choose_download(platforms, MacOS(:x86_64, compiler_abi=CompilerABI(:gcc7))) == nothing
-
-    @test choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx11))) == "win"
-    @test choose_download(platforms, Windows(:x86_64, compiler_abi=CompilerABI(:gcc_any, :cxx03))) == nothing
-
-    # Poor little guy
-    @test choose_download(platforms, FreeBSD(:x86_64)) == nothing
-end
-
 # Use `build_libfoo_tarball.jl` in the BinaryBuilder.jl repository to generate more of these
 const bin_prefix = "https://github.com/staticfloat/small_bin/raw/51b13b44feb2a262e2e04690bfa54d03167533f2/libfoo"
 const libfoo_downloads = Dict(
-    Linux(:aarch64, :glibc) => ("$bin_prefix/libfoo.aarch64-linux-gnu.tar.gz", "36886ac25cf5678c01fe20630b413f9354b7a3721c6a2c2043162f7ebd147ff5"),
-    Linux(:armv7l, :glibc)  => ("$bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz", "147ebaeb1a722da43ee08705689aed71ac87c3c2c907af047c6721c0025ba383"),
-    Linux(:powerpc64le, :glibc) => ("$bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz", "5c35295ac161272ada9a77d1f6b770e30ea864e521e31853258cbc36ad4c4468"),
-    Linux(:i686, :glibc)    => ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz", "97655b6a218d61284723b6923d7c96e6a256fa68b9419d723c588aa24404b102"),
-    Linux(:x86_64, :glibc)  => ("$bin_prefix/libfoo.x86_64-linux-gnu.tar.gz", "5208c63a9d07e592c78f541fc13caa8cd191b11e7e77b31d407237c2b13ec391"),
+    Linux(:aarch64; libc=:glibc) => ("$bin_prefix/libfoo.aarch64-linux-gnu.tar.gz", "36886ac25cf5678c01fe20630b413f9354b7a3721c6a2c2043162f7ebd147ff5"),
+    Linux(:armv7l; libc=:glibc)  => ("$bin_prefix/libfoo.arm-linux-gnueabihf.tar.gz", "147ebaeb1a722da43ee08705689aed71ac87c3c2c907af047c6721c0025ba383"),
+    Linux(:powerpc64le; libc=:glibc) => ("$bin_prefix/libfoo.powerpc64le-linux-gnu.tar.gz", "5c35295ac161272ada9a77d1f6b770e30ea864e521e31853258cbc36ad4c4468"),
+    Linux(:i686; libc=:glibc)    => ("$bin_prefix/libfoo.i686-linux-gnu.tar.gz", "97655b6a218d61284723b6923d7c96e6a256fa68b9419d723c588aa24404b102"),
+    Linux(:x86_64; libc=:glibc)  => ("$bin_prefix/libfoo.x86_64-linux-gnu.tar.gz", "5208c63a9d07e592c78f541fc13caa8cd191b11e7e77b31d407237c2b13ec391"),
 
-    Linux(:aarch64, :musl)  => ("$bin_prefix/libfoo.aarch64-linux-musl.tar.gz", "81751477c1e3ee6c93e1c28ee7db2b99d1eed0d6ce86dc30d64c2e5dd4dfe88d"),
-    Linux(:armv7l, :musl)   => ("$bin_prefix/libfoo.arm-linux-musleabihf.tar.gz", "bb65aad58f2e6fc39dc9688da1bca5e8103a3a3fa67dc589debbd2e98176f0e1"),
-    Linux(:i686, :musl)     => ("$bin_prefix/libfoo.i686-linux-musl.tar.gz", "5f02fd1fe19f3a565fb128d3673b35c7b3214a101cef9dcbb202c0092438a87b"),
-    Linux(:x86_64, :musl)   => ("$bin_prefix/libfoo.x86_64-linux-musl.tar.gz", "ea630600a12d2c1846bc93bcc8d9638a4991f63329205c534d93e0a3de5f641d"),
+    Linux(:aarch64; libc=:musl)  => ("$bin_prefix/libfoo.aarch64-linux-musl.tar.gz", "81751477c1e3ee6c93e1c28ee7db2b99d1eed0d6ce86dc30d64c2e5dd4dfe88d"),
+    Linux(:armv7l; libc=:musl)   => ("$bin_prefix/libfoo.arm-linux-musleabihf.tar.gz", "bb65aad58f2e6fc39dc9688da1bca5e8103a3a3fa67dc589debbd2e98176f0e1"),
+    Linux(:i686; libc=:musl)     => ("$bin_prefix/libfoo.i686-linux-musl.tar.gz", "5f02fd1fe19f3a565fb128d3673b35c7b3214a101cef9dcbb202c0092438a87b"),
+    Linux(:x86_64; libc=:musl)   => ("$bin_prefix/libfoo.x86_64-linux-musl.tar.gz", "ea630600a12d2c1846bc93bcc8d9638a4991f63329205c534d93e0a3de5f641d"),
 
     FreeBSD(:x86_64)        => ("$bin_prefix/libfoo.x86_64-unknown-freebsd11.1.tar.gz", "5f6edd6247b3685fa5c42c98a53d2a3e1eef6242c2bb3cdbb5fe23f538703fe4"),
     MacOS(:x86_64)          => ("$bin_prefix/libfoo.x86_64-apple-darwin14.tar.gz", "fcc268772d6f21d65b45fcf3854a3142679b78e53c7673dac26c95d6ccc89a24"),
@@ -867,7 +625,7 @@ const libfoo_downloads = Dict(
         @test !BinaryProvider.safe_isfile("http://google.com")
 
         url, hash = try
-            choose_download(libfoo_downloads, platform)
+            select_platform(libfoo_downloads, platform)
         catch e
             if isa(e, ArgumentError)
                 @warn("Platform $platform does not have a libfoo download, skipping download tests")

@@ -4,25 +4,10 @@ os:
   - linux
   - osx
 julia:
-  - 0.7
-  - 1.0
+  - 1.3
   - nightly
 notifications:
   email: false
-
-matrix:
-  include:
-    # Make sure to override to "wget" at least once
-    - julia: 1.0
-      os: linux
-      env: BINARYPROVIDER_DOWNLOAD_ENGINE="wget"
-
-    # Test with `busybox` tools
-    # NOTE: This disabled for now, as Ubuntu's busybox doesn't support HTTPS.
-    # Tested locally to be working on alpine linux, so good enough for now.
-    #- julia: 1.0
-    #  os: linux
-    #  env: BINARYPROVIDER_DOWNLOAD_ENGINE="busybox wget" BINARYPROVIDER_COMPRESSION_ENGINE="busybox tar"
 
 # Ironic.  He could provide binaries for others but not himself...
 addons:
