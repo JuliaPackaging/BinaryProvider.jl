@@ -4,6 +4,7 @@ version = "0.5.8"
 
 [deps]
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [compat]
