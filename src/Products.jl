@@ -442,7 +442,7 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
             # Escape the location so that e.g. Windows platforms are happy with
             # the backslashes in a string literal
             product_path = locate(product, platform=platform_key_abi(),
-                                           verbose=verbose)
+                                           verbose=verbose, isolate=isolate)
             product_path = relpath(product_path, dirname(depsjl_path))
             product_path = escape_path(product_path)
             vp = variable_name(product)
