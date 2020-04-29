@@ -165,7 +165,8 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                 if platforms_match(platform, platform_key_abi())
                     if isolate
                         # Isolated dlopen is a lot slower, but safer
-                        if success(`$(Base.julia_cmd()) -e "import Libdl; Libdl.dlopen(\"$dl_path\")"`)
+                        dl_esc_path = replace(dl_path, "\\"=>"\\\\")
+                        if success(`$(Base.julia_cmd()) -e "import Libdl; Libdl.dlopen(\"$(dl_esc_path)\")"`)
                             return dl_path
                         end
                     else
@@ -177,7 +178,11 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                     end
 
                     if verbose
-                        @info("$(dl_path) cannot be dlopen'ed")
+                        try
+                            dlopen(dl_path)
+                        catch dlopen_result
+                            @info("$(dl_path) cannot be dlopen'ed",dlopen_result)
+                        end
                     end
                 else
                     # If the current platform doesn't match, then just trust in our
@@ -341,7 +346,7 @@ function locate(fp::FileProduct; platform::Platform = platform_key_abi(),
         mappings["\$$(var)"] = string(val)
         mappings["\${$(var)}"] = string(val)
     end
-    
+
     expanded = fp.path
     for (old, new) in mappings
         expanded = replace(expanded, old => new)
@@ -390,7 +395,7 @@ package load time, and if an error is discovered, package loading will fail,
 asking the user to re-run `Pkg.build("package_name")`.
 """
 function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
-                         verbose::Bool=false) where {P <: Product}
+                         verbose::Bool=false, isolate::Bool=true) where {P <: Product}
     # helper function to escape paths
     escape_path = path -> replace(path, "\\" => "\\\\")
 
@@ -410,7 +415,7 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
 
     # Begin by ensuring that we can satisfy every product RIGHT NOW
     for p in products
-        if !satisfied(p; verbose=verbose)
+        if !satisfied(p; verbose=verbose, isolate=isolate)
             error("$p is not satisfied, cannot generate deps.jl!")
         end
     end
@@ -437,7 +442,7 @@ function write_deps_file(depsjl_path::AbstractString, products::Vector{P};
             # Escape the location so that e.g. Windows platforms are happy with
             # the backslashes in a string literal
             product_path = locate(product, platform=platform_key_abi(),
-                                           verbose=verbose)
+                                           verbose=verbose, isolate=isolate)
             product_path = relpath(product_path, dirname(depsjl_path))
             product_path = escape_path(product_path)
             vp = variable_name(product)
