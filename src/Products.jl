@@ -166,7 +166,7 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                     if isolate
                         # Isolated dlopen is a lot slower, but safer
                         dl_esc_path = replace(dl_path, "\\"=>"\\\\")
-                        if success(`$(Base.julia_cmd()) -e "import Libdl; Libdl.dlopen(\"$(dl_esc_path)\")"`)
+                        if success(`$(Base.julia_cmd()) --startup-file=no -e "import Libdl; Libdl.dlopen(\"$(dl_esc_path)\")"`)
                             return dl_path
                         end
                     else
