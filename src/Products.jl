@@ -166,7 +166,8 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                     if isolate
                         # Isolated dlopen is a lot slower, but safer
                         dl_esc_path = replace(dl_path, "\\"=>"\\\\")
-                        if success(`$(Base.julia_cmd()) --startup-file=no -e "import Libdl; Libdl.dlopen(\"$(dl_esc_path)\")"`)
+                        isolate_command = `$(Base.julia_cmd()) --startup-file=no -e "import Libdl; Libdl.dlopen(\"$(dl_esc_path)\")"`
+                        if success(isolate_command)
                             return dl_path
                         end
                     else
@@ -178,10 +179,16 @@ function locate(lp::LibraryProduct; verbose::Bool = false,
                     end
 
                     if verbose
-                        try
-                            dlopen(dl_path)
-                        catch dlopen_result
-                            @info("$(dl_path) cannot be dlopen'ed",dlopen_result)
+                        if isolate
+                            err = Base.PipeEndpoint()
+                            Base._spawn(isolate_command, Any[devnull, devnull, err])
+                            @info("$(dl_path) cannot be dlopen'ed in an isolated julia session:\n$isolate_command\n$(read(err, String))")
+                        else
+                            try
+                                dlopen(dl_path)
+                            catch dlopen_result
+                                @info("$(dl_path) cannot be dlopen'ed",dlopen_result)
+                            end
                         end
                     end
                 else
