@@ -500,11 +500,11 @@ returns `"libbar", nothing`.
 function parse_dl_name_version(path::AbstractString, platform::Platform)
     dlext_regexes = Dict(
         # On Linux, libraries look like `libnettle.so.6.3.0`
-        "so" => r"^(.*?).so((?:\.[\d]+)*)$",
+        "so" => r"^(.*?)\.so((?:\.[\d]+)*)$",
         # On OSX, libraries look like `libnettle.6.3.dylib`
-        "dylib" => r"^(.*?)((?:\.[\d]+)*).dylib$",
+        "dylib" => r"^(.*?)((?:\.[\d]+)*)\.dylib$",
         # On Windows, libraries look like `libnettle-6.dylib`
-        "dll" => r"^(.*?)(?:-((?:[\.\d]+)*))?.dll$"
+        "dll" => r"^(.*?)(?:-((?:[\.\d]+)*))?\.dll$"
     )
 
     # Use the regex that matches this platform
