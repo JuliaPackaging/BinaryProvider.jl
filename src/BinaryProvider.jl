@@ -1,5 +1,9 @@
 module BinaryProvider
 
+if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@optlevel"))
+    @eval Base.Experimental.@optlevel 0
+end
+
 using Libdl, Logging
 using Pkg, Pkg.PlatformEngines, Pkg.BinaryPlatforms
 import Pkg.PlatformEngines: package, download
