@@ -548,6 +548,9 @@ Examines the given libgfortran SONAME to see what version of GCC corresponds
 to the given libgfortran version.
 """
 function detect_libgfortran_abi(libgfortran_name::AbstractString, platform::Platform = platform_key_abi(Sys.MACHINE))
+    if platform isa UnknownPlatform
+      return :gcc_any
+    end
     # Extract the version number from this libgfortran.  Ironically, parse_dl_name_version()
     # wants a Platform, but we may not have initialized the default platform key yet when we
     # run this method for the first time (since we need the output of this function to set
