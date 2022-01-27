@@ -33,7 +33,11 @@ function __init__()
     global global_prefix
 
     # Initialize our global_prefix
-    global_prefix = Prefix(joinpath(@__DIR__, "..", "global_prefix"))
+     try
+        global_prefix = Prefix(joinpath(@__DIR__, "..", "global_prefix"))
+    catch e
+        global_prefix = Prefix(joinpath(Pkg.depots1(), "global_prefix"))
+    end
 
     # Find the right download/compression engines for this platform
     probe_platform_engines!()
