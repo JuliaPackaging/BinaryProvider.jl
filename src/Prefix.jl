@@ -342,7 +342,10 @@ function install(tarball_url::AbstractString,
     end
 
     # Unpack the tarball into prefix
-    unpack(tarball_path, prefix.path; verbose=verbose)
+    t = tempname()
+    unpack(tarball_path, t; verbose=verbose)
+    foreach(f -> mv(joinpath(t, f), joinpath(prefix.path, f)), readdir(t))
+    rm(t, recursive = true)
 
     # Save installation manifest
     mkpath(dirname(manifest_path))
