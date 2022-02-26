@@ -2,7 +2,7 @@ module BinaryProvider
 
 using Libdl, Logging
 using Pkg, Pkg.PlatformEngines, Pkg.BinaryPlatforms
-import Pkg.PlatformEngines: package, download
+import Pkg.PlatformEngines: package, download, download_verify, list_tarball_files
 import Pkg.BinaryPlatforms: Linux
 export platform_key, platform_key_abi, platform_dlext, valid_dl_path,
        triplet, select_platform, platforms_match,
