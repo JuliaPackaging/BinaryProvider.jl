@@ -12,10 +12,6 @@ const simple_out = "1\n2\n3\n4\n"
 const long_out = join(["$(idx)\n" for idx in 1:100], "")
 const newlines_out = join(["marco$(d)polo$(d)" for d in ("\n","\r","\r\n")], "")
 
-# Explicitly probe platform engines in verbose mode to get coverage and make
-# CI debugging easier
-BinaryProvider.probe_platform_engines!(;verbose=true)
-
 # shell executable for testing
 sh = "sh"
 

@@ -34,9 +34,6 @@ function __init__()
 
     # Initialize our global_prefix
     global_prefix = Prefix(joinpath(@__DIR__, "..", "global_prefix"))
-
-    # Find the right download/compression engines for this platform
-    probe_platform_engines!()
 end
 
 # gotta go fast
