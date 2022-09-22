@@ -23,6 +23,19 @@ function safe_isfile(path)
 end
 
 """
+    list_tarball_files(tarball_path::AbstractString)
+
+    Given a .tar.gz filepath, list the compressed contents
+"""
+function list_tarball_files(tarball_path::AbstractString)
+    names = String[]
+    Tar.list(`$(Pkg.PlatformEngines.exe7z()) x $tarball_path -so`) do hdr
+        push!(names, hdr.path)
+    end
+    return names
+end
+
+"""
     temp_prefix(func::Function)
 
 Create a temporary prefix, passing the prefix into the user-defined function so
@@ -342,7 +355,8 @@ function install(tarball_url::AbstractString,
     end
 
     # Unpack the tarball into prefix
-    unpack(tarball_path, prefix.path; verbose=verbose)
+    redir_output = verbose ? stdout : devnull
+    run(pipeline(`$(Pkg.PlatformEngines.exe7z()) x $tarball_path -so`, `$(Pkg.PlatformEngines.exe7z()) x -si -aoa -ttar -o"$(prefix.path)"`, redir_output))
 
     # Save installation manifest
     mkpath(dirname(manifest_path))

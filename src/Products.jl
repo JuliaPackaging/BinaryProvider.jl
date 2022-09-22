@@ -260,7 +260,7 @@ function locate(ep::ExecutableProduct; platform::Platform = platform_key_abi(),
                 verbose::Bool = false, isolate::Bool = false)
     # On windows, we always slap an .exe onto the end if it doesn't already
     # exist, as Windows won't execute files that don't have a .exe at the end.
-    path = if platform isa Windows && !endswith(ep.path, ".exe")
+    path = if platform.tags["os"] == "windows" && !endswith(ep.path, ".exe")
         "$(ep.path).exe"
     else
         ep.path
