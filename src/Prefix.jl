@@ -355,7 +355,8 @@ function install(tarball_url::AbstractString,
     end
 
     # Unpack the tarball into prefix
-    unpack(tarball_path, prefix.path; verbose=verbose)
+    redir_output = verbose ? stdout : devnull
+    run(pipeline(`$(Pkg.PlatformEngines.exe7z()) x $tarball_path -so`, `$(Pkg.PlatformEngines.exe7z()) x -si -aoa -ttar -o"$(prefix.path)"`, redir_output))
 
     # Save installation manifest
     mkpath(dirname(manifest_path))

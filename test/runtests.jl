@@ -1,9 +1,8 @@
 using BinaryProvider
 using Test
 using Libdl
-using Pkg
+using Pkg, Pkg.BinaryPlatforms, Pkg.PlatformEngines
 using SHA
-using Pkg.BinaryPlatforms
 
 # The platform we're running on
 const platform = platform_key_abi()
@@ -395,8 +394,9 @@ end
 
     # Install it within a new Prefix
     temp_prefix() do prefix
+        prefix = Prefix("global_prefix")
         # Install the thing
-        @test install(tarball_path, tarball_hash; prefix=prefix, verbose=true)
+        @test install(tarball_path, tarball_hash; prefix=prefix, verbose=true, force=true)
 
         # Ensure we can use it
         bar_path = joinpath(bindir(prefix), "bar.sh")
@@ -450,7 +450,7 @@ end
         # Ensure that hash mismatches log errors
         fake_hash = reverse(tarball_hash)
         @test_logs (:error, r"Hash Mismatch") match_mode=:any begin
-            install(tarball_path, fake_hash; prefix=prefix)
+            install(tarball_path, fake_hash; prefix=prefix, force=true)
         end
     end
 
@@ -474,8 +474,8 @@ end
 
     # Next, check installing with a bogus platform also fails, but can be forced
     temp_prefix() do prefix
-        @test_throws ArgumentError install(bogus_tarball_path, tarball_hash; prefix=prefix, verbose=true)
-        @test install(bogus_tarball_path, tarball_hash; prefix=prefix, verbose=true, ignore_platform = true)
+        @test_throws ArgumentError install(bogus_tarball_path, tarball_hash; prefix=prefix, verbose=true, force=true)
+        @test install(bogus_tarball_path, tarball_hash; prefix=prefix, verbose=true, ignore_platform = true, force=true)
     end
 
     # Cleanup after ourselves
